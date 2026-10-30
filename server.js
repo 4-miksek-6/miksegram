@@ -14,7 +14,7 @@ const { createClient } = require('@libsql/client');
 // ПОДКЛЮЧЕНИЕ К ОБЛАЧНОЙ БАЗЕ TURSO
 const db = createClient({
   url: 'libsql://miksegram-miksek.aws-ap-northeast-1.turso.io',
-  authToken: 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJyVDBxdTlTS0VmR3JBRUpPOC1Nd3lnIiwib3JnX2lkIjoxMDAwMjg4OTc3fQ.6cMHIgY1HxOROWz7ol-zzJqAn9yyJddyH_hrslSx8tjhUkUK-gN11FiiqaNq7Y9iXyn9cyOyE7JKIO8FrZXxCQ'
+  authToken: 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3OTMzODMzODUsImlkIjoiMDFhMThkZGQtYjcwMS03YTg5LWIxMGEtMjk1MTkxNWVmY2Q2Iiwia2lkIjoiMDY0M3BHaVkteXR5X0t2OC1HbVY5Y2Nlb0RyTVYyVUlnZVRtU2Y5MXQtcyIsInJpZCI6IjgzM2JlNTQyLWViZjEtNGVhZC05MTQ3LTFkY2VhNDYzYmZjNCJ9.GSH-xuW9awXLGLOjssUuqDoXuoouiydQgBL7oc2BkEwRJVpABbEO-2jHW9JFLHDJ5Of_nXGtBApz7uY19k7BDQ'
 });
 
 // Функция для инициализации таблиц
