@@ -11,6 +11,8 @@ const path = require('path');
 const fs = require('fs');
 const { createClient } = require('@libsql/client');
 
+const SQLiteStore = require('connect-sqlite3')(session);
+
 // ПОДКЛЮЧЕНИЕ К ОБЛАЧНОЙ БАЗЕ TURSO
 const db = createClient({
   url: 'libsql://miksegram-miksek.aws-ap-northeast-1.turso.io',
@@ -86,6 +88,7 @@ app.use(express.json({ limit: '8mb' }));
 app.use(express.urlencoded({ extended: true, limit: '8mb' }));
 
 const sessionMiddleware = session({
+  store: new SQLiteStore({ db: 'sessions.db', dir: './' }),
   secret: 'miksegram-secret-change-this',
   resave: false,
   saveUninitialized: false,
