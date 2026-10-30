@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вход — Miksegram</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="auth-wrap">
+    <div class="auth-card">
+        <h1>Miksegram</h1>
+        <form onsubmit="event.preventDefault(); doLogin();">
+            <div class="auth-field">
+                <span class="prefix">@</span>
+                <input id="login" name="login" class="has-prefix" placeholder="login" autocomplete="username">
+            </div>
+            <input id="password" name="password" type="password" placeholder="Пароль" autocomplete="current-password">
+            <button type="button" id="btn">Войти</button>
+        </form>
+        <div id="error" class="auth-error"></div>
+        <div class="auth-link" style="position:relative; z-index:10;">Нет аккаунта? <a href="/register.html" style="color:var(--accent); text-decoration:underline;">Зарегистрироваться</a></div>
+    </div>
+</div>
+<script src="/common.js"></script>
+<script>
+    fetch('/api/me').then(r => r.json()).then(d => { if (d.ok) window.location.href = '/'; });
+    
+    async function doLogin() {
+        const login = document.getElementById('login').value.trim();
+        const password = document.getElementById('password').value;
+        const err = document.getElementById('error');
+        err.textContent = '';
+        const res = await fetch('/api/login', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ login, password })
+        });
+        const data = await res.json();
+        if (data.ok) window.location.href = '/';
+        else err.textContent = data.error;
+    }
+    
+    document.getElementById('btn').addEventListener('click', doLogin);
+    document.getElementById('password').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+</script>
+</body>
+</html>
