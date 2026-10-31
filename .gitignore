@@ -2,3 +2,4 @@ node_modules/
 messenger.db
 public/uploads/
 .env
+package-lock.json
