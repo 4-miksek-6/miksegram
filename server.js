@@ -11,8 +11,20 @@ const path = require('path');
 const fs = require('fs');
 const { createClient } = require('@libsql/client');
 const { createClient: createSupabase } = require('@supabase/supabase-js');
-const SQLiteStore = require('connect-sqlite3')(session);
 
+// --- ЛОГИРОВАНИЕ ---
+const LOG = (tag, ...args) => console.log(`[${new Date().toISOString()}] [${tag}]`, ...args);
+const ERR = (tag, ...args) => console.error(`[${new Date().toISOString()}] [${tag}]`, ...args);
+
+// --- ГЛОБАЛЬНАЯ ЗАЩИТА ОТ ПАДЕНИЙ ---
+process.on('uncaughtException', (err) => {
+    ERR('UNCAUGHT', err.message, err.stack);
+});
+process.on('unhandledRejection', (reason, promise) => {
+    ERR('UNHANDLED', reason);
+});
+
+// --- ПОДКЛЮЧЕНИЕ К TURSO ---
 const db = createClient({
   url: 'libsql://miksegram-miksek.aws-ap-northeast-1.turso.io',
   authToken: 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3OTMzODMzODUsImlkIjoiMDFhMThkZGQtYjcwMS03YTg5LWIxMGEtMjk1MTkxNWVmY2Q2Iiwia2lkIjoiMDY0M3BHaVkteXR5X0t2OC1HbVY5Y2Nlb0RyTVYyVUlnZVRtU2Y5MXQtcyIsInJpZCI6IjgzM2JlNTQyLWViZjEtNGVhZC05MTQ3LTFkY2VhNDYzYmZjNCJ9.GSH-xuW9awXLGLOjssUuqDoXuoouiydQgBL7oc2BkEwRJVpABbEO-2jHW9JFLHDJ5Of_nXGtBApz7uY19k7BDQ'
@@ -20,8 +32,11 @@ const db = createClient({
 
 const supabase = createSupabase('https://tvmypcjwrlwiorpmugpb.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2bXlwY2p3cmx3aW9ycG11Z3BiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MzQwODQwOSwiZXhwIjoyMTA4OTg0NDA5fQ.1ChmymKXpkweU7PImFwAfFYY4ufSx525Fotjn4FRtSw');
 
-async function initDb() {
+// --- ИНИЦИАЛИЗАЦИЯ БД С ПОВТОРАМИ ---
+async function initDb(attempt = 1) {
   try {
+    LOG('DB', `Инициализация БД (попытка ${attempt})...`);
+    
     await db.execute(`CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, login TEXT UNIQUE NOT NULL, display_name TEXT NOT NULL, password TEXT NOT NULL, bio TEXT DEFAULT '', avatar TEXT DEFAULT 'grad-emerald', banner TEXT DEFAULT 'ban-aurora', avatar_frame TEXT DEFAULT 'none', name_effect TEXT DEFAULT 'none', last_seen TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')), created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')));`);
     await db.execute(`CREATE TABLE IF NOT EXISTS chats (id INTEGER PRIMARY KEY AUTOINCREMENT, type TEXT NOT NULL, name TEXT, avatar TEXT DEFAULT 'grad-aurora', creator_id INTEGER, created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')));`);
     await db.execute(`CREATE TABLE IF NOT EXISTS chat_members (chat_id INTEGER NOT NULL, user_id INTEGER NOT NULL, hidden INTEGER DEFAULT 0, last_read_msg_id INTEGER DEFAULT 0, PRIMARY KEY (chat_id, user_id));`);
@@ -29,21 +44,28 @@ async function initDb() {
     await db.execute(`CREATE TABLE IF NOT EXISTS read_status (chat_id INTEGER NOT NULL, user_id INTEGER NOT NULL, last_read_id INTEGER DEFAULT 0, PRIMARY KEY (chat_id, user_id));`);
     await db.execute(`CREATE TABLE IF NOT EXISTS reactions (message_id INTEGER NOT NULL, user_id INTEGER NOT NULL, emoji TEXT NOT NULL, PRIMARY KEY (message_id, user_id));`);
     
-    // Безопасное добавление новых полей (если их еще нет)
-    try { await db.execute('ALTER TABLE chats ADD COLUMN creator_id INTEGER'); } catch(e) {}
+    LOG('DB', '✅ База данных готова!');
     
-    console.log('База данных готова!');
+    // Проверка что реально работает
+    const test = await db.execute('SELECT COUNT(*) as cnt FROM users');
+    LOG('DB', `Пользователей в базе: ${test.rows[0].cnt}`);
   } catch (err) {
-    console.error('Ошибка создания таблиц:', err);
+    ERR('DB', `❌ Ошибка инициализации (попытка ${attempt}):`, err.message);
+    if (attempt < 3) {
+      LOG('DB', `Повтор через 3 секунды...`);
+      setTimeout(() => initDb(attempt + 1), 3000);
+    } else {
+      ERR('DB', '❌ Все попытки исчерпаны. Проверь токен Turso и подключение к интернету.');
+    }
   }
 }
 initDb();
 
+// --- MIDDLEWARE ---
 app.use(express.json({ limit: '8mb' }));
 app.use(express.urlencoded({ extended: true, limit: '8mb' }));
 
 const sessionMiddleware = session({
-  // Убираем SQLiteStore, используем память (для бесплатного тарифа это спасет от падений)
   secret: 'miksegram-secret-change-this',
   resave: false,
   saveUninitialized: false,
@@ -52,6 +74,7 @@ const sessionMiddleware = session({
 app.use(sessionMiddleware);
 io.engine.use(sessionMiddleware);
 
+// ==================== АВТОРИЗАЦИЯ ====================
 app.post('/api/register', async (req, res) => {
   try {
     let { login, display_name, password } = req.body;
@@ -70,9 +93,10 @@ app.post('/api/register', async (req, res) => {
     const info = await db.execute({ sql: 'INSERT INTO users (login, display_name, password) VALUES (?, ?, ?)', args: [login, display_name, hash] });
     
     req.session.userId = Number(info.lastInsertRowid);
+    LOG('API', `Новый пользователь: @${login} (id=${req.session.userId})`);
     res.json({ ok: true });
   } catch (e) { 
-    console.error(e); 
+    ERR('API', 'Ошибка регистрации:', e.message); 
     res.json({ ok: false, error: 'Ошибка сервера при регистрации' }); 
   }
 });
@@ -92,22 +116,34 @@ app.post('/api/login', async (req, res) => {
     req.session.userId = user.id;
     await db.execute({ sql: 'UPDATE users SET last_seen = ? WHERE id = ?', args: [new Date().toISOString(), user.id] });
     
+    LOG('API', `Логин: @${user.login} (id=${user.id})`);
     res.json({ ok: true, user: { id: user.id, login: user.login, display_name: user.display_name, avatar: user.avatar } });
   } catch (e) { 
-    console.error(e); 
+    ERR('API', 'Ошибка входа:', e.message); 
     res.json({ ok: false, error: 'Ошибка сервера при входе' }); 
   }
 });
+
 app.post('/api/logout', async (req, res) => {
-  if (req.session.userId) await db.execute({ sql: 'UPDATE users SET last_seen = ? WHERE id = ?', args: [new Date().toISOString(), req.session.userId] });
-  req.session.destroy(() => res.json({ ok: true }));
+  try {
+    if (req.session.userId) await db.execute({ sql: 'UPDATE users SET last_seen = ? WHERE id = ?', args: [new Date().toISOString(), req.session.userId] });
+    req.session.destroy(() => res.json({ ok: true }));
+  } catch (e) {
+    ERR('API', 'Ошибка выхода:', e.message);
+    req.session.destroy(() => res.json({ ok: true }));
+  }
 });
 
 app.get('/api/me', async (req, res) => {
   if (!req.session.userId) return res.json({ ok: false });
-  const uRes = await db.execute({ sql: 'SELECT id, login, display_name, bio, avatar, banner, avatar_frame, name_effect FROM users WHERE id = ?', args: [req.session.userId] });
-  if (uRes.rows.length === 0) return res.json({ ok: false });
-  res.json({ ok: true, ...uRes.rows[0] });
+  try {
+    const uRes = await db.execute({ sql: 'SELECT id, login, display_name, bio, avatar, banner, avatar_frame, name_effect FROM users WHERE id = ?', args: [req.session.userId] });
+    if (uRes.rows.length === 0) return res.json({ ok: false });
+    res.json({ ok: true, ...uRes.rows[0] });
+  } catch (e) {
+    ERR('API', 'Ошибка /api/me:', e.message);
+    res.json({ ok: false });
+  }
 });
 
 app.post('/api/change-password', async (req, res) => {
@@ -116,12 +152,17 @@ app.post('/api/change-password', async (req, res) => {
   if (!old_password || !new_password) return res.json({ ok: false, error: 'Заполни все поля' });
   if (new_password.length < 4) return res.json({ ok: false, error: 'Новый пароль слишком короткий' });
   
-  const userRes = await db.execute({ sql: 'SELECT * FROM users WHERE id = ?', args: [req.session.userId] });
-  const user = userRes.rows[0];
-  if (!bcrypt.compareSync(old_password, user.password)) return res.json({ ok: false, error: 'Неверный текущий пароль' });
-  
-  await db.execute({ sql: 'UPDATE users SET password = ? WHERE id = ?', args: [bcrypt.hashSync(new_password, 10), req.session.userId] });
-  res.json({ ok: true });
+  try {
+    const userRes = await db.execute({ sql: 'SELECT * FROM users WHERE id = ?', args: [req.session.userId] });
+    const user = userRes.rows[0];
+    if (!bcrypt.compareSync(old_password, user.password)) return res.json({ ok: false, error: 'Неверный текущий пароль' });
+    
+    await db.execute({ sql: 'UPDATE users SET password = ? WHERE id = ?', args: [bcrypt.hashSync(new_password, 10), req.session.userId] });
+    res.json({ ok: true });
+  } catch (e) {
+    ERR('API', 'Ошибка смены пароля:', e.message);
+    res.json({ ok: false, error: 'Ошибка сервера' });
+  }
 });
 
 app.post('/api/delete-account', async (req, res) => {
@@ -151,203 +192,298 @@ app.post('/api/delete-account', async (req, res) => {
 
     io.emit('update_chats'); 
     req.session.destroy();
+    LOG('API', `Удалён аккаунт id=${myId}`);
     res.json({ ok: true });
   } catch (e) {
-    console.error('Ошибка при удалении аккаунта:', e);
+    ERR('API', 'Ошибка удаления аккаунта:', e.message);
     res.json({ ok: false, error: 'Ошибка сервера при удалении' });
   }
 });
 
 app.post('/api/update-profile', async (req, res) => {
   if (!req.session.userId) return res.json({ ok: false });
-  const { display_name, bio, avatar, banner, avatar_frame, name_effect } = req.body;
-  
-  if (display_name !== undefined) await db.execute({ sql: 'UPDATE users SET display_name = ? WHERE id = ?', args: [String(display_name).trim().slice(0,40), req.session.userId] });
-  if (bio !== undefined) await db.execute({ sql: 'UPDATE users SET bio = ? WHERE id = ?', args: [String(bio).slice(0,200), req.session.userId] });
-  if (avatar !== undefined) await db.execute({ sql: 'UPDATE users SET avatar = ? WHERE id = ?', args: [avatar, req.session.userId] });
-  if (banner !== undefined) await db.execute({ sql: 'UPDATE users SET banner = ? WHERE id = ?', args: [banner, req.session.userId] });
-  if (avatar_frame !== undefined) await db.execute({ sql: 'UPDATE users SET avatar_frame = ? WHERE id = ?', args: [avatar_frame, req.session.userId] });
-  if (name_effect !== undefined) await db.execute({ sql: 'UPDATE users SET name_effect = ? WHERE id = ?', args: [name_effect, req.session.userId] });
-  
-  const uRes = await db.execute({ sql: 'SELECT id, login, display_name, bio, avatar, banner, avatar_frame, name_effect FROM users WHERE id = ?', args: [req.session.userId] });
-  res.json({ ok: true, user: uRes.rows[0] });
+  try {
+    const { display_name, bio, avatar, banner, avatar_frame, name_effect } = req.body;
+    
+    if (display_name !== undefined) await db.execute({ sql: 'UPDATE users SET display_name = ? WHERE id = ?', args: [String(display_name).trim().slice(0,40), req.session.userId] });
+    if (bio !== undefined) await db.execute({ sql: 'UPDATE users SET bio = ? WHERE id = ?', args: [String(bio).slice(0,200), req.session.userId] });
+    if (avatar !== undefined) await db.execute({ sql: 'UPDATE users SET avatar = ? WHERE id = ?', args: [avatar, req.session.userId] });
+    if (banner !== undefined) await db.execute({ sql: 'UPDATE users SET banner = ? WHERE id = ?', args: [banner, req.session.userId] });
+    if (avatar_frame !== undefined) await db.execute({ sql: 'UPDATE users SET avatar_frame = ? WHERE id = ?', args: [avatar_frame, req.session.userId] });
+    if (name_effect !== undefined) await db.execute({ sql: 'UPDATE users SET name_effect = ? WHERE id = ?', args: [name_effect, req.session.userId] });
+    
+    const uRes = await db.execute({ sql: 'SELECT id, login, display_name, bio, avatar, banner, avatar_frame, name_effect FROM users WHERE id = ?', args: [req.session.userId] });
+    res.json({ ok: true, user: uRes.rows[0] });
+  } catch (e) {
+    ERR('API', 'Ошибка обновления профиля:', e.message);
+    res.json({ ok: false, error: 'Ошибка сервера' });
+  }
 });
 
 app.get('/api/all-users', async (req, res) => {
   if (!req.session.userId) return res.json({ ok: false });
-  const uRes = await db.execute({ sql: 'SELECT id, login, display_name, avatar, avatar_frame, name_effect FROM users WHERE id != ? ORDER BY display_name ASC', args: [req.session.userId] });
-  res.json({ ok: true, users: uRes.rows });
+  try {
+    const uRes = await db.execute({ sql: 'SELECT id, login, display_name, avatar, avatar_frame, name_effect FROM users WHERE id != ? ORDER BY display_name ASC', args: [req.session.userId] });
+    res.json({ ok: true, users: uRes.rows });
+  } catch (e) {
+    ERR('API', 'Ошибка /api/all-users:', e.message);
+    res.json({ ok: false, users: [] });
+  }
+});
+
+// ==================== ЧАТЫ ====================
+app.get('/api/chats', async (req, res) => {
+  if (!req.session.userId) return res.json({ ok: false });
+  const myId = req.session.userId;
+
+  try {
+    const chatsRes = await db.execute({
+      sql: `
+        SELECT c.id, c.type, c.name, c.avatar, c.creator_id,
+               (SELECT text FROM messages WHERE chat_id = c.id ORDER BY id DESC LIMIT 1) as last_text,
+               (SELECT file_type FROM messages WHERE chat_id = c.id ORDER BY id DESC LIMIT 1) as last_file_type,
+               (SELECT sender_id FROM messages WHERE chat_id = c.id ORDER BY id DESC LIMIT 1) as last_sender_id,
+               (SELECT created_at FROM messages WHERE chat_id = c.id ORDER BY id DESC LIMIT 1) as last_time,
+               (SELECT COUNT(*) FROM messages m 
+                WHERE m.chat_id = c.id 
+                AND m.id > COALESCE((SELECT last_read_id FROM read_status WHERE chat_id = c.id AND user_id = ?), 0)
+                AND m.sender_id != ?) as unread_count
+        FROM chats c
+        JOIN chat_members cm ON c.id = cm.chat_id
+        WHERE cm.user_id = ? AND cm.hidden = 0
+        ORDER BY last_time DESC, c.id DESC
+      `,
+      args: [myId, myId, myId]
+    });
+
+    const result = [];
+    for (const c of chatsRes.rows) {
+      if (c.type === 'private') {
+        const otherRes = await db.execute({
+          sql: `SELECT u.id, u.display_name, u.login, u.avatar, u.avatar_frame, u.name_effect, u.last_seen, cm.last_read_msg_id FROM users u JOIN chat_members cm ON u.id = cm.user_id WHERE cm.chat_id = ? AND u.id != ?`,
+          args: [c.id, myId]
+        });
+        if (otherRes.rows.length > 0) {
+          const other = otherRes.rows[0];
+          result.push({ 
+            ...c, name: other.display_name, avatar: other.avatar, avatar_frame: other.avatar_frame, name_effect: other.name_effect, 
+            other_id: other.id, login: other.login, last_seen: other.last_seen, other_last_read: other.last_read_msg_id 
+          });
+          continue;
+        }
+      }
+      result.push(c);
+    }
+    LOG('API', `/api/chats → пользователю ${myId} отдано ${result.length} чатов`);
+    res.json({ ok: true, chats: result });
+  } catch (error) {
+    ERR('API', 'Ошибка получения чатов:', error.message);
+    res.json({ ok: false, chats: [] });
+  }
 });
 
 app.get('/api/search-user', async (req, res) => {
   if (!req.session.userId) return res.json({ ok: false });
-  const q = (req.query.q || '').trim().toLowerCase().replace(/^@/, '');
-  if (!q) return res.json({ ok: true, users: [] });
-  const uRes = await db.execute({ sql: 'SELECT id, login, display_name, avatar, avatar_frame, name_effect FROM users WHERE id != ? AND (login LIKE ? OR display_name LIKE ?) LIMIT 10', args: [req.session.userId, `%${q}%`, `%${q}%`] });
-  res.json({ ok: true, users: uRes.rows });
+  try {
+    const q = (req.query.q || '').trim().toLowerCase().replace(/^@/, '');
+    if (!q) return res.json({ ok: true, users: [] });
+    const uRes = await db.execute({ sql: 'SELECT id, login, display_name, avatar, avatar_frame, name_effect FROM users WHERE id != ? AND (login LIKE ? OR display_name LIKE ?) LIMIT 10', args: [req.session.userId, `%${q}%`, `%${q}%`] });
+    res.json({ ok: true, users: uRes.rows });
+  } catch (e) {
+    ERR('API', 'Ошибка поиска:', e.message);
+    res.json({ ok: false, users: [] });
+  }
 });
 
 app.get('/api/user/:id', async (req, res) => {
   if (!req.session.userId) return res.json({ ok: false });
-  const uRes = await db.execute({ sql: 'SELECT id, login, display_name, bio, avatar, banner, avatar_frame, name_effect, last_seen FROM users WHERE id = ?', args: [req.params.id] });
-  if (uRes.rows.length === 0) return res.json({ ok: false });
-  res.json({ ok: true, user: uRes.rows[0] });
+  try {
+    const uRes = await db.execute({ sql: 'SELECT id, login, display_name, bio, avatar, banner, avatar_frame, name_effect, last_seen FROM users WHERE id = ?', args: [req.params.id] });
+    if (uRes.rows.length === 0) return res.json({ ok: false });
+    res.json({ ok: true, user: uRes.rows[0] });
+  } catch (e) {
+    ERR('API', 'Ошибка /api/user/:id:', e.message);
+    res.json({ ok: false });
+  }
 });
 
+// ==================== ГРУППЫ ====================
 app.post('/api/create-group', async (req, res) => {
   if (!req.session.userId) return res.json({ ok: false });
-  const { name, member_ids } = req.body;
-  const myId = req.session.userId;
-  if (!name || !name.trim()) return res.json({ ok: false, error: 'Введите название' });
-  if (!Array.isArray(member_ids) || member_ids.length === 0) return res.json({ ok: false, error: 'Выберите участников' });
+  try {
+    const { name, member_ids } = req.body;
+    const myId = req.session.userId;
+    if (!name || !name.trim()) return res.json({ ok: false, error: 'Введите название' });
+    if (!Array.isArray(member_ids) || member_ids.length === 0) return res.json({ ok: false, error: 'Выберите участников' });
 
-  const info = await db.execute({ sql: 'INSERT INTO chats (type, name, creator_id) VALUES (?, ?, ?)', args: ['group', name.trim().slice(0, 50), myId] });
-  const chatId = Number(info.lastInsertRowid);
-  
-  await db.execute({ sql: 'INSERT INTO chat_members (chat_id, user_id) VALUES (?, ?)', args: [chatId, myId] });
-  for (const id of member_ids) {
-    await db.execute({ sql: 'INSERT INTO chat_members (chat_id, user_id) VALUES (?, ?)', args: [chatId, id] });
-    io.to('user_' + id).emit('update_chats');
+    const info = await db.execute({ sql: 'INSERT INTO chats (type, name, creator_id) VALUES (?, ?, ?)', args: ['group', name.trim().slice(0, 50), myId] });
+    const chatId = Number(info.lastInsertRowid);
+    
+    await db.execute({ sql: 'INSERT INTO chat_members (chat_id, user_id) VALUES (?, ?)', args: [chatId, myId] });
+    for (const id of member_ids) {
+      await db.execute({ sql: 'INSERT INTO chat_members (chat_id, user_id) VALUES (?, ?)', args: [chatId, id] });
+      io.to('user_' + id).emit('update_chats');
+    }
+    io.to('user_' + myId).emit('update_chats');
+    LOG('API', `Создана группа "${name}" (id=${chatId}) создателем ${myId}`);
+    res.json({ ok: true, chat_id: chatId });
+  } catch (e) {
+    ERR('API', 'Ошибка создания группы:', e.message);
+    res.json({ ok: false, error: 'Ошибка сервера' });
   }
-  io.to('user_' + myId).emit('update_chats');
-  res.json({ ok: true, chat_id: chatId });
 });
-
-// --- УПРАВЛЕНИЕ ГРУППАМИ ---
 
 app.get('/api/groups/:id', async (req, res) => {
   if (!req.session.userId) return res.json({ ok: false });
-  const chatId = parseInt(req.params.id);
-  const myId = req.session.userId;
+  try {
+    const chatId = parseInt(req.params.id);
+    const myId = req.session.userId;
 
-  const member = await db.execute({ sql: 'SELECT * FROM chat_members WHERE chat_id = ? AND user_id = ?', args: [chatId, myId] });
-  if (member.rows.length === 0) return res.json({ ok: false, error: 'Вы не в этой группе' });
+    const member = await db.execute({ sql: 'SELECT * FROM chat_members WHERE chat_id = ? AND user_id = ?', args: [chatId, myId] });
+    if (member.rows.length === 0) return res.json({ ok: false, error: 'Вы не в этой группе' });
 
-  const chatRes = await db.execute({ sql: 'SELECT * FROM chats WHERE id = ?', args: [chatId] });
-  if (chatRes.rows.length === 0) return res.json({ ok: false });
-  const chat = chatRes.rows[0];
+    const chatRes = await db.execute({ sql: 'SELECT * FROM chats WHERE id = ?', args: [chatId] });
+    if (chatRes.rows.length === 0) return res.json({ ok: false });
+    const chat = chatRes.rows[0];
 
-  const membersRes = await db.execute({
-    sql: `SELECT u.id, u.login, u.display_name, u.avatar, u.avatar_frame, u.name_effect 
-          FROM users u JOIN chat_members cm ON u.id = cm.user_id WHERE cm.chat_id = ? ORDER BY u.display_name ASC`,
-    args: [chatId]
-  });
+    const membersRes = await db.execute({
+      sql: `SELECT u.id, u.login, u.display_name, u.avatar, u.avatar_frame, u.name_effect 
+            FROM users u JOIN chat_members cm ON u.id = cm.user_id WHERE cm.chat_id = ? ORDER BY u.display_name ASC`,
+      args: [chatId]
+    });
 
-  res.json({ ok: true, group: chat, members: membersRes.rows });
+    res.json({ ok: true, group: chat, members: membersRes.rows });
+  } catch (e) {
+    ERR('API', 'Ошибка /api/groups/:id:', e.message);
+    res.json({ ok: false });
+  }
 });
 
 app.post('/api/groups/:id/update', async (req, res) => {
   if (!req.session.userId) return res.json({ ok: false });
-  const chatId = parseInt(req.params.id);
-  const { name } = req.body;
-  const myId = req.session.userId;
+  try {
+    const chatId = parseInt(req.params.id);
+    const { name } = req.body;
+    const myId = req.session.userId;
 
-  const chatRes = await db.execute({ sql: 'SELECT * FROM chats WHERE id = ?', args: [chatId] });
-  const chat = chatRes.rows[0];
-  if (!chat || chat.creator_id !== myId) return res.json({ ok: false, error: 'Только создатель может менять группу' });
+    const chatRes = await db.execute({ sql: 'SELECT * FROM chats WHERE id = ?', args: [chatId] });
+    const chat = chatRes.rows[0];
+    if (!chat || chat.creator_id !== myId) return res.json({ ok: false, error: 'Только создатель может менять группу' });
 
-  await db.execute({ sql: 'UPDATE chats SET name = ? WHERE id = ?', args: [String(name).trim().slice(0, 50), chatId] });
-  
-  const members = await db.execute({ sql: 'SELECT user_id FROM chat_members WHERE chat_id = ?', args: [chatId] });
-  members.rows.forEach(m => io.to('user_' + m.user_id).emit('update_chats'));
+    await db.execute({ sql: 'UPDATE chats SET name = ? WHERE id = ?', args: [String(name).trim().slice(0, 50), chatId] });
+    
+    const members = await db.execute({ sql: 'SELECT user_id FROM chat_members WHERE chat_id = ?', args: [chatId] });
+    members.rows.forEach(m => io.to('user_' + m.user_id).emit('update_chats'));
 
-  res.json({ ok: true });
+    res.json({ ok: true });
+  } catch (e) {
+    ERR('API', 'Ошибка обновления группы:', e.message);
+    res.json({ ok: false, error: 'Ошибка сервера' });
+  }
 });
 
 app.post('/api/groups/:id/add-members', async (req, res) => {
   if (!req.session.userId) return res.json({ ok: false });
-  const chatId = parseInt(req.params.id);
-  const { member_ids } = req.body;
-  const myId = req.session.userId;
+  try {
+    const chatId = parseInt(req.params.id);
+    const { member_ids } = req.body;
+    const myId = req.session.userId;
 
-  const chatRes = await db.execute({ sql: 'SELECT * FROM chats WHERE id = ?', args: [chatId] });
-  const chat = chatRes.rows[0];
-  if (!chat || chat.creator_id !== myId) return res.json({ ok: false, error: 'Только создатель может добавлять участников' });
+    const chatRes = await db.execute({ sql: 'SELECT * FROM chats WHERE id = ?', args: [chatId] });
+    const chat = chatRes.rows[0];
+    if (!chat || chat.creator_id !== myId) return res.json({ ok: false, error: 'Только создатель может добавлять участников' });
 
-  for (const id of member_ids) {
-    try {
-      await db.execute({ sql: 'INSERT INTO chat_members (chat_id, user_id) VALUES (?, ?)', args: [chatId, id] });
-      io.to('user_' + id).emit('update_chats');
-    } catch(e) { /* Игнорируем, если уже в группе */ }
+    for (const id of member_ids) {
+      try {
+        await db.execute({ sql: 'INSERT INTO chat_members (chat_id, user_id) VALUES (?, ?)', args: [chatId, id] });
+        io.to('user_' + id).emit('update_chats');
+      } catch(e) { }
+    }
+    
+    const members = await db.execute({ sql: 'SELECT user_id FROM chat_members WHERE chat_id = ?', args: [chatId] });
+    members.rows.forEach(m => io.to('user_' + m.user_id).emit('update_chats'));
+
+    res.json({ ok: true });
+  } catch (e) {
+    ERR('API', 'Ошибка добавления участников:', e.message);
+    res.json({ ok: false, error: 'Ошибка сервера' });
   }
-  
-  const members = await db.execute({ sql: 'SELECT user_id FROM chat_members WHERE chat_id = ?', args: [chatId] });
-  members.rows.forEach(m => io.to('user_' + m.user_id).emit('update_chats'));
-
-  res.json({ ok: true });
 });
 
 app.post('/api/groups/:id/remove-member', async (req, res) => {
   if (!req.session.userId) return res.json({ ok: false });
-  const chatId = parseInt(req.params.id);
-  const { user_id } = req.body;
-  const myId = req.session.userId;
+  try {
+    const chatId = parseInt(req.params.id);
+    const { user_id } = req.body;
+    const myId = req.session.userId;
 
-  const chatRes = await db.execute({ sql: 'SELECT * FROM chats WHERE id = ?', args: [chatId] });
-  const chat = chatRes.rows[0];
-  if (!chat || chat.creator_id !== myId) return res.json({ ok: false, error: 'Только создатель может исключать участников' });
-  
-  if (user_id === myId) return res.json({ ok: false, error: 'Создатель не может исключить сам себя' });
+    const chatRes = await db.execute({ sql: 'SELECT * FROM chats WHERE id = ?', args: [chatId] });
+    const chat = chatRes.rows[0];
+    if (!chat || chat.creator_id !== myId) return res.json({ ok: false, error: 'Только создатель может исключать участников' });
+    
+    if (user_id === myId) return res.json({ ok: false, error: 'Создатель не может исключить сам себя' });
 
-  await db.execute({ sql: 'DELETE FROM chat_members WHERE chat_id = ? AND user_id = ?', args: [chatId, user_id] });
-  
-  const members = await db.execute({ sql: 'SELECT user_id FROM chat_members WHERE chat_id = ?', args: [chatId] });
-  members.rows.forEach(m => io.to('user_' + m.user_id).emit('update_chats'));
-  io.to('user_' + user_id).emit('update_chats');
+    await db.execute({ sql: 'DELETE FROM chat_members WHERE chat_id = ? AND user_id = ?', args: [chatId, user_id] });
+    
+    const members = await db.execute({ sql: 'SELECT user_id FROM chat_members WHERE chat_id = ?', args: [chatId] });
+    members.rows.forEach(m => io.to('user_' + m.user_id).emit('update_chats'));
+    io.to('user_' + user_id).emit('update_chats');
 
-  res.json({ ok: true });
+    res.json({ ok: true });
+  } catch (e) {
+    ERR('API', 'Ошибка исключения:', e.message);
+    res.json({ ok: false, error: 'Ошибка сервера' });
+  }
 });
-const storage = multer.memoryStorage();
-const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } });
 
-app.post('/api/upload', (req, res) => {
+app.post('/api/chats/:id/clear', async (req, res) => {
   if (!req.session.userId) return res.json({ ok: false });
-  upload.single('file')(req, res, async (err) => {
-    if (err) {
-      if (err.code === 'LIMIT_FILE_SIZE') return res.json({ ok: false, error: 'Файл больше 5 МБ' });
-      return res.json({ ok: false, error: 'Ошибка загрузки' });
-    }
-    if (!req.file) return res.json({ ok: false, error: 'Файл не загружен' });
-
-    try {
-      const fileExt = path.extname(req.file.originalname);
-      const fileName = Date.now() + '-' + Math.round(Math.random() * 1E9) + fileExt;
-      const { data, error } = await supabase.storage.from('uploads').upload(fileName, req.file.buffer, { contentType: req.file.mimetype, upsert: false });
-      if (error) throw error;
-      const { data: publicUrlData } = supabase.storage.from('uploads').getPublicUrl(fileName);
-      const fileUrl = publicUrlData.publicUrl;
-      const isImage = req.file.mimetype.startsWith('image/');
-      const isAudio = req.file.mimetype.startsWith('audio/');
-      const type = isImage ? 'image' : (isAudio ? 'audio' : 'file');
-      res.json({ ok: true, file_url: fileUrl, file_type: type, file_name: req.file.originalname });
-    } catch (error) {
-      res.json({ ok: false, error: 'Ошибка сервера при загрузке файла' });
-    }
-  });
+  try {
+    const chatId = parseInt(req.params.id);
+    const myId = req.session.userId;
+    
+    await db.execute({ sql: 'DELETE FROM messages WHERE chat_id = ? AND sender_id = ?', args: [chatId, myId] });
+    await db.execute({ sql: 'DELETE FROM read_status WHERE chat_id = ? AND user_id = ?', args: [chatId, myId] });
+    
+    io.to('user_' + myId).emit('chat_cleared', { chat_id: chatId });
+    io.to('user_' + myId).emit('update_chats');
+    res.json({ ok: true });
+  } catch (e) {
+    ERR('API', 'Ошибка очистки:', e.message);
+    res.json({ ok: false, error: 'Ошибка сервера' });
+  }
 });
 
-app.post('/api/upload-avatar', (req, res) => {
+app.post('/api/chats/:id/delete', async (req, res) => {
   if (!req.session.userId) return res.json({ ok: false });
-  upload.single('file')(req, res, async (err) => {
-    if (err) {
-      if (err.code === 'LIMIT_FILE_SIZE') return res.json({ ok: false, error: 'Файл больше 5 МБ' });
-      return res.json({ ok: false, error: 'Ошибка загрузки' });
-    }
-    if (!req.file) return res.json({ ok: false, error: 'Файл не загружен' });
+  try {
+    const chatId = parseInt(req.params.id);
+    const myId = req.session.userId;
+    
+    const chatRes = await db.execute({ sql: 'SELECT * FROM chats WHERE id = ?', args: [chatId] });
+    if (chatRes.rows.length === 0) return res.json({ ok: false });
+    const chat = chatRes.rows[0];
 
-    try {
-      const fileExt = path.extname(req.file.originalname) || '.jpg';
-      const fileName = Date.now() + '-' + Math.round(Math.random() * 1E9) + fileExt;
-      const { data, error } = await supabase.storage.from('uploads').upload(fileName, req.file.buffer, { contentType: req.file.mimetype, upsert: false });
-      if (error) throw error;
-      const { data: publicUrlData } = supabase.storage.from('uploads').getPublicUrl(fileName);
-      res.json({ ok: true, url: publicUrlData.publicUrl });
-    } catch (error) {
-      res.json({ ok: false, error: 'Ошибка сервера' });
+    if (chat.type === 'group') {
+      await db.execute({ sql: 'DELETE FROM chat_members WHERE chat_id = ? AND user_id = ?', args: [chatId, myId] });
+      const remaining = await db.execute({ sql: 'SELECT COUNT(*) as c FROM chat_members WHERE chat_id = ?', args: [chatId] });
+      if (remaining.rows[0].c === 0) {
+        await db.execute({ sql: 'DELETE FROM messages WHERE chat_id = ?', args: [chatId] });
+        await db.execute({ sql: 'DELETE FROM chats WHERE id = ?', args: [chatId] });
+      }
+    } else {
+      await db.execute({ sql: 'UPDATE chat_members SET hidden = 1 WHERE chat_id = ? AND user_id = ?', args: [chatId, myId] });
     }
-  });
+    
+    io.to('user_' + myId).emit('update_chats');
+    res.json({ ok: true });
+  } catch (e) {
+    ERR('API', 'Ошибка удаления чата:', e.message);
+    res.json({ ok: false, error: 'Ошибка сервера' });
+  }
 });
 
+// ==================== СООБЩЕНИЯ ====================
 async function getMsgWithDetails(msgId) {
   const msgRes = await db.execute({
     sql: `SELECT m.id, m.chat_id, m.sender_id, m.text, m.file_url, m.file_type, m.file_name, m.reply_to_id, m.created_at, u.display_name as sender_name, u.avatar as sender_avatar, u.avatar_frame, u.name_effect FROM messages m JOIN users u ON m.sender_id = u.id WHERE m.id = ?`,
@@ -365,9 +501,8 @@ async function getMsgWithDetails(msgId) {
   msg.reactions = reactions.rows;
   
   const chatRes = await db.execute({ sql: 'SELECT type FROM chats WHERE id = ?', args: [msg.chat_id] });
-  msg.chat_type = chatRes.rows[0].type;
+  msg.chat_type = chatRes.rows[0]?.type;
 
-  // Для галочек в группах отдаем имена тех, кто прочитал
   const reads = await db.execute({ 
     sql: `SELECT u.display_name FROM users u 
           JOIN chat_members cm ON u.id = cm.user_id 
@@ -423,37 +558,97 @@ app.get('/api/messages/:chatId', async (req, res) => {
 
     res.json({ ok: true, messages: msgs });
   } catch (error) {
-    console.error('Ошибка загрузки истории:', error);
+    ERR('API', 'Ошибка загрузки истории:', error.message);
     res.json({ ok: false, messages: [] });
   }
 });
 
-app.post('/api/messages/:id/delete', async (req, res) => {
+// ==================== ФАЙЛЫ ====================
+const storage = multer.memoryStorage();
+const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } });
+
+app.post('/api/upload', (req, res) => {
   if (!req.session.userId) return res.json({ ok: false });
-  const msgId = parseInt(req.params.id);
-  const myId = req.session.userId;
-  const msgRes = await db.execute({ sql: 'SELECT * FROM messages WHERE id = ?', args: [msgId] });
-  if (msgRes.rows.length === 0 || msgRes.rows[0].sender_id !== myId) return res.json({ ok: false });
-  const msg = msgRes.rows[0];
-  
-  if (msg.file_url && msg.file_url.includes('supabase.co')) {
+  upload.single('file')(req, res, async (err) => {
+    if (err) {
+      if (err.code === 'LIMIT_FILE_SIZE') return res.json({ ok: false, error: 'Файл больше 5 МБ' });
+      return res.json({ ok: false, error: 'Ошибка загрузки' });
+    }
+    if (!req.file) return res.json({ ok: false, error: 'Файл не загружен' });
+
     try {
-      const fileName = msg.file_url.split('/').pop();
-      await supabase.storage.from('uploads').remove([fileName]);
-    } catch (e) { }
-  }
-  
-  await db.execute({ sql: 'DELETE FROM reactions WHERE message_id = ?', args: [msgId] });
-  await db.execute({ sql: 'DELETE FROM messages WHERE id = ?', args: [msgId] });
-  
-  const members = await db.execute({ sql: 'SELECT user_id FROM chat_members WHERE chat_id = ?', args: [msg.chat_id] });
-  members.rows.forEach(m => {
-    io.to('user_' + m.user_id).emit('message_deleted', { id: msgId, chat_id: msg.chat_id });
-    io.to('user_' + m.user_id).emit('update_chats');
+      const fileExt = path.extname(req.file.originalname);
+      const fileName = Date.now() + '-' + Math.round(Math.random() * 1E9) + fileExt;
+      const { data, error } = await supabase.storage.from('uploads').upload(fileName, req.file.buffer, { contentType: req.file.mimetype, upsert: false });
+      if (error) throw error;
+      const { data: publicUrlData } = supabase.storage.from('uploads').getPublicUrl(fileName);
+      const fileUrl = publicUrlData.publicUrl;
+      const isImage = req.file.mimetype.startsWith('image/');
+      const isAudio = req.file.mimetype.startsWith('audio/');
+      const type = isImage ? 'image' : (isAudio ? 'audio' : 'file');
+      res.json({ ok: true, file_url: fileUrl, file_type: type, file_name: req.file.originalname });
+    } catch (error) {
+      ERR('UPLOAD', 'Ошибка загрузки файла:', error.message);
+      res.json({ ok: false, error: 'Ошибка сервера при загрузке файла' });
+    }
   });
-  res.json({ ok: true });
 });
 
+app.post('/api/upload-avatar', (req, res) => {
+  if (!req.session.userId) return res.json({ ok: false });
+  upload.single('file')(req, res, async (err) => {
+    if (err) {
+      if (err.code === 'LIMIT_FILE_SIZE') return res.json({ ok: false, error: 'Файл больше 5 МБ' });
+      return res.json({ ok: false, error: 'Ошибка загрузки' });
+    }
+    if (!req.file) return res.json({ ok: false, error: 'Файл не загружен' });
+
+    try {
+      const fileExt = path.extname(req.file.originalname) || '.jpg';
+      const fileName = Date.now() + '-' + Math.round(Math.random() * 1E9) + fileExt;
+      const { data, error } = await supabase.storage.from('uploads').upload(fileName, req.file.buffer, { contentType: req.file.mimetype, upsert: false });
+      if (error) throw error;
+      const { data: publicUrlData } = supabase.storage.from('uploads').getPublicUrl(fileName);
+      res.json({ ok: true, url: publicUrlData.publicUrl });
+    } catch (error) {
+      ERR('UPLOAD', 'Ошибка загрузки аватара:', error.message);
+      res.json({ ok: false, error: 'Ошибка сервера' });
+    }
+  });
+});
+
+app.post('/api/messages/:id/delete', async (req, res) => {
+  if (!req.session.userId) return res.json({ ok: false });
+  try {
+    const msgId = parseInt(req.params.id);
+    const myId = req.session.userId;
+    const msgRes = await db.execute({ sql: 'SELECT * FROM messages WHERE id = ?', args: [msgId] });
+    if (msgRes.rows.length === 0 || msgRes.rows[0].sender_id !== myId) return res.json({ ok: false });
+    const msg = msgRes.rows[0];
+    
+    if (msg.file_url && msg.file_url.includes('supabase.co')) {
+      try {
+        const fileName = msg.file_url.split('/').pop();
+        await supabase.storage.from('uploads').remove([fileName]);
+      } catch (e) { }
+    }
+    
+    await db.execute({ sql: 'DELETE FROM reactions WHERE message_id = ?', args: [msgId] });
+    await db.execute({ sql: 'DELETE FROM messages WHERE id = ?', args: [msgId] });
+    
+    const members = await db.execute({ sql: 'SELECT user_id FROM chat_members WHERE chat_id = ?', args: [msg.chat_id] });
+    members.rows.forEach(m => {
+      io.to('user_' + m.user_id).emit('message_deleted', { id: msgId, chat_id: msg.chat_id });
+      io.to('user_' + m.user_id).emit('update_chats');
+    });
+    res.json({ ok: true });
+  } catch (e) {
+    ERR('API', 'Ошибка удаления сообщения:', e.message);
+    res.json({ ok: false, error: 'Ошибка сервера' });
+  }
+});
+
+// ==================== СТАТИКА ====================
 app.get('/', (req, res) => {
   if (!req.session.userId) return res.redirect('/login.html');
   res.sendFile(__dirname + '/public/index.html');
@@ -472,6 +667,7 @@ app.use((req, res, next) => {
 });
 app.use(express.static('public'));
 
+// ==================== SOCKET.IO ====================
 const onlineUsers = new Map();
 
 io.on('connection', (socket) => {
@@ -485,19 +681,27 @@ io.on('connection', (socket) => {
   if (count === 1) io.emit('user_online', myId);
   
   socket.emit('online_list', Array.from(onlineUsers.keys()));
+  LOG('SOCKET', `Подключён пользователь ${myId} (соединений: ${count})`);
 
   socket.on('typing', async (data) => {
-    const members = await db.execute({ sql: 'SELECT user_id FROM chat_members WHERE chat_id = ?', args: [data.chat_id] });
-    members.rows.forEach(m => { if (m.user_id !== myId) io.to('user_' + m.user_id).emit('user_typing', { chat_id: data.chat_id, user_id: myId, is_typing: data.is_typing }); });
+    try {
+      const members = await db.execute({ sql: 'SELECT user_id FROM chat_members WHERE chat_id = ?', args: [data.chat_id] });
+      members.rows.forEach(m => { if (m.user_id !== myId) io.to('user_' + m.user_id).emit('user_typing', { chat_id: data.chat_id, user_id: myId, is_typing: data.is_typing }); });
+    } catch(e) { ERR('SOCKET', 'typing:', e.message); }
   });
 
   socket.on('send_message', async (data, callback) => {
     let { chat_id, text, other_id, file_url, file_type, file_name, reply_to_id, temp_id } = data;
-    if (!text && !file_url) return;
+    if (!text && !file_url) {
+      if (callback) callback({ error: 'Пустое сообщение' });
+      return;
+    }
     const clean = (text || '').trim().slice(0, 2000);
     
     try {
+      // Создание нового чата, если его нет
       if (!chat_id && other_id) {
+        LOG('SOCKET', `Пользователь ${myId} создаёт новый чат с ${other_id}`);
         const existing = await db.execute({ sql: `SELECT c.id FROM chats c JOIN chat_members cm1 ON c.id = cm1.chat_id AND cm1.user_id = ? JOIN chat_members cm2 ON c.id = cm2.chat_id AND cm2.user_id = ? WHERE c.type = 'private'`, args: [myId, other_id] });
         if (existing.rows.length > 0) {
           chat_id = existing.rows[0].id;
@@ -509,22 +713,33 @@ io.on('connection', (socket) => {
           await db.execute({ sql: 'INSERT INTO chat_members (chat_id, user_id) VALUES (?, ?)', args: [chat_id, other_id] });
         }
       }
-      if (!chat_id) return;
+      if (!chat_id) {
+        if (callback) callback({ error: 'Не указан чат' });
+        return;
+      }
       
+      // Показать чат у всех участников
       await db.execute({ sql: 'UPDATE chat_members SET hidden = 0 WHERE chat_id = ?', args: [chat_id] });
       
+      // Вставка сообщения
       const info = await db.execute({ sql: 'INSERT INTO messages (chat_id, sender_id, text, file_url, file_type, file_name, reply_to_id) VALUES (?, ?, ?, ?, ?, ?, ?)', args: [chat_id, myId, clean, file_url || null, file_type || null, file_name || null, reply_to_id || null] });
-      const msg = await getMsgWithDetails(Number(info.lastInsertRowid));
+      const msgId = Number(info.lastInsertRowid);
+      LOG('SOCKET', `Сообщение ${msgId} сохранено в чат ${chat_id}`);
       
+      const msg = await getMsgWithDetails(msgId);
+      
+      // Отвечаем клиенту СРАЗУ, чтобы убрать "часики"
       if (callback) callback({ temp_id, msg });
 
+      // Рассылка всем участникам
       const members = await db.execute({ sql: 'SELECT user_id FROM chat_members WHERE chat_id = ?', args: [chat_id] });
       members.rows.forEach(m => {
         io.to('user_' + m.user_id).emit('new_message', msg);
         io.to('user_' + m.user_id).emit('update_chats');
       });
     } catch (error) {
-      console.error('Ошибка при отправке сообщения:', error);
+      ERR('SOCKET', 'Ошибка отправки сообщения:', error.message, error.stack);
+      if (callback) callback({ error: 'Ошибка сервера: ' + error.message });
     }
   });
 
@@ -544,7 +759,9 @@ io.on('connection', (socket) => {
       const updatedMsg = await getMsgWithDetails(message_id);
       const members = await db.execute({ sql: 'SELECT user_id FROM chat_members WHERE chat_id = ?', args: [msg.rows[0].chat_id] });
       members.rows.forEach(m => { io.to('user_' + m.user_id).emit('message_updated', updatedMsg); });
-    } catch (e) { }
+    } catch (e) { 
+      ERR('SOCKET', 'add_reaction:', e.message); 
+    }
   });
 
   socket.on('mark_read', async (chatId) => {
@@ -562,20 +779,40 @@ io.on('connection', (socket) => {
       members.rows.forEach(m => {
         io.to('user_' + m.user_id).emit('chats_read_update', { chat_id: chatId, last_read: lastId, reader_id: myId });
       });
-    } catch (e) { }
+    } catch (e) { 
+      ERR('SOCKET', 'mark_read:', e.message); 
+    }
   });
 
   socket.on('disconnect', async () => {
-    const c = (onlineUsers.get(myId) || 1) - 1;
-    if (c <= 0) { 
-      onlineUsers.delete(myId); 
-      await db.execute({ sql: 'UPDATE users SET last_seen = ? WHERE id = ?', args: [new Date().toISOString(), myId] });
-      io.emit('user_offline', myId); 
-    } else { 
-      onlineUsers.set(myId, c); 
+    try {
+      const c = (onlineUsers.get(myId) || 1) - 1;
+      if (c <= 0) { 
+        onlineUsers.delete(myId); 
+        await db.execute({ sql: 'UPDATE users SET last_seen = ? WHERE id = ?', args: [new Date().toISOString(), myId] });
+        io.emit('user_offline', myId); 
+      } else { 
+        onlineUsers.set(myId, c); 
+      }
+      LOG('SOCKET', `Отключён пользователь ${myId}`);
+    } catch (e) {
+      ERR('SOCKET', 'disconnect:', e.message);
     }
   });
 });
 
+// ==================== ЗАПУСК ====================
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => { console.log(`Miksegram запущен на порту ${PORT}`); });
+server.listen(PORT, () => { 
+  LOG('SERVER', `🚀 Miksegram запущен на порту ${PORT}`);
+});
+
+// Корректное завершение
+process.on('SIGTERM', () => {
+  LOG('SERVER', 'Получен SIGTERM, завершаемся...');
+  server.close(() => process.exit(0));
+});
+process.on('SIGINT', () => {
+  LOG('SERVER', 'Получен SIGINT, завершаемся...');
+  server.close(() => process.exit(0));
+});
