@@ -43,29 +43,52 @@
     initStars();
     initMagnetics();
 
+    // Получаем ID из URL: /user/123 -> 123
     const userId = window.location.pathname.split('/').pop();
     let userData = null;
 
-    fetch('/api/user/' + userId).then(r => r.json()).then(data => {
-        if (!data.ok) { window.location.href = '/'; return; }
-        userData = data.user;
-        applyAvatarTo(document.getElementById('profileAvatar'), userData.avatar, userData.display_name);
-        document.getElementById('profileName').textContent = userData.display_name;
-        document.getElementById('profileLogin').textContent = '@' + userData.login;
-        document.getElementById('profileBio').textContent = userData.bio || 'Пока ничего не рассказал(а) о себе';
-        applyBannerTo(document.getElementById('profileBanner'), userData.banner);
-    });
+    if (!userId || isNaN(parseInt(userId))) {
+        window.location.href = '/';
+    }
 
-    document.getElementById('backBtn').addEventListener('click', () => window.location.href = '/');
+    fetch('/api/user/' + userId)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.ok) { 
+                window.location.href = '/'; 
+                return; 
+            }
+            userData = data.user;
+            
+            applyAvatarTo(document.getElementById('profileAvatar'), userData.avatar, userData.display_name, userData.avatar_frame);
+            
+            const nameEl = document.getElementById('profileName');
+            nameEl.textContent = userData.display_name;
+            applyNameEffect(nameEl, userData.name_effect);
+            
+            document.getElementById('profileLogin').textContent = '@' + userData.login;
+            document.getElementById('profileBio').textContent = userData.bio || 'Пока ничего не рассказал(а) о себе';
+            applyBannerTo(document.getElementById('profileBanner'), userData.banner);
+        })
+        .catch(() => {
+            showToast('Ошибка сети. Попробуй обновить страницу.');
+        });
+
+    document.getElementById('backBtn').addEventListener('click', () => {
+        if (document.referrer && document.referrer.includes(location.host)) history.back();
+        else window.location.href = '/';
+    });
     
     document.getElementById('writeMsgBtn').addEventListener('click', () => {
         window.location.href = '/?write_to=' + userId;
     });
 
     document.getElementById('profileLogin').addEventListener('click', () => {
-        navigator.clipboard.writeText('@' + userData.login).then(() => {
-            showToast('Логин скопирован!');
-        });
+        if (userData) {
+            navigator.clipboard.writeText('@' + userData.login).then(() => {
+                showToast('Логин скопирован!');
+            });
+        }
     });
 </script>
 </body>

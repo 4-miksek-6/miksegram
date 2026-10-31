@@ -158,15 +158,16 @@ function buildSettingsUI() {
                 const d = document.createElement('button');
                 d.className = 'live-picker-btn' + (isActive ? ' active' : '');
                 
-                let avatarClass = `avatar live-avatar ${u.avatar.startsWith('grad') ? u.avatar : 'has-image'}`;
-                let inlineStyles = !u.avatar.startsWith('grad') ? `background-image:url(${u.avatar}); background-size:cover;` : '';
+                const av = u.avatar || '';
+                let avatarClass = `avatar live-avatar ${av.startsWith('grad') ? av : 'has-image'}`;
+                let inlineStyles = !av.startsWith('grad') ? `background-image:url(${av}); background-size:cover;` : '';
                 
                 if (f.key !== 'none') {
                     if (f.key === 'glow') inlineStyles += `border: 2px solid ${frameColor}; box-shadow: 0 0 10px ${frameColor};`;
                     if (f.key === 'dashed') inlineStyles += `border: 2px dashed ${frameColor};`;
                 }
                 
-                d.innerHTML = `<div class="${avatarClass}" style="${inlineStyles}">${u.avatar.startsWith('grad') ? (u.display_name || '?').trim().charAt(0).toUpperCase() : ''}</div>
+                d.innerHTML = `<div class="${avatarClass}" style="${inlineStyles}">${av.startsWith('grad') ? (u.display_name || '?').trim().charAt(0).toUpperCase() : ''}</div>
                               <span style="font-size:10px; margin-top:4px;">${f.label}</span>`;
 
                 d.addEventListener('click', async () => {
@@ -554,7 +555,6 @@ function buildSettingsUI() {
                 </div>
             `;
 
-            // Логика показа пароля
             function setupToggle(btnId, inputId) {
                 document.getElementById(btnId).addEventListener('click', () => {
                     const input = document.getElementById(inputId);
@@ -570,7 +570,6 @@ function buildSettingsUI() {
             setupToggle('toggleOld', 'oldPassword');
             setupToggle('toggleNew', 'newPassword');
 
-            // Логика смены пароля
             document.getElementById('changePassBtn').addEventListener('click', async () => {
                 const old_password = document.getElementById('oldPassword').value;
                 const new_password = document.getElementById('newPassword').value;
@@ -591,12 +590,10 @@ function buildSettingsUI() {
                 else showToast(data.error);
             });
 
-            // Логика выхода
             document.getElementById('logoutBtn2').addEventListener('click', () => {
                 fetch('/api/logout', { method: 'POST' }).then(() => window.location.href = '/login.html');
             });
 
-            // Логика удаления аккаунта
             document.getElementById('deleteAccountBtn').addEventListener('click', () => {
                 const modal = document.createElement('div');
                 modal.className = 'modal-overlay open';
@@ -644,7 +641,6 @@ function buildSettingsUI() {
         }
     }
 
-    // Логика сложности пароля (глобальная функция, чтобы работал oninput)
     window.updateStrength = (val) => {
         const bar = document.getElementById('strengthBar');
         const text = document.getElementById('strengthText');

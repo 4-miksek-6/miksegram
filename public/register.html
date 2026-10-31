@@ -20,7 +20,7 @@
         
         <div class="auth-field">
             <span class="prefix">@</span>
-            <input id="login" class="has-prefix" placeholder="login" autocomplete="username">
+            <input id="login" class="has-prefix" placeholder="login" autocomplete="username" autofocus>
         </div>
         <div class="auth-hint" style="text-align:center; margin-top:-5px; margin-bottom:10px;">Уникальный логин: a-z, 0-9, _ (3-32 символа)</div>
 
@@ -46,11 +46,20 @@
     initStars();
     initMagnetics();
 
+    // Если уже залогинен — сразу на главную
+    fetch('/api/me')
+        .then(r => r.json())
+        .then(d => { if (d.ok) window.location.href = '/'; })
+        .catch(() => { /* сеть недоступна — остаёмся на форме */ });
+
     async function doRegister() {
         const login = document.getElementById('login').value.trim();
         const display_name = document.getElementById('display_name').value.trim();
         const password = document.getElementById('password').value;
         const err = document.getElementById('error');
+        const btn = document.getElementById('btn');
+        
+        if (btn.disabled) return; // защита от двойного клика
         err.textContent = '';
         
         if (!login || !display_name || !password) {
@@ -58,8 +67,6 @@
             return;
         }
 
-        // Делаем кнопку неактивной на время запроса
-        const btn = document.getElementById('btn');
         btn.disabled = true;
         btn.textContent = 'Создаем...';
 
@@ -73,7 +80,7 @@
             if (data.ok) {
                 window.location.href = '/';
             } else {
-                err.textContent = data.error;
+                err.textContent = data.error || 'Ошибка регистрации';
             }
         } catch (e) {
             err.textContent = 'Ошибка сети. Проверь интернет.';
@@ -84,7 +91,16 @@
     }
 
     document.getElementById('btn').addEventListener('click', doRegister);
+    
+    // Enter переключает поля / отправляет форму
+    document.getElementById('login').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('display_name').focus(); });
+    document.getElementById('display_name').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('password').focus(); });
     document.getElementById('password').addEventListener('keydown', e => { if (e.key === 'Enter') doRegister(); });
+
+    // Сброс ошибки при вводе
+    ['login', 'display_name', 'password'].forEach(id => {
+        document.getElementById(id).addEventListener('input', () => document.getElementById('error').textContent = '');
+    });
 </script>
 </body>
 </html>

@@ -20,7 +20,7 @@ const ERR = (tag, ...args) => console.error(`[${new Date().toISOString()}] [${ta
 process.on('uncaughtException', (err) => {
     ERR('UNCAUGHT', err.message, err.stack);
 });
-process.on('unhandledRejection', (reason, promise) => {
+process.on('unhandledRejection', (reason) => {
     ERR('UNHANDLED', reason);
 });
 
@@ -46,7 +46,6 @@ async function initDb(attempt = 1) {
     
     LOG('DB', '✅ База данных готова!');
     
-    // Проверка что реально работает
     const test = await db.execute('SELECT COUNT(*) as cnt FROM users');
     LOG('DB', `Пользователей в базе: ${test.rows[0].cnt}`);
   } catch (err) {
@@ -73,6 +72,12 @@ const sessionMiddleware = session({
 });
 app.use(sessionMiddleware);
 io.engine.use(sessionMiddleware);
+
+// Хелпер: проверка членства в чате
+async function isChatMember(chatId, userId) {
+    const res = await db.execute({ sql: 'SELECT 1 FROM chat_members WHERE chat_id = ? AND user_id = ?', args: [chatId, userId] });
+    return res.rows.length > 0;
+}
 
 // ==================== АВТОРИЗАЦИЯ ====================
 app.post('/api/register', async (req, res) => {
@@ -274,7 +279,6 @@ app.get('/api/chats', async (req, res) => {
       }
       result.push(c);
     }
-    LOG('API', `/api/chats → пользователю ${myId} отдано ${result.length} чатов`);
     res.json({ ok: true, chats: result });
   } catch (error) {
     ERR('API', 'Ошибка получения чатов:', error.message);
@@ -339,8 +343,7 @@ app.get('/api/groups/:id', async (req, res) => {
     const chatId = parseInt(req.params.id);
     const myId = req.session.userId;
 
-    const member = await db.execute({ sql: 'SELECT * FROM chat_members WHERE chat_id = ? AND user_id = ?', args: [chatId, myId] });
-    if (member.rows.length === 0) return res.json({ ok: false, error: 'Вы не в этой группе' });
+    if (!(await isChatMember(chatId, myId))) return res.json({ ok: false, error: 'Вы не в этой группе' });
 
     const chatRes = await db.execute({ sql: 'SELECT * FROM chats WHERE id = ?', args: [chatId] });
     if (chatRes.rows.length === 0) return res.json({ ok: false });
@@ -442,6 +445,8 @@ app.post('/api/chats/:id/clear', async (req, res) => {
     const chatId = parseInt(req.params.id);
     const myId = req.session.userId;
     
+    if (!(await isChatMember(chatId, myId))) return res.json({ ok: false });
+
     await db.execute({ sql: 'DELETE FROM messages WHERE chat_id = ? AND sender_id = ?', args: [chatId, myId] });
     await db.execute({ sql: 'DELETE FROM read_status WHERE chat_id = ? AND user_id = ?', args: [chatId, myId] });
     
@@ -501,7 +506,7 @@ async function getMsgWithDetails(msgId) {
   msg.reactions = reactions.rows;
   
   const chatRes = await db.execute({ sql: 'SELECT type FROM chats WHERE id = ?', args: [msg.chat_id] });
-  msg.chat_type = chatRes.rows[0]?.type;
+  msg.chat_type = chatRes.rows[0] ? chatRes.rows[0].type : 'private';
 
   const reads = await db.execute({ 
     sql: `SELECT u.display_name FROM users u 
@@ -520,8 +525,7 @@ app.get('/api/messages/:chatId', async (req, res) => {
   const chatId = parseInt(req.params.chatId);
   
   try {
-    const member = await db.execute({ sql: 'SELECT * FROM chat_members WHERE chat_id = ? AND user_id = ?', args: [chatId, myId] });
-    if (member.rows.length === 0) return res.json({ ok: false });
+    if (!(await isChatMember(chatId, myId))) return res.json({ ok: false });
 
     const rawMsgs = await db.execute({
       sql: `SELECT m.*, u.display_name as sender_name, u.avatar as sender_avatar, u.avatar_frame, u.name_effect 
@@ -685,6 +689,7 @@ io.on('connection', (socket) => {
 
   socket.on('typing', async (data) => {
     try {
+      if (!(await isChatMember(data.chat_id, myId))) return;
       const members = await db.execute({ sql: 'SELECT user_id FROM chat_members WHERE chat_id = ?', args: [data.chat_id] });
       members.rows.forEach(m => { if (m.user_id !== myId) io.to('user_' + m.user_id).emit('user_typing', { chat_id: data.chat_id, user_id: myId, is_typing: data.is_typing }); });
     } catch(e) { ERR('SOCKET', 'typing:', e.message); }
@@ -705,7 +710,8 @@ io.on('connection', (socket) => {
         const existing = await db.execute({ sql: `SELECT c.id FROM chats c JOIN chat_members cm1 ON c.id = cm1.chat_id AND cm1.user_id = ? JOIN chat_members cm2 ON c.id = cm2.chat_id AND cm2.user_id = ? WHERE c.type = 'private'`, args: [myId, other_id] });
         if (existing.rows.length > 0) {
           chat_id = existing.rows[0].id;
-          await db.execute({ sql: 'UPDATE chat_members SET hidden = 0 WHERE chat_id = ? AND user_id = ?', args: [chat_id, other_id] });
+          // Показываем чат обоим
+          await db.execute({ sql: 'UPDATE chat_members SET hidden = 0 WHERE chat_id = ?', args: [chat_id] });
         } else {
           const info = await db.execute({ sql: 'INSERT INTO chats (type) VALUES (?)', args: ['private'] });
           chat_id = Number(info.lastInsertRowid);
@@ -718,7 +724,13 @@ io.on('connection', (socket) => {
         return;
       }
       
-      // Показать чат у всех участников
+      // Проверка, что отправитель в чате
+      if (!(await isChatMember(chat_id, myId))) {
+        if (callback) callback({ error: 'Вы не участник чата' });
+        return;
+      }
+      
+      // Показать чат у всех участников (на случай, если был скрыт)
       await db.execute({ sql: 'UPDATE chat_members SET hidden = 0 WHERE chat_id = ?', args: [chat_id] });
       
       // Вставка сообщения
@@ -738,7 +750,7 @@ io.on('connection', (socket) => {
         io.to('user_' + m.user_id).emit('update_chats');
       });
     } catch (error) {
-      ERR('SOCKET', 'Ошибка отправки сообщения:', error.message, error.stack);
+      ERR('SOCKET', 'Ошибка отправки сообщения:', error.message);
       if (callback) callback({ error: 'Ошибка сервера: ' + error.message });
     }
   });
@@ -746,6 +758,12 @@ io.on('connection', (socket) => {
   socket.on('add_reaction', async (data) => {
     const { message_id, emoji } = data;
     try {
+      const msgInfo = await db.execute({ sql: 'SELECT chat_id FROM messages WHERE id = ?', args: [message_id] });
+      if (msgInfo.rows.length === 0) return;
+      const chatId = msgInfo.rows[0].chat_id;
+      
+      if (!(await isChatMember(chatId, myId))) return;
+
       const existing = await db.execute({ sql: 'SELECT * FROM reactions WHERE message_id = ? AND user_id = ?', args: [message_id, myId] });
       if (existing.rows.length > 0) {
         if (existing.rows[0].emoji === emoji) await db.execute({ sql: 'DELETE FROM reactions WHERE message_id = ? AND user_id = ?', args: [message_id, myId] });
@@ -753,11 +771,9 @@ io.on('connection', (socket) => {
       } else {
         await db.execute({ sql: 'INSERT INTO reactions (message_id, user_id, emoji) VALUES (?, ?, ?)', args: [message_id, myId, emoji] });
       }
-      const msg = await db.execute({ sql: 'SELECT chat_id FROM messages WHERE id = ?', args: [message_id] });
-      if (msg.rows.length === 0) return;
       
       const updatedMsg = await getMsgWithDetails(message_id);
-      const members = await db.execute({ sql: 'SELECT user_id FROM chat_members WHERE chat_id = ?', args: [msg.rows[0].chat_id] });
+      const members = await db.execute({ sql: 'SELECT user_id FROM chat_members WHERE chat_id = ?', args: [chatId] });
       members.rows.forEach(m => { io.to('user_' + m.user_id).emit('message_updated', updatedMsg); });
     } catch (e) { 
       ERR('SOCKET', 'add_reaction:', e.message); 
@@ -766,6 +782,8 @@ io.on('connection', (socket) => {
 
   socket.on('mark_read', async (chatId) => {
     try {
+      if (!(await isChatMember(chatId, myId))) return;
+      
       const lastMsg = await db.execute({ sql: 'SELECT id FROM messages WHERE chat_id = ? ORDER BY id DESC LIMIT 1', args: [chatId] });
       if (lastMsg.rows.length === 0) return;
       const lastId = lastMsg.rows[0].id;
@@ -807,7 +825,6 @@ server.listen(PORT, () => {
   LOG('SERVER', `🚀 Miksegram запущен на порту ${PORT}`);
 });
 
-// Корректное завершение
 process.on('SIGTERM', () => {
   LOG('SERVER', 'Получен SIGTERM, завершаемся...');
   server.close(() => process.exit(0));

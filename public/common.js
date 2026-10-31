@@ -83,6 +83,7 @@ function showToast(text) {
 }
 
 function applyAvatarTo(el, avatar, displayName, frame = 'none') {
+    if (!el) return;
     el.style.backgroundImage = ''; el.style.backgroundSize = ''; el.style.backgroundPosition = '';
     el.textContent = '';
     el.className = el.className.replace(/\b(has-image|grad-\w+|frame-\w+)\b/g, '').replace(/\s+/g, ' ').trim();
@@ -113,6 +114,7 @@ function applyAvatarTo(el, avatar, displayName, frame = 'none') {
 }
 
 function applyNameEffect(el, effect) {
+    if (!el) return;
     el.className = el.className.replace(/\bname-\w+\b/g, '').replace(/\s+/g, ' ').trim();
     el.style.textShadow = '';
     el.style.color = '';
@@ -135,6 +137,7 @@ function applyNameEffect(el, effect) {
 }
 
 function applyBannerTo(el, banner) {
+    if (!el) return;
     if (!banner) {
         el.style.background = 'var(--grad-aurora)';
         el.style.backgroundImage = ''; return;
@@ -149,11 +152,15 @@ function escapeHtml(str) {
 }
 
 async function saveProfilePatch(patch) {
-    const res = await fetch('/api/update-profile', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(patch)
-    });
-    const data = await res.json();
-    if (data.ok && typeof window.onSettingsSaved === 'function') window.onSettingsSaved(data.user);
-    return data;
-}   
+    try {
+        const res = await fetch('/api/update-profile', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(patch)
+        });
+        const data = await res.json();
+        if (data.ok && typeof window.onSettingsSaved === 'function') window.onSettingsSaved(data.user);
+        return data;
+    } catch (e) {
+        return { ok: false, error: 'Ошибка сети' };
+    }
+}

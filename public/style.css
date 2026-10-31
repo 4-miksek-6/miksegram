@@ -295,26 +295,24 @@ input[type="color"]::-webkit-color-swatch { border: 2px solid var(--border-hi); 
 .shake { animation: shake 0.4s ease; }
 @keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
 
-.mobile-back-btn { display: none; }
-@media (max-width: 768px) {
-    .app { grid-template-columns: 1fr; padding: 8px; }
-    .sidebar { display: none; }
-    .msg { max-width: 85%; }
-    .empty-title { font-size: 26px; }
-    .modal { padding: 18px; border-radius: 18px; }
-    .profile-banner { height: 140px; }
-    .profile-avatar { width: 90px; height: 90px; font-size: 34px; }
-    .profile-name { font-size: 22px; }
-    .settings-layout { grid-template-columns: 1fr; overflow-y: auto; }
-    .settings-sidebar { flex-direction: row; overflow-x: auto; border-right: none; border-bottom: 1px solid var(--border); padding: 8px; }
-    .settings-tab { white-space: nowrap; margin-bottom: 0; margin-right: 8px; }
-    .settings-preview-col { display: none; }
-    .settings-controls-col { padding: 16px; }
-}
+/* Профили */
+.profile-page { position: relative; z-index: 1; height: 100vh; display: flex; flex-direction: column; background: transparent; }
+.profile-topbar { padding: 16px; display: flex; align-items: center; }
+.profile-banner { position: relative; height: 200px; margin: 0 16px; border-radius: 20px; overflow: hidden; background-size: cover; background-position: center; }
+.profile-banner-overlay { position: absolute; inset: 0; background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.8)); }
+.profile-header-overlay { position: absolute; bottom: 20px; left: 20px; display: flex; align-items: flex-end; gap: 16px; }
+.profile-avatar-wrap { border-radius: 50%; border: 4px solid var(--bg-0); background: var(--bg-0); }
+.profile-avatar { width: 80px; height: 80px; font-size: 28px; }
+.profile-title-wrap { padding-bottom: 4px; }
+.profile-name { font-family: 'Unbounded'; font-size: 22px; font-weight: 700; color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,0.8); }
+.profile-login { font-size: 14px; color: rgba(255,255,255,0.7); margin-top: 2px; }
+.profile-content { flex: 1; padding: 24px 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+.profile-bio-card { background: var(--panel-strong); border: 1px solid var(--border); border-radius: 16px; padding: 20px; }
+.profile-bio-label { font-family: 'Unbounded'; font-size: 11px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-mute); margin-bottom: 8px; }
+.profile-bio { font-size: 15px; line-height: 1.5; white-space: pre-wrap; }
+.profile-edit-btn { width: 100%; padding: 14px; }
 
-/* ========================================= */
-/* СТИЛИ ДЛЯ ПРЕСЕТОВ ФОНОВ (ТО, ЧЕГО НЕ ХВАТАЛО) */
-/* ========================================= */
+/* --- ФИКС: ПРЕСЕТЫ ФОНОВ (те, что пропали) --- */
 .preset-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
@@ -357,4 +355,31 @@ input[type="color"]::-webkit-color-swatch { border: 2px solid var(--border-hi); 
     font-size: 12px;
     color: var(--text);
     text-align: center;
+}
+
+.mobile-back-btn { display: none; }
+
+/* --- ФИКС: МОБИЛЬНАЯ ВЕРСИЯ --- */
+@media (max-width: 768px) {
+    .app { grid-template-columns: 1fr; padding: 8px; }
+    
+    .sidebar { display: flex; width: 100%; }
+    .chat-area { display: none; width: 100%; }
+    
+    .app.mobile-chat-open .sidebar { display: none; }
+    .app.mobile-chat-open .chat-area { display: flex; }
+    .app.mobile-chat-open .mobile-back-btn { display: flex !important; }
+
+    .msg { max-width: 85%; }
+    .empty-title { font-size: 26px; }
+    .modal { padding: 18px; border-radius: 18px; }
+    .profile-banner { height: 140px; }
+    .profile-avatar { width: 90px; height: 90px; font-size: 34px; }
+    .profile-name { font-size: 22px; }
+    .settings-layout { grid-template-columns: 1fr; overflow-y: auto; }
+    .settings-sidebar { flex-direction: row; overflow-x: auto; border-right: none; border-bottom: 1px solid var(--border); padding: 8px; }
+    .settings-tab { white-space: nowrap; margin-bottom: 0; margin-right: 8px; }
+    .settings-preview-col { display: none; }
+    .settings-controls-col { padding: 16px; }
+    .chat-header { padding: 10px 14px; }
 }

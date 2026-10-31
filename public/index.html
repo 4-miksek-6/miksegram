@@ -321,7 +321,7 @@
     function loadChats() {
         fetch('/api/chats').then(r => r.json()).then(data => {
             if (data.ok) { chatsData = data.chats; renderChats(); updateChatStatus(); }
-        });
+        }).catch(err => console.error('Ошибка загрузки чатов:', err));
     }
 
     function renderChats() {
@@ -452,6 +452,7 @@
 
     document.getElementById('mobileBackBtn').addEventListener('click', () => {
         document.querySelector('.app').classList.remove('mobile-chat-open');
+        document.getElementById('mobileBackBtn').style.display = 'none';
     });
 
     function loadHistory(chatId) {
@@ -496,6 +497,26 @@
         </span>`;
     }
 
+    // ==== ПРИНУДИТЕЛЬНОЕ СКАЧИВАНИЕ ФАЙЛОВ ====
+    window.forceDownload = async function(url, filename) {
+        try {
+            showToast('Скачивание...');
+            const res = await fetch(url);
+            const blob = await res.blob();
+            const blobUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = filename || 'file';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(blobUrl);
+        } catch (e) {
+            showToast('Ошибка скачивания. Открываю в новой вкладке.');
+            window.open(url, '_blank');
+        }
+    };
+
     function addMessageToDOM(m, animate = true) {
         const listEl = document.getElementById('messagesList');
         const empty = listEl.querySelector('.chat-empty-msg');
@@ -529,7 +550,7 @@
         if (m.file_url) {
             if (m.file_type === 'image') fileHtml = `<img src="${m.file_url}" class="msg-image" onclick="openLightbox('${m.file_url}')">`;
             else if (m.file_type === 'audio') fileHtml = `<audio controls src="${m.file_url}" style="max-width:100%; margin-top:6px;"></audio>`;
-            else fileHtml = `<a href="${m.file_url}" target="_blank" class="msg-file" download><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>${escapeHtml(m.file_name || 'Файл')}</a>`;
+            else fileHtml = `<a href="javascript:void(0)" onclick="forceDownload('${m.file_url}', '${escapeHtml(m.file_name || 'file')}')" class="msg-file" download><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>${escapeHtml(m.file_name || 'Файл')}</a>`;
         }
 
         let reactionsHtml = '';
@@ -720,12 +741,29 @@
                     file_type: attachedFile ? attachedFile.file_type : null, 
                     file_name: attachedFile ? attachedFile.file_name : null,
                     reply_to_id: replyingTo
-                }, (response) => {
+                }, async (response) => {
+                    const tempEl = document.querySelector(`.msg[data-temp-id="${tempId}"]`);
+                    
+                    // ==== ФИКС: если сервер вернул ошибку — убираем "часики" и показываем тост ====
+                    if (response && response.error) {
+                        if (tempEl) tempEl.remove();
+                        showToast(response.error);
+                        return;
+                    }
+                    
                     if (response && response.msg) {
-                        const tempEl = document.querySelector(`.msg[data-temp-id="${tempId}"]`);
                         if (tempEl) tempEl.remove();
                         addMessageToDOM(response.msg, false);
-                        loadChats();
+                        
+                        // ==== ФИКС: если это был новый чат — сразу открываем его ====
+                        if (!activeChatId && response.msg.chat_id) {
+                            activeChatId = response.msg.chat_id;
+                            await loadChats();
+                            const newChat = chatsData.find(c => c.id === activeChatId);
+                            if (newChat) openChat(newChat.id, newChat.name, newChat.avatar, newChat.type, newChat.other_id, newChat.login, newChat.last_seen, newChat.avatar_frame, newChat.name_effect, newChat.other_last_read);
+                        } else {
+                            loadChats();
+                        }
                     }
                 });
 
@@ -736,14 +774,6 @@
                 filePreview.style.display = 'none';
                 replyPreview.style.display = 'none';
                 if (isTyping) { isTyping = false; clearTimeout(typingTimeout); socket.emit('typing', { chat_id: activeChatId, is_typing: false }); }
-                
-                if (!activeChatId) {
-                    setTimeout(async () => {
-                        await loadChats();
-                        const newChat = chatsData.find(c => c.other_id === activeOtherId);
-                        if (newChat) openChat(newChat.id, newChat.name, newChat.avatar, newChat.type, newChat.other_id, newChat.login, newChat.last_seen, newChat.avatar_frame, newChat.name_effect, newChat.other_last_read);
-                    }, 300); 
-                }
             }
         }
     });

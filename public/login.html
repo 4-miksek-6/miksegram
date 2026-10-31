@@ -21,7 +21,7 @@
         
         <div class="auth-field">
             <span class="prefix">@</span>
-            <input id="login" class="has-prefix" placeholder="login" autocomplete="username">
+            <input id="login" class="has-prefix" placeholder="login" autocomplete="username" autofocus>
         </div>
         
         <input id="password" type="password" placeholder="Пароль" autocomplete="current-password">
@@ -58,8 +58,11 @@
     initStars();
     initMagnetics();
 
-    // Если уже залогинен — сразу на главную
-    fetch('/api/me').then(r => r.json()).then(d => { if (d.ok) window.location.href = '/'; });
+    // Если уже залогинен — сразу на главную (с защитой от ошибки сети)
+    fetch('/api/me')
+        .then(r => r.json())
+        .then(d => { if (d.ok) window.location.href = '/'; })
+        .catch(() => { /* сеть недоступна — просто остаёмся на форме */ });
 
     async function doLogin() {
         const login = document.getElementById('login').value.trim();
@@ -92,7 +95,7 @@
                 document.getElementById('confirmName').textContent = data.user.display_name;
                 document.getElementById('confirmLogin').textContent = '@' + data.user.login;
             } else {
-                err.textContent = data.error;
+                err.textContent = data.error || 'Неверный логин или пароль';
             }
         } catch (e) {
             err.textContent = 'Ошибка сети. Проверь интернет.';
@@ -104,13 +107,17 @@
 
     document.getElementById('btn').addEventListener('click', doLogin);
     document.getElementById('password').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+    document.getElementById('login').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('password').focus(); });
+
+    // Сброс ошибки при вводе
+    document.getElementById('login').addEventListener('input', () => document.getElementById('error').textContent = '');
+    document.getElementById('password').addEventListener('input', () => document.getElementById('error').textContent = '');
 
     document.getElementById('confirmYes').addEventListener('click', () => {
         window.location.href = '/';
     });
 
     document.getElementById('confirmNo').addEventListener('click', () => {
-        // Возвращаемся на экран входа
         document.getElementById('confirmScreen').style.display = 'none';
         document.getElementById('loginScreen').style.display = 'block';
         document.getElementById('password').value = '';

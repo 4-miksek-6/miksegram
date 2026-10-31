@@ -36,7 +36,7 @@
                 <div class="avatar profile-avatar" id="profileAvatar" style="width: 80px; height: 80px; font-size: 32px; border: 3px solid rgba(255,255,255,0.2); box-shadow: 0 8px 24px rgba(0,0,0,0.5);">?</div>
                 <div style="text-shadow: 0 2px 8px rgba(0,0,0,0.8);">
                     <div class="profile-name" id="profileName" style="font-family: 'Unbounded'; font-size: 24px; font-weight: 700; color: #fff; margin: 0;">...</div>
-                    <div class="profile-login" id="profileLogin" style="font-size: 14px; color: rgba(255,255,255,0.7); margin-top: 2px;">@...</div>
+                    <div class="profile-login" id="profileLogin" style="font-size: 14px; color: rgba(255,255,255,0.7); margin-top: 2px; cursor: pointer;">@...</div>
                 </div>
             </div>
         </div>
@@ -59,12 +59,12 @@
 </div>
 
 <div class="modal-overlay" id="settingsModal">
-    <div class="modal">
-        <div class="modal-header">
+    <div class="modal" style="width: 95vw; max-width: 1100px; height: 90vh; padding: 0; overflow: hidden; display: flex; flex-direction: column;">
+        <div class="modal-header" style="padding: 16px 24px; border-bottom: 1px solid var(--border); margin: 0;">
             <h2 class="modal-title">Настройки</h2>
             <button class="icon-btn" id="closeSettings" title="Закрыть"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </div>
-        <div class="modal-body" id="settingsBody"></div>
+        <div class="modal-body" id="settingsBody" style="padding: 0; flex: 1; overflow: hidden;"></div>
     </div>
 </div>
 
@@ -76,26 +76,52 @@
 
     function renderProfile(u) {
         window.currentUser = u;
-        applyAvatarTo(document.getElementById('profileAvatar'), u.avatar, u.display_name);
-        document.getElementById('profileName').textContent = u.display_name;
+        applyAvatarTo(document.getElementById('profileAvatar'), u.avatar, u.display_name, u.avatar_frame);
+        const nameEl = document.getElementById('profileName');
+        nameEl.textContent = u.display_name;
+        applyNameEffect(nameEl, u.name_effect);
         document.getElementById('profileLogin').textContent = '@' + u.login;
         document.getElementById('profileBio').textContent = u.bio || 'Пока ничего не рассказал(а) о себе';
         applyBannerTo(document.getElementById('profileBanner'), u.banner);
     }
 
-    fetch('/api/me').then(r => r.json()).then(data => {
-        if (!data.ok) { window.location.href = '/login.html'; return; }
-        renderProfile(data);
+    fetch('/api/me')
+        .then(r => r.json())
+        .then(data => {
+            if (!data.ok) { window.location.href = '/login.html'; return; }
+            renderProfile(data);
+        })
+        .catch(() => {
+            showToast('Ошибка сети. Обнови страницу.');
+        });
+
+    window.onSettingsSaved = (u) => {
+        renderProfile(u);
+        if (typeof showToast === 'function') showToast('Профиль обновлён');
+    };
+
+    document.getElementById('backBtn').addEventListener('click', () => {
+        if (document.referrer && document.referrer.includes(location.host)) history.back();
+        else window.location.href = '/';
     });
 
-    window.onSettingsSaved = renderProfile;
-
-    document.getElementById('backBtn').addEventListener('click', () => window.location.href = '/');
     document.getElementById('editProfileBtn').addEventListener('click', openSettings);
     document.getElementById('openSettingsBtn').addEventListener('click', openSettings);
 
+    document.getElementById('profileLogin').addEventListener('click', () => {
+        if (window.currentUser) {
+            navigator.clipboard.writeText('@' + window.currentUser.login).then(() => {
+                showToast('Логин скопирован!');
+            });
+        }
+    });
+
     const settingsModal = document.getElementById('settingsModal');
-    function openSettings() { buildSettingsUI(); settingsModal.classList.add('open'); }
+    function openSettings() { 
+        if (typeof buildSettingsUI !== 'function') return showToast('Загрузка...');
+        buildSettingsUI(); 
+        settingsModal.classList.add('open'); 
+    }
     function closeSettings() { settingsModal.classList.remove('open'); }
     document.getElementById('closeSettings').addEventListener('click', closeSettings);
     settingsModal.addEventListener('click', e => { if (e.target === settingsModal) closeSettings(); });
