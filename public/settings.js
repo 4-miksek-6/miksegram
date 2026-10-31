@@ -73,14 +73,17 @@ function buildSettingsUI() {
 
     function renderTab(tabName) {
         const content = document.getElementById('settingsContent');
-        const previewCol = document.getElementById('settingsPreviewCol');
         const layout = document.getElementById('settingsLayout');
-        
         content.innerHTML = '';
 
+        // Управляем колонками (3 колонки для профиля, 2 для остальных)
         if (tabName === 'profile') {
-            layout.style.gridTemplateColumns = '220px 1fr 400px'; // 3 колонки
-            previewCol.style.display = 'flex';
+            layout.classList.remove('no-preview');
+        } else {
+            layout.classList.add('no-preview');
+        }
+
+        if (tabName === 'profile') {
             updatePreview();
 
             let frameColor = '#00d4ff';
@@ -309,13 +312,10 @@ function buildSettingsUI() {
         }
 
         if (tabName === 'appearance') {
-            layout.style.gridTemplateColumns = '220px 1fr'; // 2 колонки (без превью)
-            previewCol.style.display = 'none';
-
             content.innerHTML = `
                 <div class="settings-section">
                     <div class="settings-label" style="margin-bottom: 16px;">Цветовой акцент</div>
-                    <div class="accent-grid" id="accentGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 16px;"></div>
+                    <div class="accent-grid" id="accentGrid"></div>
                 </div>
                 <div class="settings-section" style="margin-top:32px;">
                     <div class="settings-label" style="margin-bottom: 16px;">Фон и Анимации</div>
@@ -347,38 +347,22 @@ function buildSettingsUI() {
             const accentGrid = document.getElementById('accentGrid');
             ACCENTS.forEach(a => {
                 const btn = document.createElement('button');
-                // Делаем квадратные плашки с градиентом
+                btn.className = 'accent-btn';
                 btn.style.background = `linear-gradient(135deg, ${a.color}40, ${a.color})`;
-                btn.style.border = '2px solid transparent';
-                btn.style.borderRadius = '12px';
-                btn.style.height = '50px';
-                btn.style.cursor = 'pointer';
-                btn.style.transition = 'all 0.2s';
-                btn.style.color = '#fff';
-                btn.style.fontWeight = 'bold';
-                btn.style.fontSize = '12px';
+                btn.style.color = a.color; // Устанавливаем цвет свечения
                 btn.textContent = a.label;
-                btn.title = a.label;
                 
                 if ((document.body.dataset.accent || 'default') === a.key) {
-                    btn.style.borderColor = '#fff';
-                    btn.style.boxShadow = `0 0 15px ${a.color}`;
+                    btn.classList.add('active');
                 }
-
-                btn.addEventListener('mouseenter', () => btn.style.transform = 'translateY(-3px)');
-                btn.addEventListener('mouseleave', () => btn.style.transform = 'translateY(0)');
 
                 btn.addEventListener('click', () => {
                     if (a.key === 'default') delete document.body.dataset.accent;
                     else document.body.dataset.accent = a.key;
                     localStorage.setItem('accent', a.key);
                     
-                    document.querySelectorAll('#accentGrid button').forEach(x => {
-                        x.style.borderColor = 'transparent';
-                        x.style.boxShadow = 'none';
-                    });
-                    btn.style.borderColor = '#fff';
-                    btn.style.boxShadow = `0 0 15px ${a.color}`;
+                    document.querySelectorAll('#accentGrid .accent-btn').forEach(x => x.classList.remove('active'));
+                    btn.classList.add('active');
                     showToast('Акцент: ' + a.label);
                 });
                 accentGrid.appendChild(btn);
@@ -395,8 +379,6 @@ function buildSettingsUI() {
         }
 
         if (tabName === 'notifications') {
-            layout.style.gridTemplateColumns = '220px 1fr';
-            previewCol.style.display = 'none';
             content.innerHTML = `
                 <div class="settings-section">
                     <div class="settings-label">Уведомления</div>
@@ -409,8 +391,6 @@ function buildSettingsUI() {
         }
 
         if (tabName === 'security') {
-            layout.style.gridTemplateColumns = '220px 1fr';
-            previewCol.style.display = 'none';
             content.innerHTML = `
                 <div class="settings-section">
                     <div class="settings-label">Смена пароля</div>
@@ -441,8 +421,6 @@ function buildSettingsUI() {
         }
 
         if (tabName === 'account') {
-            layout.style.gridTemplateColumns = '220px 1fr';
-            previewCol.style.display = 'none';
             content.innerHTML = `
                 <div class="settings-section">
                     <div class="settings-label">Аккаунт</div>
