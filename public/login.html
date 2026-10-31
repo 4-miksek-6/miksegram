@@ -7,41 +7,100 @@
     <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-<div class="auth-wrap">
-    <div class="auth-card">
-        <h1>Miksegram</h1>
-        <form onsubmit="event.preventDefault(); doLogin();">
-            <div class="auth-field">
-                <span class="prefix">@</span>
-                <input id="login" name="login" class="has-prefix" placeholder="login" autocomplete="username">
-            </div>
-            <input id="password" name="password" type="password" placeholder="Пароль" autocomplete="current-password">
-            <button type="button" id="btn">Войти</button>
-        </form>
-        <div id="error" class="auth-error"></div>
-        <div class="auth-link" style="position:relative; z-index:10;">Нет аккаунта? <a href="/register.html" style="color:var(--accent); text-decoration:underline;">Зарегистрироваться</a></div>
+<div class="bg-layer"></div>
+<div class="bg-blobs"><div class="blob blob-1"></div><div class="blob blob-2"></div><div class="blob blob-3"></div><div class="blob blob-4"></div><div class="blob blob-5"></div></div>
+<div class="bg-grid"></div>
+<div class="stars" id="stars"></div>
+<div class="grain"></div>
+
+<div class="auth-wrap" style="flex-direction:column;">
+    <div class="auth-card" id="loginScreen">
+        <h1>С возвращением!</h1>
+        <p style="text-align:center; color:var(--text-dim); font-size:13px; margin-bottom:20px;">Мы рады видеть тебя снова</p>
+        
+        <div class="auth-field">
+            <span class="prefix">@</span>
+            <input id="login" class="has-prefix" placeholder="login" autocomplete="username">
+        </div>
+        
+        <input id="password" type="password" placeholder="Пароль" autocomplete="current-password">
+        
+        <button type="button" id="btn">Войти</button>
+        <div id="error" class="auth-error" style="font-weight:600;"></div>
+        
+        <div class="auth-link" style="margin-bottom:24px;">Нет аккаунта? <a href="/register.html">Зарегистрироваться</a></div>
+        
+        <div style="display:flex; justify-content:space-between; border-top:1px solid var(--border); padding-top:16px;">
+            <a href="#" style="color:var(--text-mute); font-size:12px; text-decoration:none;">О мессенджере</a>
+            <a href="#" style="color:var(--text-mute); font-size:12px; text-decoration:none;">Поддержка</a>
+        </div>
+    </div>
+
+    <div class="auth-card" id="confirmScreen" style="display:none; text-align:center;">
+        <h1>Это вы?</h1>
+        <div style="display:flex; flex-direction:column; align-items:center; margin: 24px 0;">
+            <div class="avatar" id="confirmAvatar" style="width:80px; height:80px; font-size:32px; margin-bottom:12px;">?</div>
+            <div style="font-family:'Unbounded'; font-size:20px; font-weight:700;" id="confirmName">...</div>
+            <div style="color:var(--text-dim); font-size:14px;" id="confirmLogin">@...</div>
+        </div>
+        
+        <button type="button" class="primary-btn" id="confirmYes" style="width:100%; margin-bottom:10px;">Да, это я</button>
+        <button type="button" class="secondary-btn" id="confirmNo" style="width:100%;">Нет, это не я</button>
     </div>
 </div>
+
 <script src="/common.js"></script>
 <script>
+    initStars();
+    initMagnetics();
+
+    let pendingUser = null;
+
     fetch('/api/me').then(r => r.json()).then(d => { if (d.ok) window.location.href = '/'; });
-    
+
     async function doLogin() {
         const login = document.getElementById('login').value.trim();
         const password = document.getElementById('password').value;
         const err = document.getElementById('error');
         err.textContent = '';
+        
+        if (!login || !password) {
+            err.textContent = 'Заполни логин и пароль';
+            return;
+        }
+
         const res = await fetch('/api/login', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ login, password })
         });
         const data = await res.json();
-        if (data.ok) window.location.href = '/';
-        else err.textContent = data.error;
+        
+        if (data.ok) {
+            pendingUser = data.user;
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('confirmScreen').style.display = 'block';
+            
+            applyAvatarTo(document.getElementById('confirmAvatar'), data.user.avatar, data.user.display_name);
+            document.getElementById('confirmName').textContent = data.user.display_name;
+            document.getElementById('confirmLogin').textContent = '@' + data.user.login;
+        } else {
+            err.textContent = data.error;
+        }
     }
-    
+
     document.getElementById('btn').addEventListener('click', doLogin);
     document.getElementById('password').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+    document.getElementById('confirmYes').addEventListener('click', () => {
+        window.location.href = '/';
+    });
+
+    document.getElementById('confirmNo').addEventListener('click', () => {
+        document.getElementById('confirmScreen').style.display = 'none';
+        document.getElementById('loginScreen').style.display = 'block';
+        document.getElementById('password').value = '';
+        document.getElementById('error').textContent = '';
+    });
 </script>
 </body>
 </html>

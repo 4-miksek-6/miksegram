@@ -7,40 +7,68 @@
     <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-<div class="auth-wrap">
+<div class="bg-layer"></div>
+<div class="bg-blobs"><div class="blob blob-1"></div><div class="blob blob-2"></div><div class="blob blob-3"></div><div class="blob blob-4"></div><div class="blob blob-5"></div></div>
+<div class="bg-grid"></div>
+<div class="stars" id="stars"></div>
+<div class="grain"></div>
+
+<div class="auth-wrap" style="flex-direction:column;">
     <div class="auth-card">
-        <h1>Miksegram</h1>
-        <form onsubmit="event.preventDefault(); doRegister();">
-            <div class="auth-field">
-                <span class="prefix">@</span>
-                <input id="login" name="login" class="has-prefix" placeholder="login" autocomplete="username">
-            </div>
-            <div class="auth-hint">Уникальный логин: a-z, 0-9, _ (3-32 символа)</div>
-            <input id="display_name" name="display_name" placeholder="Отображаемое имя" autocomplete="nickname">
-            <input id="password" name="password" type="password" placeholder="Пароль (мин. 4 символа)" autocomplete="new-password">
-            <button type="button" id="btn">Создать аккаунт</button>
-        </form>
-        <div id="error" class="auth-error"></div>
-        <div class="auth-link" style="position:relative; z-index:10;">Уже есть аккаунт? <a href="/login.html" style="color:var(--accent); text-decoration:underline;">Войти</a></div>
+        <h1>Привет!</h1>
+        <p style="text-align:center; color:var(--text-dim); font-size:13px; margin-bottom:20px;">Создай свой аккаунт в Miksegram</p>
+        
+        <div class="auth-field">
+            <span class="prefix">@</span>
+            <input id="login" class="has-prefix" placeholder="login" autocomplete="username">
+        </div>
+        <div class="auth-hint" style="text-align:center; margin-top:-5px; margin-bottom:10px;">Уникальный логин: a-z, 0-9, _ (3-32 символа)</div>
+
+        <input id="display_name" placeholder="Отображаемое имя" autocomplete="nickname">
+        <input id="password" type="password" placeholder="Пароль (мин. 4 символа)" autocomplete="new-password">
+        
+        <button type="button" id="btn">Создать аккаунт</button>
+        <div id="error" class="auth-error" style="font-weight:600;"></div>
+        
+        <div class="auth-link" style="margin-bottom:24px;">Уже есть аккаунт? <a href="/login.html">Войти</a></div>
+        
+        <div style="display:flex; justify-content:space-between; border-top:1px solid var(--border); padding-top:16px;">
+            <a href="#" style="color:var(--text-mute); font-size:12px; text-decoration:none;">О мессенджере</a>
+            <a href="#" style="color:var(--text-mute); font-size:12px; text-decoration:none;">Поддержка</a>
+        </div>
     </div>
 </div>
+
 <script src="/common.js"></script>
 <script>
+    initStars();
+    initMagnetics();
+
     async function doRegister() {
         const login = document.getElementById('login').value.trim();
         const display_name = document.getElementById('display_name').value.trim();
         const password = document.getElementById('password').value;
         const err = document.getElementById('error');
         err.textContent = '';
+        
+        if (!login || !display_name || !password) {
+            err.textContent = 'Заполни все поля';
+            return;
+        }
+
         const res = await fetch('/api/register', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ login, display_name, password })
         });
         const data = await res.json();
-        if (data.ok) window.location.href = '/';
-        else err.textContent = data.error;
+        
+        if (data.ok) {
+            window.location.href = '/';
+        } else {
+            err.textContent = data.error;
+        }
     }
-    
+
     document.getElementById('btn').addEventListener('click', doRegister);
     document.getElementById('password').addEventListener('keydown', e => { if (e.key === 'Enter') doRegister(); });
 </script>

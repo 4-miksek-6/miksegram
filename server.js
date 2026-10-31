@@ -13,16 +13,13 @@ const { createClient } = require('@libsql/client');
 const { createClient: createSupabase } = require('@supabase/supabase-js');
 const SQLiteStore = require('connect-sqlite3')(session);
 
-// Подключение к Turso (База данных)
 const db = createClient({
   url: 'libsql://miksegram-miksek.aws-ap-northeast-1.turso.io',
   authToken: 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3OTMzODMzODUsImlkIjoiMDFhMThkZGQtYjcwMS03YTg5LWIxMGEtMjk1MTkxNWVmY2Q2Iiwia2lkIjoiMDY0M3BHaVkteXR5X0t2OC1HbVY5Y2Nlb0RyTVYyVUlnZVRtU2Y5MXQtcyIsInJpZCI6IjgzM2JlNTQyLWViZjEtNGVhZC05MTQ3LTFkY2VhNDYzYmZjNCJ9.GSH-xuW9awXLGLOjssUuqDoXuoouiydQgBL7oc2BkEwRJVpABbEO-2jHW9JFLHDJ5Of_nXGtBApz7uY19k7BDQ'
 });
 
-// Подключение к Supabase (Хранилище файлов)
 const supabase = createSupabase('https://tvmypcjwrlwiorpmugpb.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2bXlwY2p3cmx3aW9ycG11Z3BiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MzQwODQwOSwiZXhwIjoyMTA4OTg0NDA5fQ.1ChmymKXpkweU7PImFwAfFYY4ufSx525Fotjn4FRtSw');
 
-// Инициализация таблиц
 async function initDb() {
   await db.execute(`CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, login TEXT UNIQUE NOT NULL, display_name TEXT NOT NULL, password TEXT NOT NULL, bio TEXT DEFAULT '', avatar TEXT DEFAULT 'grad-emerald', banner TEXT DEFAULT 'ban-aurora', last_seen TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')), created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')));`);
   await db.execute(`CREATE TABLE IF NOT EXISTS chats (id INTEGER PRIMARY KEY AUTOINCREMENT, type TEXT NOT NULL, name TEXT, avatar TEXT DEFAULT 'grad-aurora', created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')));`);
@@ -53,33 +50,47 @@ app.post('/api/register', async (req, res) => {
     if (!login || !display_name || !password) return res.json({ ok: false, error: 'Заполни все поля' });
     login = login.trim().toLowerCase().replace(/^@/, '');
     display_name = display_name.trim();
-    if (!/^[a-z0-9_]{3,32}$/.test(login)) return res.json({ ok: false, error: 'Логин: 3-32' });
-    if (display_name.length < 1 || display_name.length > 40) return res.json({ ok: false, error: 'Имя: 1-40' });
-    if (password.length < 4) return res.json({ ok: false, error: 'Пароль: мин. 4' });
+    
+    if (!/^[a-z0-9_]{3,32}$/.test(login)) return res.json({ ok: false, error: 'Логин: 3-32 символа, только a-z, 0-9, _' });
+    if (display_name.length < 1 || display_name.length > 40) return res.json({ ok: false, error: 'Имя: от 1 до 40 символов' });
+    if (password.length < 4) return res.json({ ok: false, error: 'Пароль: минимум 4 символа' });
     
     const existing = await db.execute({ sql: 'SELECT id FROM users WHERE login = ?', args: [login] });
-    if (existing.rows.length > 0) return res.json({ ok: false, error: 'Логин занят' });
+    if (existing.rows.length > 0) return res.json({ ok: false, error: 'Этот логин уже занят' });
     
     const hash = bcrypt.hashSync(password, 10);
     const info = await db.execute({ sql: 'INSERT INTO users (login, display_name, password) VALUES (?, ?, ?)', args: [login, display_name, hash] });
+    
     req.session.userId = Number(info.lastInsertRowid);
     res.json({ ok: true });
-  } catch (e) { console.error(e); res.json({ ok: false, error: 'Ошибка сервера' }); }
+  } catch (e) { 
+    console.error(e); 
+    res.json({ ok: false, error: 'Ошибка сервера при регистрации' }); 
+  }
 });
 
 app.post('/api/login', async (req, res) => {
   try {
     let { login, password } = req.body;
     login = (login || '').trim().toLowerCase().replace(/^@/, '');
+    if (!login || !password) return res.json({ ok: false, error: 'Введите логин и пароль' });
+    
     const userRes = await db.execute({ sql: 'SELECT * FROM users WHERE login = ?', args: [login] });
     const user = userRes.rows[0];
     
-    if (!user || !bcrypt.compareSync(password, user.password)) return res.json({ ok: false, error: 'Неверный логин или пароль' });
+    if (!user) return res.json({ ok: false, error: 'Пользователь с таким логином не найден' });
+    
+    const isMatch = bcrypt.compareSync(password, user.password);
+    if (!isMatch) return res.json({ ok: false, error: 'Неверный пароль' });
     
     req.session.userId = user.id;
     await db.execute({ sql: 'UPDATE users SET last_seen = ? WHERE id = ?', args: [new Date().toISOString(), user.id] });
-    res.json({ ok: true });
-  } catch (e) { res.json({ ok: false, error: 'Ошибка сервера' }); }
+    
+    res.json({ ok: true, user: { id: user.id, login: user.login, display_name: user.display_name, avatar: user.avatar } });
+  } catch (e) { 
+    console.error(e); 
+    res.json({ ok: false, error: 'Ошибка сервера при входе' }); 
+  }
 });
 
 app.post('/api/logout', async (req, res) => {
@@ -168,6 +179,7 @@ app.get('/api/chats', async (req, res) => {
 
   res.json({ ok: true, chats: result });
 });
+
 app.get('/api/search-user', async (req, res) => {
   if (!req.session.userId) return res.json({ ok: false });
   const q = (req.query.q || '').trim().toLowerCase().replace(/^@/, '');
@@ -307,13 +319,7 @@ app.post('/api/upload', (req, res) => {
       const fileExt = path.extname(req.file.originalname);
       const fileName = Date.now() + '-' + Math.round(Math.random() * 1E9) + fileExt;
       
-      const { data, error } = await supabase.storage
-        .from('uploads')
-        .upload(fileName, req.file.buffer, {
-          contentType: req.file.mimetype,
-          upsert: false
-        });
-
+      const { data, error } = await supabase.storage.from('uploads').upload(fileName, req.file.buffer, { contentType: req.file.mimetype, upsert: false });
       if (error) throw error;
 
       const { data: publicUrlData } = supabase.storage.from('uploads').getPublicUrl(fileName);
@@ -337,13 +343,22 @@ app.post('/api/messages/:id/delete', async (req, res) => {
   const myId = req.session.userId;
   const msgRes = await db.execute({ sql: 'SELECT * FROM messages WHERE id = ?', args: [msgId] });
   if (msgRes.rows.length === 0 || msgRes.rows[0].sender_id !== myId) return res.json({ ok: false });
+  const msg = msgRes.rows[0];
+  
+  // Удаление файла из Supabase (если он есть)
+  if (msg.file_url && msg.file_url.includes('supabase.co')) {
+    try {
+      const fileName = msg.file_url.split('/').pop();
+      await supabase.storage.from('uploads').remove([fileName]);
+    } catch (e) { console.error('Ошибка удаления файла из Supabase:', e); }
+  }
   
   await db.execute({ sql: 'DELETE FROM reactions WHERE message_id = ?', args: [msgId] });
   await db.execute({ sql: 'DELETE FROM messages WHERE id = ?', args: [msgId] });
   
-  const members = await db.execute({ sql: 'SELECT user_id FROM chat_members WHERE chat_id = ?', args: [msgRes.rows[0].chat_id] });
+  const members = await db.execute({ sql: 'SELECT user_id FROM chat_members WHERE chat_id = ?', args: [msg.chat_id] });
   members.rows.forEach(m => {
-    io.to('user_' + m.user_id).emit('message_deleted', { id: msgId, chat_id: msgRes.rows[0].chat_id });
+    io.to('user_' + m.user_id).emit('message_deleted', { id: msgId, chat_id: msg.chat_id });
     io.to('user_' + m.user_id).emit('update_chats');
   });
   res.json({ ok: true });
