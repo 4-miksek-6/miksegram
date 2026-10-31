@@ -22,19 +22,7 @@ const supabase = createSupabase('https://tvmypcjwrlwiorpmugpb.supabase.co', 'eyJ
 
 async function initDb() {
   try {
-    await db.execute(`CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      login TEXT UNIQUE NOT NULL,
-      display_name TEXT NOT NULL,
-      password TEXT NOT NULL,
-      bio TEXT DEFAULT '',
-      avatar TEXT DEFAULT 'grad-emerald',
-      banner TEXT DEFAULT 'ban-aurora',
-      avatar_frame TEXT DEFAULT 'none',
-      name_effect TEXT DEFAULT 'none',
-      last_seen TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-      created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-    );`);
+    await db.execute(`CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, login TEXT UNIQUE NOT NULL, display_name TEXT NOT NULL, password TEXT NOT NULL, bio TEXT DEFAULT '', avatar TEXT DEFAULT 'grad-emerald', banner TEXT DEFAULT 'ban-aurora', avatar_frame TEXT DEFAULT 'none', name_effect TEXT DEFAULT 'none', last_seen TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')), created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')));`);
     await db.execute(`CREATE TABLE IF NOT EXISTS chats (id INTEGER PRIMARY KEY AUTOINCREMENT, type TEXT NOT NULL, name TEXT, avatar TEXT DEFAULT 'grad-aurora', created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')));`);
     await db.execute(`CREATE TABLE IF NOT EXISTS chat_members (chat_id INTEGER NOT NULL, user_id INTEGER NOT NULL, hidden INTEGER DEFAULT 0, last_read_msg_id INTEGER DEFAULT 0, PRIMARY KEY (chat_id, user_id));`);
     await db.execute(`CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, chat_id INTEGER NOT NULL, sender_id INTEGER NOT NULL, text TEXT NOT NULL, file_url TEXT, file_type TEXT, file_name TEXT, reply_to_id INTEGER, created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')));`);
@@ -106,6 +94,7 @@ app.post('/api/login', async (req, res) => {
     res.json({ ok: false, error: 'Ошибка сервера при входе' }); 
   }
 });
+
 app.post('/api/logout', async (req, res) => {
   if (req.session.userId) await db.execute({ sql: 'UPDATE users SET last_seen = ? WHERE id = ?', args: [new Date().toISOString(), req.session.userId] });
   req.session.destroy(() => res.json({ ok: true }));
@@ -130,6 +119,43 @@ app.post('/api/change-password', async (req, res) => {
   
   await db.execute({ sql: 'UPDATE users SET password = ? WHERE id = ?', args: [bcrypt.hashSync(new_password, 10), req.session.userId] });
   res.json({ ok: true });
+});
+
+// НОВЫЙ ЭНДПОИНТ: УДАЛЕНИЕ АККАУНТА
+app.post('/api/delete-account', async (req, res) => {
+  if (!req.session.userId) return res.json({ ok: false });
+  const { password } = req.body;
+  if (!password) return res.json({ ok: false, error: 'Введите пароль для подтверждения' });
+
+  try {
+    const userRes = await db.execute({ sql: 'SELECT * FROM users WHERE id = ?', args: [req.session.userId] });
+    const user = userRes.rows[0];
+    if (!user || !bcrypt.compareSync(password, user.password)) {
+      return res.json({ ok: false, error: 'Неверный пароль' });
+    }
+
+    const myId = req.session.userId;
+
+    // Удаляем данные пользователя
+    await db.execute({ sql: 'DELETE FROM reactions WHERE user_id = ?', args: [myId] });
+    await db.execute({ sql: 'DELETE FROM messages WHERE sender_id = ?', args: [myId] });
+    await db.execute({ sql: 'DELETE FROM chat_members WHERE user_id = ?', args: [myId] });
+    await db.execute({ sql: 'DELETE FROM users WHERE id = ?', args: [myId] });
+
+    // Очищаем пустые чаты
+    const emptyChats = await db.execute({ sql: 'SELECT c.id FROM chats c LEFT JOIN chat_members cm ON c.id = cm.chat_id WHERE cm.chat_id IS NULL', args: [] });
+    for (const c of emptyChats.rows) {
+      await db.execute({ sql: 'DELETE FROM chats WHERE id = ?', args: [c.id] });
+      await db.execute({ sql: 'DELETE FROM messages WHERE chat_id = ?', args: [c.id] });
+    }
+
+    io.emit('update_chats'); // Обновляем списки чатов у всех
+    req.session.destroy();
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Ошибка при удалении аккаунта:', e);
+    res.json({ ok: false, error: 'Ошибка сервера при удалении' });
+  }
 });
 
 app.post('/api/update-profile', async (req, res) => {
@@ -274,60 +300,9 @@ app.post('/api/chats/:id/delete', async (req, res) => {
   res.json({ ok: true });
 });
 
-app.get('/api/messages/:chatId', async (req, res) => {
-  if (!req.session.userId) return res.json({ ok: false });
-  const myId = req.session.userId;
-  const chatId = parseInt(req.params.chatId);
-  
-  try {
-    const member = await db.execute({ sql: 'SELECT * FROM chat_members WHERE chat_id = ? AND user_id = ?', args: [chatId, myId] });
-    if (member.rows.length === 0) return res.json({ ok: false });
-
-    // 1. Получаем все сообщения
-    const rawMsgs = await db.execute({
-      sql: `SELECT m.*, u.display_name as sender_name, u.avatar as sender_avatar, u.avatar_frame, u.name_effect 
-            FROM messages m JOIN users u ON m.sender_id = u.id WHERE m.chat_id = ? ORDER BY m.id ASC`,
-      args: [chatId]
-    });
-
-    // 2. Получаем ВСЕ реакции для этого чата ОДНИМ запросом
-    const allReactions = await db.execute({
-      sql: `SELECT r.message_id, r.emoji, COUNT(*) as count, GROUP_CONCAT(r.user_id) as users 
-            FROM reactions r JOIN messages m ON r.message_id = m.id 
-            WHERE m.chat_id = ? GROUP BY r.message_id, r.emoji`,
-      args: [chatId]
-    });
-
-    // 3. Получаем статус прочтения для всех участников
-    const allReads = await db.execute({
-      sql: `SELECT user_id, last_read_msg_id FROM chat_members WHERE chat_id = ? AND user_id != ?`,
-      args: [chatId, myId]
-    });
-
-    // Собираем всё вместе в памяти (это работает мгновенно)
-    const msgs = rawMsgs.rows.map(m => {
-      m.reactions = allReactions.rows.filter(r => r.message_id === m.id);
-      m.read_by = allReads.rows.filter(r => r.last_read_msg_id >= m.id).map(r => r.user_id);
-      return m;
-    });
-
-    const lastId = msgs.length ? msgs[msgs.length - 1].id : 0;
-    if (lastId > 0) {
-      await db.execute({ sql: `INSERT INTO read_status (chat_id, user_id, last_read_id) VALUES (?, ?, ?) ON CONFLICT(chat_id, user_id) DO UPDATE SET last_read_id = excluded.last_read_id`, args: [chatId, myId, lastId] });
-      await db.execute({ sql: 'UPDATE chat_members SET last_read_msg_id = ? WHERE chat_id = ? AND user_id = ?', args: [lastId, chatId, myId] });
-      io.to('user_' + myId).emit('chats_read_update', { chat_id: chatId, last_read: lastId });
-    }
-
-    res.json({ ok: true, messages: msgs });
-  } catch (error) {
-    console.error('Ошибка загрузки истории:', error);
-    res.json({ ok: false, messages: [] });
-  }
-});
 async function getMsgWithDetails(msgId) {
   const msgRes = await db.execute({
-    sql: `SELECT m.id, m.chat_id, m.sender_id, m.text, m.file_url, m.file_type, m.file_name, m.reply_to_id, m.created_at, 
-           u.display_name as sender_name, u.avatar as sender_avatar, u.avatar_frame, u.name_effect FROM messages m JOIN users u ON m.sender_id = u.id WHERE m.id = ?`,
+    sql: `SELECT m.id, m.chat_id, m.sender_id, m.text, m.file_url, m.file_type, m.file_name, m.reply_to_id, m.created_at, u.display_name as sender_name, u.avatar as sender_avatar, u.avatar_frame, u.name_effect FROM messages m JOIN users u ON m.sender_id = u.id WHERE m.id = ?`,
     args: [msgId]
   });
   if (msgRes.rows.length === 0) return null;
@@ -352,6 +327,53 @@ async function getMsgWithDetails(msgId) {
   
   return msg;
 }
+
+app.get('/api/messages/:chatId', async (req, res) => {
+  if (!req.session.userId) return res.json({ ok: false });
+  const myId = req.session.userId;
+  const chatId = parseInt(req.params.chatId);
+  
+  try {
+    const member = await db.execute({ sql: 'SELECT * FROM chat_members WHERE chat_id = ? AND user_id = ?', args: [chatId, myId] });
+    if (member.rows.length === 0) return res.json({ ok: false });
+
+    const rawMsgs = await db.execute({
+      sql: `SELECT m.*, u.display_name as sender_name, u.avatar as sender_avatar, u.avatar_frame, u.name_effect 
+            FROM messages m JOIN users u ON m.sender_id = u.id WHERE m.chat_id = ? ORDER BY m.id ASC`,
+      args: [chatId]
+    });
+
+    const allReactions = await db.execute({
+      sql: `SELECT r.message_id, r.emoji, COUNT(*) as count, GROUP_CONCAT(r.user_id) as users 
+            FROM reactions r JOIN messages m ON r.message_id = m.id 
+            WHERE m.chat_id = ? GROUP BY r.message_id, r.emoji`,
+      args: [chatId]
+    });
+
+    const allReads = await db.execute({
+      sql: `SELECT user_id, last_read_msg_id FROM chat_members WHERE chat_id = ? AND user_id != ?`,
+      args: [chatId, myId]
+    });
+
+    const msgs = rawMsgs.rows.map(m => {
+      m.reactions = allReactions.rows.filter(r => r.message_id === m.id);
+      m.read_by = allReads.rows.filter(r => r.last_read_msg_id >= m.id).map(r => r.user_id);
+      return m;
+    });
+
+    const lastId = msgs.length ? msgs[msgs.length - 1].id : 0;
+    if (lastId > 0) {
+      await db.execute({ sql: `INSERT INTO read_status (chat_id, user_id, last_read_id) VALUES (?, ?, ?) ON CONFLICT(chat_id, user_id) DO UPDATE SET last_read_id = excluded.last_read_id`, args: [chatId, myId, lastId] });
+      await db.execute({ sql: 'UPDATE chat_members SET last_read_msg_id = ? WHERE chat_id = ? AND user_id = ?', args: [lastId, chatId, myId] });
+      io.to('user_' + myId).emit('chats_read_update', { chat_id: chatId, last_read: lastId });
+    }
+
+    res.json({ ok: true, messages: msgs });
+  } catch (error) {
+    console.error('Ошибка загрузки истории:', error);
+    res.json({ ok: false, messages: [] });
+  }
+});
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } });
