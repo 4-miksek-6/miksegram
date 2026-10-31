@@ -24,7 +24,7 @@ function buildSettingsUI() {
     const u = window.currentUser;
 
     body.innerHTML = `
-        <div class="settings-layout">
+        <div class="settings-layout" id="settingsLayout">
             <div class="settings-sidebar">
                 <div class="settings-tab active" data-tab="profile">Профиль</div>
                 <div class="settings-tab" data-tab="appearance">Оформление</div>
@@ -74,9 +74,12 @@ function buildSettingsUI() {
     function renderTab(tabName) {
         const content = document.getElementById('settingsContent');
         const previewCol = document.getElementById('settingsPreviewCol');
+        const layout = document.getElementById('settingsLayout');
+        
         content.innerHTML = '';
 
         if (tabName === 'profile') {
+            layout.style.gridTemplateColumns = '220px 1fr 400px'; // 3 колонки
             previewCol.style.display = 'flex';
             updatePreview();
 
@@ -165,13 +168,12 @@ function buildSettingsUI() {
                     if (data.ok) { 
                         Object.assign(u, data.user); 
                         updatePreview(); 
-                        renderTab('profile'); // Обновляем превью
+                        renderTab('profile');
                     }
                 });
                 framePicker.appendChild(d);
             });
 
-            // Изменение цвета рамки
             document.getElementById('frameColorPicker').addEventListener('change', async (e) => {
                 frameColor = e.target.value;
                 if (currentFrame === 'glow' || currentFrame === 'dashed') {
@@ -216,7 +218,6 @@ function buildSettingsUI() {
                 effectPicker.appendChild(d);
             });
 
-            // Изменение цвета имени
             document.getElementById('nameColorPicker').addEventListener('change', async (e) => {
                 nameColor = e.target.value;
                 if (currentEffect === 'glow' || currentEffect === 'duo') {
@@ -230,7 +231,6 @@ function buildSettingsUI() {
                 }
             });
 
-            // Автосохранение текста
             document.getElementById('settingsNameInput').addEventListener('change', async (e) => {
                 const val = e.target.value.trim();
                 if (!val) return showToast('Имя не может быть пустым');
@@ -244,7 +244,6 @@ function buildSettingsUI() {
                 if (data.ok) { Object.assign(u, data.user); updatePreview(); }
             });
 
-            // Кроппер
             document.getElementById('uploadAvatarBtn').addEventListener('click', () => document.getElementById('avatarFile').click());
             document.getElementById('uploadBannerBtn').addEventListener('click', () => document.getElementById('bannerFile').click());
 
@@ -310,20 +309,37 @@ function buildSettingsUI() {
         }
 
         if (tabName === 'appearance') {
+            layout.style.gridTemplateColumns = '220px 1fr'; // 2 колонки (без превью)
             previewCol.style.display = 'none';
+
             content.innerHTML = `
                 <div class="settings-section">
-                    <div class="settings-label">Цветовой акцент</div>
-                    <div class="color-row" id="accentGrid"></div>
+                    <div class="settings-label" style="margin-bottom: 16px;">Цветовой акцент</div>
+                    <div class="accent-grid" id="accentGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 16px;"></div>
                 </div>
-                <div class="settings-section" style="margin-top:16px;">
-                    <div class="settings-label">Фон и Анимации</div>
+                <div class="settings-section" style="margin-top:32px;">
+                    <div class="settings-label" style="margin-bottom: 16px;">Фон и Анимации</div>
                     <div class="toggle-list">
-                        <label class="toggle-row"><span>Живые пятна</span><input type="checkbox" data-toggle="bg-blobs"><span class="toggle-switch"></span></label>
-                        <label class="toggle-row"><span>Звёзды</span><input type="checkbox" data-toggle="bg-stars"><span class="toggle-switch"></span></label>
-                        <label class="toggle-row"><span>Сетка</span><input type="checkbox" data-toggle="bg-grid"><span class="toggle-switch"></span></label>
-                        <label class="toggle-row"><span>Зернистость</span><input type="checkbox" data-toggle="bg-grain"><span class="toggle-switch"></span></label>
-                        <label class="toggle-row"><span>Магнитные кнопки</span><input type="checkbox" data-toggle="anim"><span class="toggle-switch"></span></label>
+                        <label class="toggle-row">
+                            <span><span style="margin-right:10px; font-size:16px;">🌫️</span> Живые пятна</span>
+                            <input type="checkbox" data-toggle="bg-blobs"><span class="toggle-switch"></span>
+                        </label>
+                        <label class="toggle-row">
+                            <span><span style="margin-right:10px; font-size:16px;">✨</span> Звёзды</span>
+                            <input type="checkbox" data-toggle="bg-stars"><span class="toggle-switch"></span>
+                        </label>
+                        <label class="toggle-row">
+                            <span><span style="margin-right:10px; font-size:16px;">🕸️</span> Сетка</span>
+                            <input type="checkbox" data-toggle="bg-grid"><span class="toggle-switch"></span>
+                        </label>
+                        <label class="toggle-row">
+                            <span><span style="margin-right:10px; font-size:16px;">🎞️</span> Зернистость</span>
+                            <input type="checkbox" data-toggle="bg-grain"><span class="toggle-switch"></span>
+                        </label>
+                        <label class="toggle-row">
+                            <span><span style="margin-right:10px; font-size:16px;">🧲</span> Магнитные кнопки</span>
+                            <input type="checkbox" data-toggle="anim"><span class="toggle-switch"></span>
+                        </label>
                     </div>
                 </div>
             `;
@@ -331,16 +347,38 @@ function buildSettingsUI() {
             const accentGrid = document.getElementById('accentGrid');
             ACCENTS.forEach(a => {
                 const btn = document.createElement('button');
-                btn.className = 'color-circle';
-                btn.style.background = a.color;
+                // Делаем квадратные плашки с градиентом
+                btn.style.background = `linear-gradient(135deg, ${a.color}40, ${a.color})`;
+                btn.style.border = '2px solid transparent';
+                btn.style.borderRadius = '12px';
+                btn.style.height = '50px';
+                btn.style.cursor = 'pointer';
+                btn.style.transition = 'all 0.2s';
+                btn.style.color = '#fff';
+                btn.style.fontWeight = 'bold';
+                btn.style.fontSize = '12px';
+                btn.textContent = a.label;
                 btn.title = a.label;
-                if ((document.body.dataset.accent || 'default') === a.key) btn.classList.add('active');
+                
+                if ((document.body.dataset.accent || 'default') === a.key) {
+                    btn.style.borderColor = '#fff';
+                    btn.style.boxShadow = `0 0 15px ${a.color}`;
+                }
+
+                btn.addEventListener('mouseenter', () => btn.style.transform = 'translateY(-3px)');
+                btn.addEventListener('mouseleave', () => btn.style.transform = 'translateY(0)');
+
                 btn.addEventListener('click', () => {
                     if (a.key === 'default') delete document.body.dataset.accent;
                     else document.body.dataset.accent = a.key;
                     localStorage.setItem('accent', a.key);
-                    document.querySelectorAll('#accentGrid .color-circle').forEach(x => x.classList.remove('active'));
-                    btn.classList.add('active');
+                    
+                    document.querySelectorAll('#accentGrid button').forEach(x => {
+                        x.style.borderColor = 'transparent';
+                        x.style.boxShadow = 'none';
+                    });
+                    btn.style.borderColor = '#fff';
+                    btn.style.boxShadow = `0 0 15px ${a.color}`;
                     showToast('Акцент: ' + a.label);
                 });
                 accentGrid.appendChild(btn);
@@ -357,6 +395,7 @@ function buildSettingsUI() {
         }
 
         if (tabName === 'notifications') {
+            layout.style.gridTemplateColumns = '220px 1fr';
             previewCol.style.display = 'none';
             content.innerHTML = `
                 <div class="settings-section">
@@ -370,6 +409,7 @@ function buildSettingsUI() {
         }
 
         if (tabName === 'security') {
+            layout.style.gridTemplateColumns = '220px 1fr';
             previewCol.style.display = 'none';
             content.innerHTML = `
                 <div class="settings-section">
@@ -401,6 +441,7 @@ function buildSettingsUI() {
         }
 
         if (tabName === 'account') {
+            layout.style.gridTemplateColumns = '220px 1fr';
             previewCol.style.display = 'none';
             content.innerHTML = `
                 <div class="settings-section">
