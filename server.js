@@ -274,6 +274,56 @@ app.post('/api/chats/:id/delete', async (req, res) => {
   res.json({ ok: true });
 });
 
+app.get('/api/messages/:chatId', async (req, res) => {
+  if (!req.session.userId) return res.json({ ok: false });
+  const myId = req.session.userId;
+  const chatId = parseInt(req.params.chatId);
+  
+  try {
+    const member = await db.execute({ sql: 'SELECT * FROM chat_members WHERE chat_id = ? AND user_id = ?', args: [chatId, myId] });
+    if (member.rows.length === 0) return res.json({ ok: false });
+
+    // 1. Получаем все сообщения
+    const rawMsgs = await db.execute({
+      sql: `SELECT m.*, u.display_name as sender_name, u.avatar as sender_avatar, u.avatar_frame, u.name_effect 
+            FROM messages m JOIN users u ON m.sender_id = u.id WHERE m.chat_id = ? ORDER BY m.id ASC`,
+      args: [chatId]
+    });
+
+    // 2. Получаем ВСЕ реакции для этого чата ОДНИМ запросом
+    const allReactions = await db.execute({
+      sql: `SELECT r.message_id, r.emoji, COUNT(*) as count, GROUP_CONCAT(r.user_id) as users 
+            FROM reactions r JOIN messages m ON r.message_id = m.id 
+            WHERE m.chat_id = ? GROUP BY r.message_id, r.emoji`,
+      args: [chatId]
+    });
+
+    // 3. Получаем статус прочтения для всех участников
+    const allReads = await db.execute({
+      sql: `SELECT user_id, last_read_msg_id FROM chat_members WHERE chat_id = ? AND user_id != ?`,
+      args: [chatId, myId]
+    });
+
+    // Собираем всё вместе в памяти (это работает мгновенно)
+    const msgs = rawMsgs.rows.map(m => {
+      m.reactions = allReactions.rows.filter(r => r.message_id === m.id);
+      m.read_by = allReads.rows.filter(r => r.last_read_msg_id >= m.id).map(r => r.user_id);
+      return m;
+    });
+
+    const lastId = msgs.length ? msgs[msgs.length - 1].id : 0;
+    if (lastId > 0) {
+      await db.execute({ sql: `INSERT INTO read_status (chat_id, user_id, last_read_id) VALUES (?, ?, ?) ON CONFLICT(chat_id, user_id) DO UPDATE SET last_read_id = excluded.last_read_id`, args: [chatId, myId, lastId] });
+      await db.execute({ sql: 'UPDATE chat_members SET last_read_msg_id = ? WHERE chat_id = ? AND user_id = ?', args: [lastId, chatId, myId] });
+      io.to('user_' + myId).emit('chats_read_update', { chat_id: chatId, last_read: lastId });
+    }
+
+    res.json({ ok: true, messages: msgs });
+  } catch (error) {
+    console.error('Ошибка загрузки истории:', error);
+    res.json({ ok: false, messages: [] });
+  }
+});
 async function getMsgWithDetails(msgId) {
   const msgRes = await db.execute({
     sql: `SELECT m.id, m.chat_id, m.sender_id, m.text, m.file_url, m.file_type, m.file_name, m.reply_to_id, m.created_at, 
@@ -303,50 +353,11 @@ async function getMsgWithDetails(msgId) {
   return msg;
 }
 
-app.get('/api/messages/:chatId', async (req, res) => {
-  if (!req.session.userId) return res.json({ ok: false });
-  const myId = req.session.userId;
-  const chatId = parseInt(req.params.chatId);
-  
-  const member = await db.execute({ sql: 'SELECT * FROM chat_members WHERE chat_id = ? AND user_id = ?', args: [chatId, myId] });
-  if (member.rows.length === 0) return res.json({ ok: false });
-
-  const rawMsgs = await db.execute({
-    sql: `SELECT m.id, m.chat_id, m.sender_id, m.text, m.file_url, m.file_type, m.file_name, m.reply_to_id, m.created_at, 
-           u.display_name as sender_name, u.avatar as sender_avatar, u.avatar_frame, u.name_effect 
-           FROM messages m JOIN users u ON m.sender_id = u.id WHERE m.chat_id = ? ORDER BY m.id ASC`,
-    args: [chatId]
-  });
-
-  const msgs = [];
-  for (const m of rawMsgs.rows) {
-    if (m.reply_to_id) {
-      const r = await db.execute({ sql: 'SELECT text, file_type, file_name, u.display_name as sender_name FROM messages m JOIN users u ON m.sender_id = u.id WHERE m.id = ?', args: [m.reply_to_id] });
-      if (r.rows.length > 0) m.reply_to = r.rows[0];
-    }
-    const reactions = await db.execute({ sql: 'SELECT emoji, COUNT(*) as count, GROUP_CONCAT(user_id) as users FROM reactions WHERE message_id = ? GROUP BY emoji', args: [m.id] });
-    m.reactions = reactions.rows;
-
-    const reads = await db.execute({ sql: 'SELECT user_id FROM chat_members WHERE chat_id = ? AND last_read_msg_id >= ? AND user_id != ?', args: [chatId, m.id, m.sender_id] });
-    m.read_by = reads.rows.map(r => r.user_id);
-    
-    msgs.push(m);
-  }
-
-  const lastId = msgs.length ? msgs[msgs.length - 1].id : 0;
-  await db.execute({ sql: `INSERT INTO read_status (chat_id, user_id, last_read_id) VALUES (?, ?, ?) ON CONFLICT(chat_id, user_id) DO UPDATE SET last_read_id = excluded.last_read_id`, args: [chatId, myId, lastId] });
-  await db.execute({ sql: 'UPDATE chat_members SET last_read_msg_id = ? WHERE chat_id = ? AND user_id = ?', args: [lastId, chatId, myId] });
-  
-  io.to('user_' + myId).emit('chats_read_update', { chat_id: chatId, last_read: lastId });
-
-  res.json({ ok: true, messages: msgs });
-});
 const storage = multer.memoryStorage();
 const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } });
 
 app.post('/api/upload', (req, res) => {
   if (!req.session.userId) return res.json({ ok: false });
-  
   upload.single('file')(req, res, async (err) => {
     if (err) {
       if (err.code === 'LIMIT_FILE_SIZE') return res.json({ ok: false, error: 'Файл больше 5 МБ' });
@@ -357,20 +368,15 @@ app.post('/api/upload', (req, res) => {
     try {
       const fileExt = path.extname(req.file.originalname);
       const fileName = Date.now() + '-' + Math.round(Math.random() * 1E9) + fileExt;
-      
       const { data, error } = await supabase.storage.from('uploads').upload(fileName, req.file.buffer, { contentType: req.file.mimetype, upsert: false });
       if (error) throw error;
-
       const { data: publicUrlData } = supabase.storage.from('uploads').getPublicUrl(fileName);
       const fileUrl = publicUrlData.publicUrl;
-
       const isImage = req.file.mimetype.startsWith('image/');
       const isAudio = req.file.mimetype.startsWith('audio/');
       const type = isImage ? 'image' : (isAudio ? 'audio' : 'file');
-
       res.json({ ok: true, file_url: fileUrl, file_type: type, file_name: req.file.originalname });
     } catch (error) {
-      console.error('Ошибка загрузки в Supabase:', error);
       res.json({ ok: false, error: 'Ошибка сервера при загрузке файла' });
     }
   });
@@ -378,7 +384,6 @@ app.post('/api/upload', (req, res) => {
 
 app.post('/api/upload-avatar', (req, res) => {
   if (!req.session.userId) return res.json({ ok: false });
-  
   upload.single('file')(req, res, async (err) => {
     if (err) {
       if (err.code === 'LIMIT_FILE_SIZE') return res.json({ ok: false, error: 'Файл больше 5 МБ' });
@@ -389,15 +394,12 @@ app.post('/api/upload-avatar', (req, res) => {
     try {
       const fileExt = path.extname(req.file.originalname) || '.jpg';
       const fileName = Date.now() + '-' + Math.round(Math.random() * 1E9) + fileExt;
-      
       const { data, error } = await supabase.storage.from('uploads').upload(fileName, req.file.buffer, { contentType: req.file.mimetype, upsert: false });
       if (error) throw error;
-
       const { data: publicUrlData } = supabase.storage.from('uploads').getPublicUrl(fileName);
       res.json({ ok: true, url: publicUrlData.publicUrl });
     } catch (error) {
-      console.error('Ошибка загрузки аватара:', error);
-      res.json({ ok: false, error: 'Ошибка сервера при загрузке аватара' });
+      res.json({ ok: false, error: 'Ошибка сервера' });
     }
   });
 });
@@ -414,7 +416,7 @@ app.post('/api/messages/:id/delete', async (req, res) => {
     try {
       const fileName = msg.file_url.split('/').pop();
       await supabase.storage.from('uploads').remove([fileName]);
-    } catch (e) { console.error('Ошибка удаления файла из Supabase:', e); }
+    } catch (e) { }
   }
   
   await db.execute({ sql: 'DELETE FROM reactions WHERE message_id = ?', args: [msgId] });
@@ -518,7 +520,7 @@ io.on('connection', (socket) => {
       const updatedMsg = await getMsgWithDetails(message_id);
       const members = await db.execute({ sql: 'SELECT user_id FROM chat_members WHERE chat_id = ?', args: [msg.rows[0].chat_id] });
       members.rows.forEach(m => { io.to('user_' + m.user_id).emit('message_updated', updatedMsg); });
-    } catch (e) { console.error(e); }
+    } catch (e) { }
   });
 
   socket.on('mark_read', async (chatId) => {
@@ -536,7 +538,7 @@ io.on('connection', (socket) => {
       members.rows.forEach(m => {
         io.to('user_' + m.user_id).emit('chats_read_update', { chat_id: chatId, last_read: lastId, reader_id: myId });
       });
-    } catch (e) { console.error(e); }
+    } catch (e) { }
   });
 
   socket.on('disconnect', async () => {
