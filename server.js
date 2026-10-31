@@ -10,76 +10,26 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { createClient } = require('@libsql/client');
-
+const { createClient: createSupabase } = require('@supabase/supabase-js');
 const SQLiteStore = require('connect-sqlite3')(session);
 
-// ПОДКЛЮЧЕНИЕ К ОБЛАЧНОЙ БАЗЕ TURSO
+// Подключение к Turso (База данных)
 const db = createClient({
   url: 'libsql://miksegram-miksek.aws-ap-northeast-1.turso.io',
   authToken: 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3OTMzODMzODUsImlkIjoiMDFhMThkZGQtYjcwMS03YTg5LWIxMGEtMjk1MTkxNWVmY2Q2Iiwia2lkIjoiMDY0M3BHaVkteXR5X0t2OC1HbVY5Y2Nlb0RyTVYyVUlnZVRtU2Y5MXQtcyIsInJpZCI6IjgzM2JlNTQyLWViZjEtNGVhZC05MTQ3LTFkY2VhNDYzYmZjNCJ9.GSH-xuW9awXLGLOjssUuqDoXuoouiydQgBL7oc2BkEwRJVpABbEO-2jHW9JFLHDJ5Of_nXGtBApz7uY19k7BDQ'
 });
 
-// Функция для инициализации таблиц
+// Подключение к Supabase (Хранилище файлов)
+const supabase = createSupabase('https://tvmypcjwrlwiorpmugpb.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2bXlwY2p3cmx3aW9ycG11Z3BiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MzQwODQwOSwiZXhwIjoyMTA4OTg0NDA5fQ.1ChmymKXpkweU7PImFwAfFYY4ufSx525Fotjn4FRtSw');
+
+// Инициализация таблиц
 async function initDb() {
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      login TEXT UNIQUE NOT NULL,
-      display_name TEXT NOT NULL,
-      password TEXT NOT NULL,
-      bio TEXT DEFAULT '',
-      avatar TEXT DEFAULT 'grad-emerald',
-      banner TEXT DEFAULT 'ban-aurora',
-      last_seen TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-      created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-    );
-  `);
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS chats (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      type TEXT NOT NULL,
-      name TEXT,
-      avatar TEXT DEFAULT 'grad-aurora',
-      created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-    );
-  `);
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS chat_members (
-      chat_id INTEGER NOT NULL,
-      user_id INTEGER NOT NULL,
-      hidden INTEGER DEFAULT 0,
-      PRIMARY KEY (chat_id, user_id)
-    );
-  `);
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS messages (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      chat_id INTEGER NOT NULL,
-      sender_id INTEGER NOT NULL,
-      text TEXT NOT NULL,
-      file_url TEXT,
-      file_type TEXT,
-      file_name TEXT,
-      reply_to_id INTEGER,
-      created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-    );
-  `);
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS read_status (
-      chat_id INTEGER NOT NULL,
-      user_id INTEGER NOT NULL,
-      last_read_id INTEGER DEFAULT 0,
-      PRIMARY KEY (chat_id, user_id)
-    );
-  `);
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS reactions (
-      message_id INTEGER NOT NULL,
-      user_id INTEGER NOT NULL,
-      emoji TEXT NOT NULL,
-      PRIMARY KEY (message_id, user_id)
-    );
-  `);
+  await db.execute(`CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, login TEXT UNIQUE NOT NULL, display_name TEXT NOT NULL, password TEXT NOT NULL, bio TEXT DEFAULT '', avatar TEXT DEFAULT 'grad-emerald', banner TEXT DEFAULT 'ban-aurora', last_seen TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')), created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')));`);
+  await db.execute(`CREATE TABLE IF NOT EXISTS chats (id INTEGER PRIMARY KEY AUTOINCREMENT, type TEXT NOT NULL, name TEXT, avatar TEXT DEFAULT 'grad-aurora', created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')));`);
+  await db.execute(`CREATE TABLE IF NOT EXISTS chat_members (chat_id INTEGER NOT NULL, user_id INTEGER NOT NULL, hidden INTEGER DEFAULT 0, PRIMARY KEY (chat_id, user_id));`);
+  await db.execute(`CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, chat_id INTEGER NOT NULL, sender_id INTEGER NOT NULL, text TEXT NOT NULL, file_url TEXT, file_type TEXT, file_name TEXT, reply_to_id INTEGER, created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')));`);
+  await db.execute(`CREATE TABLE IF NOT EXISTS read_status (chat_id INTEGER NOT NULL, user_id INTEGER NOT NULL, last_read_id INTEGER DEFAULT 0, PRIMARY KEY (chat_id, user_id));`);
+  await db.execute(`CREATE TABLE IF NOT EXISTS reactions (message_id INTEGER NOT NULL, user_id INTEGER NOT NULL, emoji TEXT NOT NULL, PRIMARY KEY (message_id, user_id));`);
   console.log('База данных готова!');
 }
 initDb().catch(console.error);
@@ -218,7 +168,6 @@ app.get('/api/chats', async (req, res) => {
 
   res.json({ ok: true, chats: result });
 });
-
 app.get('/api/search-user', async (req, res) => {
   if (!req.session.userId) return res.json({ ok: false });
   const q = (req.query.q || '').trim().toLowerCase().replace(/^@/, '');
@@ -341,31 +290,44 @@ app.get('/api/messages/:chatId', async (req, res) => {
   res.json({ ok: true, messages: msgs });
 });
 
-const uploadDir = path.join(__dirname, 'public', 'uploads');
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadDir),
-  filename: (req, file, cb) => {
-    const unique = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, unique + path.extname(file.originalname));
-  }
-});
+const storage = multer.memoryStorage();
 const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } });
 
 app.post('/api/upload', (req, res) => {
   if (!req.session.userId) return res.json({ ok: false });
-  upload.single('file')(req, res, (err) => {
+  
+  upload.single('file')(req, res, async (err) => {
     if (err) {
       if (err.code === 'LIMIT_FILE_SIZE') return res.json({ ok: false, error: 'Файл больше 5 МБ' });
       return res.json({ ok: false, error: 'Ошибка загрузки' });
     }
     if (!req.file) return res.json({ ok: false, error: 'Файл не загружен' });
-    const fileUrl = '/uploads/' + req.file.filename;
-    const isImage = req.file.mimetype.startsWith('image/');
-    const isAudio = req.file.mimetype.startsWith('audio/');
-    const type = isImage ? 'image' : (isAudio ? 'audio' : 'file');
-    res.json({ ok: true, file_url: fileUrl, file_type: type, file_name: req.file.originalname });
+
+    try {
+      const fileExt = path.extname(req.file.originalname);
+      const fileName = Date.now() + '-' + Math.round(Math.random() * 1E9) + fileExt;
+      
+      const { data, error } = await supabase.storage
+        .from('uploads')
+        .upload(fileName, req.file.buffer, {
+          contentType: req.file.mimetype,
+          upsert: false
+        });
+
+      if (error) throw error;
+
+      const { data: publicUrlData } = supabase.storage.from('uploads').getPublicUrl(fileName);
+      const fileUrl = publicUrlData.publicUrl;
+
+      const isImage = req.file.mimetype.startsWith('image/');
+      const isAudio = req.file.mimetype.startsWith('audio/');
+      const type = isImage ? 'image' : (isAudio ? 'audio' : 'file');
+
+      res.json({ ok: true, file_url: fileUrl, file_type: type, file_name: req.file.originalname });
+    } catch (error) {
+      console.error('Ошибка загрузки в Supabase:', error);
+      res.json({ ok: false, error: 'Ошибка сервера при загрузке файла' });
+    }
   });
 });
 
@@ -375,19 +337,13 @@ app.post('/api/messages/:id/delete', async (req, res) => {
   const myId = req.session.userId;
   const msgRes = await db.execute({ sql: 'SELECT * FROM messages WHERE id = ?', args: [msgId] });
   if (msgRes.rows.length === 0 || msgRes.rows[0].sender_id !== myId) return res.json({ ok: false });
-  const msg = msgRes.rows[0];
   
   await db.execute({ sql: 'DELETE FROM reactions WHERE message_id = ?', args: [msgId] });
   await db.execute({ sql: 'DELETE FROM messages WHERE id = ?', args: [msgId] });
   
-  if (msg.file_url) {
-    const filePath = path.join(__dirname, 'public', msg.file_url);
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-  }
-  
-  const members = await db.execute({ sql: 'SELECT user_id FROM chat_members WHERE chat_id = ?', args: [msg.chat_id] });
+  const members = await db.execute({ sql: 'SELECT user_id FROM chat_members WHERE chat_id = ?', args: [msgRes.rows[0].chat_id] });
   members.rows.forEach(m => {
-    io.to('user_' + m.user_id).emit('message_deleted', { id: msgId, chat_id: msg.chat_id });
+    io.to('user_' + m.user_id).emit('message_deleted', { id: msgId, chat_id: msgRes.rows[0].chat_id });
     io.to('user_' + m.user_id).emit('update_chats');
   });
   res.json({ ok: true });
