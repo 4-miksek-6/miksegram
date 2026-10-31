@@ -52,9 +52,11 @@ function requestNotifications() {
 }
 
 (function applyStoredSettings() {
-    document.body.dataset.theme = localStorage.getItem('theme') || 'cosmos';
+    // Всегда используем тему Космос
+    document.body.dataset.theme = 'cosmos';
     const accent = localStorage.getItem('accent');
     if (accent && accent !== 'default') document.body.dataset.accent = accent;
+    
     if (localStorage.getItem('bg-blobs') === 'off') document.querySelectorAll('.bg-blobs').forEach(e => e.style.display = 'none');
     if (localStorage.getItem('bg-stars') === 'off') document.querySelectorAll('.stars').forEach(e => e.style.display = 'none');
     if (localStorage.getItem('bg-grid') === 'off') document.querySelectorAll('.bg-grid').forEach(e => e.style.display = 'none');
@@ -91,24 +93,34 @@ const BANNER_GRADIENTS = [
 ];
 
 const THEMES = [
-    { key: 'cosmos', label: 'Космос' }, { key: 'neon', label: 'Киберпанк' }, 
-    { key: 'amethyst', label: 'Аметист' }, { key: 'forest', label: 'Изумрудный лес' },
-    { key: 'volcano', label: 'Вулкан' }, { key: 'ocean', label: 'Глубина' },
-    { key: 'mono', label: 'Монохром' }
+    { key: 'cosmos', label: 'Космос' }
 ];
 
 const ACCENTS = [
-    { key: 'default', label: 'Аврора', color: '#00d4ff' }, { key: 'emerald', label: 'Изумруд', color: '#00ffa3' },
-    { key: 'cyan', label: 'Бирюза', color: '#00d4ff' }, { key: 'violet', label: 'Фиолет', color: '#a855f7' },
-    { key: 'pink', label: 'Розовый', color: '#ff4ec7' }, { key: 'amber', label: 'Янтарь', color: '#ffb347' },
-    { key: 'magenta', label: 'Малина', color: '#ff2d95' }, { key: 'blue', label: 'Голубой', color: '#4d9fff' },
-    { key: 'lime', label: 'Лайм', color: '#b8ff00' }, { key: 'gold', label: 'Золото', color: '#ffd700' }
+    { key: 'default', label: 'Аврора', color: '#00d4ff' },
+    { key: 'emerald', label: 'Изумруд', color: '#00ffa3' },
+    { key: 'cyan', label: 'Бирюза', color: '#00d4ff' },
+    { key: 'blue', label: 'Голубой', color: '#4d9fff' },
+    { key: 'violet', label: 'Фиолет', color: '#a855f7' },
+    { key: 'lavender', label: 'Лаванда', color: '#b794f6' },
+    { key: 'pink', label: 'Розовый', color: '#ff4ec7' },
+    { key: 'magenta', label: 'Малина', color: '#ff2d95' },
+    { key: 'red', label: 'Красный', color: '#ff3b3b' },
+    { key: 'orange', label: 'Оранжевый', color: '#ff7b00' },
+    { key: 'amber', label: 'Янтарь', color: '#ffb347' },
+    { key: 'yellow', label: 'Желтый', color: '#facc15' },
+    { key: 'lime', label: 'Лайм', color: '#b8ff00' },
+    { key: 'gold', label: 'Золото', color: '#ffd700' },
+    { key: 'white', label: 'Белый', color: '#ffffff' }
 ];
 
-function applyAvatarTo(el, avatar, displayName) {
+function applyAvatarTo(el, avatar, displayName, frame = 'none') {
     el.style.backgroundImage = ''; el.style.backgroundSize = ''; el.style.backgroundPosition = '';
     el.textContent = '';
-    el.className = el.className.replace(/\b(has-image|grad-\w+)\b/g, '').replace(/\s+/g, ' ').trim();
+    el.className = el.className.replace(/\b(has-image|grad-\w+|frame-\w+)\b/g, '').replace(/\s+/g, ' ').trim();
+    
+    if (frame !== 'none') el.classList.add('frame-' + frame);
+    
     if (!avatar || avatar.startsWith('grad-')) {
         el.classList.add(avatar || 'grad-emerald');
         el.textContent = (displayName || '?').trim().charAt(0).toUpperCase();
@@ -117,6 +129,11 @@ function applyAvatarTo(el, avatar, displayName) {
         el.style.backgroundImage = `url(${avatar})`;
         el.style.backgroundSize = 'cover'; el.style.backgroundPosition = 'center';
     }
+}
+
+function applyNameEffect(el, effect) {
+    el.className = el.className.replace(/\bname-\w+\b/g, '').replace(/\s+/g, ' ').trim();
+    if (effect && effect !== 'none') el.classList.add('name-' + effect);
 }
 
 function applyBannerTo(el, banner) {

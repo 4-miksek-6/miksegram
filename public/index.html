@@ -285,7 +285,7 @@
                         el.innerHTML = `<div class="avatar" id="s-avatar-${u.id}">?</div><div class="chat-item-body"><div class="chat-item-top"><div class="chat-item-name">${escapeHtml(u.display_name)}</div></div><div class="chat-item-bottom"><div class="chat-item-preview">@${escapeHtml(u.login)}</div></div></div>`;
                         el.addEventListener('click', () => { searchInput.value = ''; startEmptyChat(u.id); });
                         chatsList.appendChild(el);
-                        applyAvatarTo(document.getElementById(`s-avatar-${u.id}`), u.avatar, u.display_name);
+                        applyAvatarTo(document.getElementById(`s-avatar-${u.id}`), u.avatar, u.display_name, u.avatar_frame);
                     });
                 }
             });
@@ -314,12 +314,12 @@
             el.innerHTML = `
                 <div class="avatar-wrap"><div class="avatar" id="c-avatar-${c.id}">?</div>${isOnline ? '<div class="online-dot"></div>' : ''}</div>
                 <div class="chat-item-body">
-                    <div class="chat-item-top"><div class="chat-item-name">${escapeHtml(c.name)}</div><div class="chat-item-time">${formatTime(c.last_time)}</div></div>
+                    <div class="chat-item-top"><div class="chat-item-name ${c.name_effect ? 'name-'+c.name_effect : ''}">${escapeHtml(c.name)}</div><div class="chat-item-time">${formatTime(c.last_time)}</div></div>
                     <div class="chat-item-bottom"><div class="chat-item-preview" style="${unread ? 'color:var(--text);font-weight:600' : ''}">${preview}</div>${unread ? `<div class="unread-badge">${c.unread_count}</div>` : ''}</div>
                 </div>`;
-            el.addEventListener('click', () => openChat(c.id, c.name, c.avatar, c.type, c.other_id, c.login, c.last_seen));
+            el.addEventListener('click', () => openChat(c.id, c.name, c.avatar, c.type, c.other_id, c.login, c.last_seen, c.avatar_frame, c.name_effect, c.other_last_read));
             chatsList.appendChild(el);
-            applyAvatarTo(document.getElementById(`c-avatar-${c.id}`), c.avatar, c.name);
+            applyAvatarTo(document.getElementById(`c-avatar-${c.id}`), c.avatar, c.name, c.avatar_frame);
         });
     }
 
@@ -345,7 +345,7 @@
 
         activeChatId = null;
         activeOtherId = otherId;
-        activeChat = { type: 'private', name: userData.display_name, login: userData.login, last_seen: userData.last_seen };
+        activeChat = { type: 'private', name: userData.display_name, login: userData.login, last_seen: userData.last_seen, name_effect: userData.name_effect };
         
         document.getElementById('emptyState').style.display = 'none';
         composerInput.disabled = false;
@@ -354,9 +354,10 @@
         
         const chatAvatar = document.getElementById('chatAvatar');
         chatAvatar.style.display = 'flex';
-        applyAvatarTo(chatAvatar, userData.avatar, userData.display_name);
+        applyAvatarTo(chatAvatar, userData.avatar, userData.display_name, userData.avatar_frame);
         
         document.getElementById('chatName').textContent = userData.display_name;
+        applyNameEffect(document.getElementById('chatName'), userData.name_effect);
         updateChatStatus();
         document.getElementById('typingText').style.display = 'none';
         document.getElementById('messagesList').innerHTML = '<div class="chat-empty-msg">Напишите первое сообщение</div>';
@@ -364,10 +365,10 @@
         if (window.innerWidth <= 768) document.querySelector('.app').classList.add('mobile-chat-open');
     }
 
-    function openChat(chatId, name, avatar, type, otherId = null, login = '', last_seen = null) {
+    function openChat(chatId, name, avatar, type, otherId = null, login = '', last_seen = null, avatar_frame = 'none', name_effect = 'none', other_last_read = 0) {
         activeChatId = chatId;
         activeOtherId = otherId;
-        activeChat = { type, name, login, last_seen };
+        activeChat = { type, name, login, last_seen, name_effect, other_last_read };
         
         document.getElementById('emptyState').style.display = 'none';
         composerInput.disabled = false;
@@ -376,8 +377,9 @@
         
         const chatAvatar = document.getElementById('chatAvatar');
         chatAvatar.style.display = 'flex';
-        applyAvatarTo(chatAvatar, avatar, name);
+        applyAvatarTo(chatAvatar, avatar, name, avatar_frame);
         document.getElementById('chatName').textContent = name;
+        applyNameEffect(document.getElementById('chatName'), name_effect);
         updateChatStatus();
         document.getElementById('typingText').style.display = 'none';
         
@@ -405,20 +407,47 @@
         });
     }
 
+    function renderTicks(m) {
+        if (m.sender_id !== myId) return '';
+        
+        // Если сообщение отправляется (заглушка)
+        if (m.is_sending) return `<span class="msg-time-status" title="Отправка...">🕒</span>`;
+        
+        // Если сообщение доставлено на сервер (1 галочка)
+        if (!m.id) return `<span class="msg-time-status"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>`;
+
+        // Если собеседник прочитал (2 неоновые галочки)
+        if (m.read_by && m.read_by.length > 0) {
+            return `<span class="msg-time-status read"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/><polyline points="24 6 13 17 8 12"/></svg></span>`;
+        }
+        
+        // Если собеседник онлайн, но не прочитал (2 серые)
+        const isOnline = m.chat_type === 'private' && onlineUsersSet.has(activeOtherId);
+        if (isOnline) {
+            return `<span class="msg-time-status"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/><polyline points="24 6 13 17 8 12"/></svg></span>`;
+        }
+
+        // Иначе просто доставлено (1 серая)
+        return `<span class="msg-time-status"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>`;
+    }
+
     function addMessageToDOM(m, animate = true) {
         const listEl = document.getElementById('messagesList');
         const empty = listEl.querySelector('.chat-empty-msg');
         if (empty) empty.remove();
-        if (document.querySelector(`.msg[data-id="${m.id}"]`)) return;
+        
+        if (m.id && document.querySelector(`.msg[data-id="${m.id}"]`)) return;
+        if (m.temp_id && document.querySelector(`.msg[data-temp-id="${m.temp_id}"]`)) return;
 
         const li = document.createElement('li');
         const isOwn = m.sender_id === myId;
         li.className = 'msg' + (isOwn ? ' own' : '');
-        li.dataset.id = m.id;
+        if (m.id) li.dataset.id = m.id;
+        if (m.temp_id) li.dataset.tempId = m.temp_id;
         li.dataset.text = m.text || '';
         if (!animate) li.style.animation = 'none';
         
-        const time = new Date(m.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+        const time = new Date(m.created_at || Date.now()).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
         const showSender = !isOwn && activeChat && activeChat.type === 'group';
         
         let replyHtml = '';
@@ -442,21 +471,17 @@
             }).join('')}</div>`;
         }
 
-        let readIcon = '';
-        if (isOwn) {
-            readIcon = `<span class="read-status" title="Отправлено"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>`;
-        }
-
         li.innerHTML = `
-            ${showSender ? `<div class="msg-from">${escapeHtml(m.sender_name)}</div>` : ''}
+            ${showSender ? `<div class="msg-from ${m.name_effect ? 'name-'+m.name_effect : ''}">${escapeHtml(m.sender_name)}</div>` : ''}
             ${replyHtml}
             ${m.text ? `<div class="msg-text" style="white-space: pre-wrap;">${escapeHtml(m.text)}</div>` : ''}
             ${fileHtml}
-            <div class="msg-time">${time} ${readIcon}</div>
+            <div class="msg-time">${time} ${isOwn ? renderTicks(m) : ''}</div>
             ${reactionsHtml}
         `;
         
         li.addEventListener('contextmenu', (e) => {
+            if (m.is_sending) return; // Нельзя нажать ПКМ на "загрузку"
             e.preventDefault();
             selectedMsgId = m.id;
             selectedMsgText = m.text || '';
@@ -477,7 +502,11 @@
             reactionsBar.classList.add('open');
         });
 
-        listEl.appendChild(li);
+        if (m.is_sending) {
+            listEl.appendChild(li);
+        } else {
+            listEl.appendChild(li);
+        }
         scrollBottom();
     }
 
@@ -497,6 +526,7 @@
     document.getElementById('ctxReply').addEventListener('click', () => {
         if (selectedMsgId) {
             const msgEl = document.querySelector(`.msg[data-id="${selectedMsgId}"]`);
+            if (!msgEl) return;
             const isOwn = msgEl.classList.contains('own');
             let name = window.currentUser.display_name;
             if (!isOwn && activeChat) name = activeChat.name;
@@ -560,17 +590,11 @@
         typingTimeout = setTimeout(() => { isTyping = false; socket.emit('typing', { chat_id: activeChatId, is_typing: false }); }, 2500);
     });
 
+    // ПЕРЕНОС СТРОКИ ТОЛЬКО SHIFT+ENTER. ENTER = ОТПРАВКА
     composerInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey) {
+        if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             document.getElementById('composer').dispatchEvent(new Event('submit'));
-        } else if (e.key === 'Enter' && (e.shiftKey || e.ctrlKey)) {
-            e.preventDefault();
-            const start = this.selectionStart;
-            const end = this.selectionEnd;
-            this.value = this.value.substring(0, start) + '\n' + this.value.substring(end);
-            this.selectionStart = this.selectionEnd = start + 1;
-            this.dispatchEvent(new Event('input'));
         }
     });
 
@@ -607,18 +631,42 @@
         xhr.send(formData);
     });
 
+    // ОПТИМИСТИЧНАЯ ОТПРАВКА
     document.getElementById('composer').addEventListener('submit', (e) => {
         e.preventDefault();
         const text = composerInput.value.trim();
         if (text || attachedFile) {
             if (activeChatId || activeOtherId) {
+                const tempId = 'temp-' + Date.now();
+                const tempMsg = {
+                    temp_id: tempId,
+                    sender_id: myId,
+                    text: text,
+                    file_url: attachedFile ? attachedFile.file_url : null,
+                    file_type: attachedFile ? attachedFile.file_type : null,
+                    file_name: attachedFile ? attachedFile.file_name : null,
+                    reply_to: replyingTo ? { sender_name: document.getElementById('replyName').textContent, text: document.getElementById('replyText').textContent } : null,
+                    created_at: new Date().toISOString(),
+                    is_sending: true
+                };
+
+                // Мгновенно отрисовываем "Отправку"
+                addMessageToDOM(tempMsg, true);
+                
                 socket.emit('send_message', { 
-                    chat_id: activeChatId, other_id: activeOtherId, text: text, 
+                    temp_id: tempId, chat_id: activeChatId, other_id: activeOtherId, text: text, 
                     file_url: attachedFile ? attachedFile.file_url : null, 
                     file_type: attachedFile ? attachedFile.file_type : null, 
                     file_name: attachedFile ? attachedFile.file_name : null,
                     reply_to_id: replyingTo
+                }, (response) => {
+                    // Когда сервер ответил — заменяем "Загрузку" на реальное сообщение
+                    const tempEl = document.querySelector(`.msg[data-temp-id="${response.temp_id}"]`);
+                    if (tempEl) tempEl.remove();
+                    addMessageToDOM(response.msg, true);
+                    loadChats();
                 });
+
                 composerInput.value = '';
                 composerInput.style.height = 'auto';
                 attachedFile = null;
@@ -626,11 +674,12 @@
                 filePreview.style.display = 'none';
                 replyPreview.style.display = 'none';
                 if (isTyping) { isTyping = false; clearTimeout(typingTimeout); socket.emit('typing', { chat_id: activeChatId, is_typing: false }); }
+                
                 if (!activeChatId) {
                     setTimeout(async () => {
                         await loadChats();
                         const newChat = chatsData.find(c => c.other_id === activeOtherId);
-                        if (newChat) openChat(newChat.id, newChat.name, newChat.avatar, newChat.type, newChat.other_id, newChat.login, newChat.last_seen);
+                        if (newChat) openChat(newChat.id, newChat.name, newChat.avatar, newChat.type, newChat.other_id, newChat.login, newChat.last_seen, newChat.avatar_frame, newChat.name_effect, newChat.other_last_read);
                     }, 300); 
                 }
             }
@@ -640,8 +689,12 @@
     socket.on('new_message', (m) => {
         if (m.chat_id === activeChatId || m.sender_id === activeOtherId) {
             if (activeChatId === null && m.chat_id) activeChatId = m.chat_id;
-            addMessageToDOM(m, true);
-            if (m.sender_id !== myId) { socket.emit('mark_read', m.chat_id); document.getElementById('typingText').style.display = 'none'; }
+            // Если сообщение наше - оно уже отрисовано оптимистично, не дублируем
+            if (m.sender_id !== myId) {
+                addMessageToDOM(m, true); 
+                socket.emit('mark_read', m.chat_id);
+                document.getElementById('typingText').style.display = 'none';
+            }
         }
         if (m.sender_id !== myId) {
             playNotification();
@@ -665,6 +718,18 @@
 
     socket.on('message_deleted', (data) => { const li = document.querySelector(`.msg[data-id="${data.id}"]`); if (li) li.remove(); });
     
+    socket.on('chats_read_update', (data) => {
+        if (data.chat_id === activeChatId) {
+            document.querySelectorAll(`.msg.own`).forEach(li => {
+                const statusEl = li.querySelector('.msg-time-status');
+                if (statusEl && !statusEl.classList.contains('read')) {
+                    statusEl.innerHTML = `<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/><polyline points="24 6 13 17 8 12"/></svg>`;
+                    statusEl.classList.add('read');
+                }
+            });
+        }
+    });
+
     socket.on('chat_cleared', (data) => {
         if (data.chat_id === activeChatId) document.getElementById('messagesList').innerHTML = '<div class="chat-empty-msg">История очищена</div>';
         loadChats();
@@ -746,8 +811,9 @@
         fetch('/api/user/' + userId).then(r => r.json()).then(data => {
             if (!data.ok) return;
             const u = data.user;
-            applyAvatarTo(document.getElementById('modalProfileAvatar'), u.avatar, u.display_name);
+            applyAvatarTo(document.getElementById('modalProfileAvatar'), u.avatar, u.display_name, u.avatar_frame);
             document.getElementById('modalProfileName').textContent = u.display_name;
+            applyNameEffect(document.getElementById('modalProfileName'), u.name_effect);
             document.getElementById('modalProfileLogin').textContent = '@' + u.login;
             document.getElementById('modalProfileBio').textContent = u.bio || 'Пока ничего не рассказал(а) о себе';
             applyBannerTo(document.getElementById('modalProfileBanner'), u.banner);
@@ -813,7 +879,7 @@
                     row.className = 'group-user-row';
                     row.innerHTML = `<input type="checkbox" value="${u.id}"><div class="avatar small" id="g-avatar-${u.id}">?</div><span>${escapeHtml(u.display_name)} (@${escapeHtml(u.login)})</span>`;
                     listEl.appendChild(row);
-                    applyAvatarTo(document.getElementById(`g-avatar-${u.id}`), u.avatar, u.display_name);
+                    applyAvatarTo(document.getElementById(`g-avatar-${u.id}`), u.avatar, u.display_name, u.avatar_frame);
                 });
             } else {
                 listEl.innerHTML = '<div style="color:var(--text-mute);font-size:13px">Нет других пользователей для добавления.</div>';
@@ -838,8 +904,9 @@
         if (!data.ok) { window.location.href = '/login.html'; return; }
         myId = data.id;
         window.currentUser = data;
-        applyAvatarTo(document.getElementById('myAvatar'), data.avatar, data.display_name);
+        applyAvatarTo(document.getElementById('myAvatar'), data.avatar, data.display_name, data.avatar_frame);
         document.getElementById('myDisplayName').textContent = data.display_name;
+        applyNameEffect(document.getElementById('myDisplayName'), data.name_effect);
         document.getElementById('myLogin').textContent = '@' + data.login;
         loadChats();
         
@@ -853,8 +920,9 @@
 
     window.onSettingsSaved = (u) => {
         window.currentUser = u;
-        applyAvatarTo(document.getElementById('myAvatar'), u.avatar, u.display_name);
+        applyAvatarTo(document.getElementById('myAvatar'), u.avatar, u.display_name, u.avatar_frame);
         document.getElementById('myDisplayName').textContent = u.display_name;
+        applyNameEffect(document.getElementById('myDisplayName'), u.name_effect);
     };
 
     let searchTimeout;
@@ -862,4 +930,3 @@
 </script>
 </body>
 </html>
-       
