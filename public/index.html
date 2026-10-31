@@ -441,7 +441,7 @@
         li.innerHTML = `
             ${showSender ? `<div class="msg-from">${escapeHtml(m.sender_name)}</div>` : ''}
             ${replyHtml}
-            ${m.text ? `<div class="msg-text">${escapeHtml(m.text)}</div>` : ''}
+            ${m.text ? `<div class="msg-text" style="white-space: pre-wrap;">${escapeHtml(m.text)}</div>` : ''}
             ${fileHtml}
             <div class="msg-time">${time}</div>
             ${reactionsHtml}
@@ -538,9 +538,11 @@
         body.scrollTop = body.scrollHeight;
     }
 
-    composerInput.addEventListener('input', function() {
+        composerInput.addEventListener('input', function() {
         this.style.height = 'auto';
         this.style.height = (this.scrollHeight) + 'px';
+        this.scrollTop = this.scrollHeight; // Принудительный скролл вниз
+        
         if (this.value === '') this.style.height = 'auto';
 
         if (!activeChatId) return;
@@ -550,12 +552,21 @@
     });
 
     composerInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.ctrlKey && !e.shiftKey) {
+        // Отправка по Enter (если не зажат Shift или Ctrl)
+        if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey) {
             e.preventDefault();
             document.getElementById('composer').dispatchEvent(new Event('submit'));
-        } else if (e.key === 'Enter' && e.ctrlKey) {
+        } 
+        // Перенос строки по Shift+Enter или Ctrl+Enter
+        else if (e.key === 'Enter' && (e.shiftKey || e.ctrlKey)) {
             e.preventDefault();
-            composerInput.value += '\n';
+            const start = this.selectionStart;
+            const end = this.selectionEnd;
+            this.value = this.value.substring(0, start) + '\n' + this.value.substring(end);
+            this.selectionStart = this.selectionEnd = start + 1;
+            
+            // Вызываем событие input, чтобы поле сразу растянулось и прокрутилось
+            this.dispatchEvent(new Event('input'));
         }
     });
 
