@@ -156,4 +156,4 @@ async function saveProfilePatch(patch) {
     const data = await res.json();
     if (data.ok && typeof window.onSettingsSaved === 'function') window.onSettingsSaved(data.user);
     return data;
-}
+}   
