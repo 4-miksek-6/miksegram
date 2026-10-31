@@ -136,6 +136,7 @@ app.get('/api/all-users', async (req, res) => {
   const uRes = await db.execute({ sql: 'SELECT id, login, display_name, avatar FROM users WHERE id != ? ORDER BY display_name ASC', args: [req.session.userId] });
   res.json({ ok: true, users: uRes.rows });
 });
+
 app.get('/api/chats', async (req, res) => {
   if (!req.session.userId) return res.json({ ok: false });
   const myId = req.session.userId;
@@ -332,6 +333,35 @@ app.post('/api/upload', (req, res) => {
     } catch (error) {
       console.error('Ошибка загрузки в Supabase:', error);
       res.json({ ok: false, error: 'Ошибка сервера при загрузке файла' });
+    }
+  });
+});
+
+// Новый эндпоинт для аватарок/баннеров
+app.post('/api/upload-avatar', (req, res) => {
+  if (!req.session.userId) return res.json({ ok: false });
+  
+  upload.single('file')(req, res, async (err) => {
+    if (err) {
+      if (err.code === 'LIMIT_FILE_SIZE') return res.json({ ok: false, error: 'Файл больше 5 МБ' });
+      return res.json({ ok: false, error: 'Ошибка загрузки' });
+    }
+    if (!req.file) return res.json({ ok: false, error: 'Файл не загружен' });
+
+    try {
+      const fileExt = path.extname(req.file.originalname) || '.jpg';
+      const fileName = Date.now() + '-' + Math.round(Math.random() * 1E9) + fileExt;
+      
+      const { data, error } = await supabase.storage.from('uploads').upload(fileName, req.file.buffer, { contentType: req.file.mimetype, upsert: false });
+      if (error) throw error;
+
+      const { data: publicUrlData } = supabase.storage.from('uploads').getPublicUrl(fileName);
+      const fileUrl = publicUrlData.publicUrl;
+
+      res.json({ ok: true, url: fileUrl });
+    } catch (error) {
+      console.error('Ошибка загрузки аватара:', error);
+      res.json({ ok: false, error: 'Ошибка сервера при загрузке аватара' });
     }
   });
 });

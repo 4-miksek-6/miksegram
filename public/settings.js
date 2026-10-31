@@ -26,9 +26,7 @@ function buildSettingsUI() {
                 <div class="settings-tab" data-tab="account">Аккаунт</div>
                 <button class="danger-btn" id="logoutBtn" style="margin-top:auto; padding:10px;">Выйти</button>
             </div>
-            <div class="settings-content" id="settingsContent">
-                <!-- Сюда будет подгружаться контент -->
-            </div>
+            <div class="settings-content" id="settingsContent"></div>
         </div>
     `;
 
@@ -114,19 +112,91 @@ function buildSettingsUI() {
             });
 
             document.getElementById('uploadAvatarBtn').addEventListener('click', () => document.getElementById('avatarFile').click());
-            document.getElementById('avatarFile').addEventListener('change', async (e) => {
-                if (!e.target.files[0]) return;
-                const dataUrl = await fileToDataURL(e.target.files[0], 400);
-                const data = await saveProfilePatch({ avatar: dataUrl });
-                if (data.ok) { u.avatar = dataUrl; applyAvatarTo(previewAvatar, dataUrl, u.display_name); }
+            document.getElementById('uploadBannerBtn').addEventListener('click', () => document.getElementById('bannerFile').click());
+
+            function openCropper(file, isBanner) {
+                if (!file.type.startsWith('image/')) {
+                    showToast('Пожалуйста, выберите картинку');
+                    return;
+                }
+                if (file.size > 5 * 1024 * 1024) {
+                    showToast('Файл больше 5 МБ');
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const modal = document.createElement('div');
+                    modal.className = 'modal-overlay open';
+                    modal.style.zIndex = '3000';
+                    modal.innerHTML = `
+                        <div class="modal" style="max-width: 600px; padding: 20px; background: var(--bg-0);">
+                            <div class="modal-header"><h2 class="modal-title">Обрезка ${isBanner ? 'баннера' : 'аватарки'}</h2></div>
+                            <div style="max-height: 50vh; background: #000; border-radius: 12px; overflow: hidden; margin-bottom: 16px;">
+                                <img id="cropImage" src="${e.target.result}" style="max-width: 100%; display: block;">
+                            </div>
+                            <div style="display:flex; gap:10px;">
+                                <button class="primary-btn" id="saveCropBtn" style="flex:1;">Сохранить</button>
+                                <button class="secondary-btn" id="cancelCropBtn" style="flex:1;">Отмена</button>
+                            </div>
+                        </div>
+                    `;
+                    document.body.appendChild(modal);
+
+                    const image = modal.querySelector('#cropImage');
+                    const cropper = new Cropper(image, {
+                        aspectRatio: isBanner ? 16 / 6 : 1,
+                        viewMode: 1,
+                        dragMode: 'move',
+                        autoCropArea: 1,
+                        background: false
+                    });
+
+                    modal.querySelector('#cancelCropBtn').onclick = () => {
+                        cropper.destroy();
+                        modal.remove();
+                    };
+
+                    modal.querySelector('#saveCropBtn').onclick = () => {
+                        modal.querySelector('#saveCropBtn').textContent = 'Загрузка...';
+                        cropper.getCroppedCanvas({ width: isBanner ? 1200 : 400 }).toBlob(async (blob) => {
+                            const formData = new FormData();
+                            formData.append('file', blob, 'avatar.jpg');
+
+                            try {
+                                const res = await fetch('/api/upload-avatar', { method: 'POST', body: formData });
+                                const data = await res.json();
+                                if (data.ok) {
+                                    const patch = isBanner ? { banner: data.url } : { avatar: data.url };
+                                    const updateRes = await saveProfilePatch(patch);
+                                    if (updateRes.ok) {
+                                        if (isBanner) { u.banner = data.url; applyBannerTo(previewBanner, data.url); }
+                                        else { u.avatar = data.url; applyAvatarTo(previewAvatar, data.url, u.display_name); }
+                                        showToast('Успешно обновлено!');
+                                    }
+                                } else {
+                                    showToast(data.error);
+                                }
+                            } catch (err) {
+                                showToast('Ошибка сети');
+                            } finally {
+                                cropper.destroy();
+                                modal.remove();
+                            }
+                        }, 'image/jpeg', 0.9);
+                    };
+                };
+                reader.readAsDataURL(file);
+            }
+
+            document.getElementById('avatarFile').addEventListener('change', (e) => {
+                if (e.target.files[0]) openCropper(e.target.files[0], false);
+                e.target.value = '';
             });
 
-            document.getElementById('uploadBannerBtn').addEventListener('click', () => document.getElementById('bannerFile').click());
-            document.getElementById('bannerFile').addEventListener('change', async (e) => {
-                if (!e.target.files[0]) return;
-                const dataUrl = await fileToDataURL(e.target.files[0], 1200);
-                const data = await saveProfilePatch({ banner: dataUrl });
-                if (data.ok) { u.banner = dataUrl; applyBannerTo(previewBanner, dataUrl); }
+            document.getElementById('bannerFile').addEventListener('change', (e) => {
+                if (e.target.files[0]) openCropper(e.target.files[0], true);
+                e.target.value = '';
             });
 
             document.getElementById('saveProfileBtn').addEventListener('click', async () => {
@@ -275,16 +345,16 @@ function buildSettingsUI() {
     });
 }
 
-// Добавляем стили для нового каркаса настроек
 (function initSettingsStyles() {
     const style = document.createElement('style');
     style.innerHTML = `
         .settings-layout { display: flex; height: 100%; width: 100%; }
-        .settings-sidebar { width: 220px; border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 16px 8px; background: rgba(0,0,0,0.2); }
+        .settings-sidebar { width: 250px; border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 16px 12px; background: rgba(0,0,0,0.3); }
         .settings-tab { padding: 12px 16px; border-radius: 10px; cursor: pointer; font-size: 14px; color: var(--text-dim); transition: all 0.2s; margin-bottom: 4px; font-weight: 500; }
         .settings-tab:hover { background: rgba(255,255,255,0.05); color: var(--text); }
         .settings-tab.active { background: rgba(255,255,255,0.1); color: var(--accent); font-weight: 600; }
-        .settings-content { flex: 1; padding: 24px; overflow-y: auto; }
+        .settings-content { flex: 1; padding: 32px 40px; overflow-y: auto; max-width: 800px; margin: 0 auto; }
+        .theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; }
     `;
     document.head.appendChild(style);
 })();

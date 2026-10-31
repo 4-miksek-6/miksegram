@@ -91,9 +91,10 @@ const BANNER_GRADIENTS = [
 ];
 
 const THEMES = [
-    { key: 'cosmos', label: 'Космос' }, { key: 'light', label: 'Свет' }, { key: 'neon', label: 'Неон' },
-    { key: 'sunset', label: 'Закат' }, { key: 'ocean', label: 'Океан' }, { key: 'mono', label: 'Монохром' },
-    { key: 'forest', label: 'Лес' }, { key: 'blood', label: 'Кровь' }, { key: 'lavender', label: 'Лаванда' }
+    { key: 'cosmos', label: 'Космос' }, { key: 'neon', label: 'Киберпанк' }, 
+    { key: 'amethyst', label: 'Аметист' }, { key: 'forest', label: 'Изумрудный лес' },
+    { key: 'volcano', label: 'Вулкан' }, { key: 'ocean', label: 'Глубина' },
+    { key: 'mono', label: 'Монохром' }
 ];
 
 const ACCENTS = [
