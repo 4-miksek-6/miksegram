@@ -43,7 +43,7 @@ app.use(express.json({ limit: '8mb' }));
 app.use(express.urlencoded({ extended: true, limit: '8mb' }));
 
 const sessionMiddleware = session({
-  store: new SQLiteStore({ db: 'sessions.db', dir: './' }),
+  // Убираем SQLiteStore, используем память (для бесплатного тарифа это спасет от падений)
   secret: 'miksegram-secret-change-this',
   resave: false,
   saveUninitialized: false,
