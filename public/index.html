@@ -150,7 +150,6 @@
     </div>
 </div>
 
-<!-- МОДАЛКА ИНФОРМАЦИИ О ГРУППЕ -->
 <div class="modal-overlay" id="groupInfoModal">
     <div class="modal" style="max-width: 480px; padding: 0; overflow: hidden; background: var(--bg-0); display: flex; flex-direction: column;">
         <button class="icon-btn" id="closeGroupInfo" style="position:absolute; top:16px; right:16px; z-index:10; background:rgba(0,0,0,0.4); color:#fff; border-radius:50%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
@@ -173,7 +172,6 @@
     </div>
 </div>
 
-<!-- МОДАЛКА РЕДАКТИРОВАНИЯ ГРУППЫ -->
 <div class="modal-overlay" id="editGroupModal">
     <div class="modal" style="max-width: 400px; background: var(--bg-0);">
         <div class="modal-header"><h2 class="modal-title">Изменить группу</h2><button class="icon-btn" id="closeEditGroup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
@@ -187,7 +185,6 @@
     </div>
 </div>
 
-<!-- МОДАЛКА ДОБАВЛЕНИЯ УЧАСТНИКОВ -->
 <div class="modal-overlay" id="addMembersModal">
     <div class="modal" style="max-width: 400px; background: var(--bg-0);">
         <div class="modal-header"><h2 class="modal-title">Добавить в группу</h2><button class="icon-btn" id="closeAddMembers"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
@@ -247,7 +244,7 @@
     let isTyping = false;
     let attachedFile = null;
     let replyingTo = null;
-    let currentGroupInfo = null; // Для хранения данных открытой группы
+    let currentGroupInfo = null;
     window.currentUser = null;
     
     const originalTitle = "Miksegram";
@@ -414,6 +411,7 @@
         
         document.getElementById('chatName').textContent = userData.display_name;
         applyNameEffect(document.getElementById('chatName'), userData.name_effect);
+        document.getElementById('chatLogin').style.color = 'var(--accent)';
         updateChatStatus();
         document.getElementById('typingText').style.display = 'none';
         document.getElementById('messagesList').innerHTML = '<div class="chat-empty-msg">Напишите первое сообщение</div>';
@@ -441,6 +439,7 @@
             document.getElementById('chatLogin').textContent = 'Группа';
             document.getElementById('chatLogin').style.color = 'var(--text-dim)';
         } else {
+            document.getElementById('chatLogin').style.color = 'var(--accent)';
             updateChatStatus();
         }
         
@@ -473,20 +472,14 @@
         if (m.sender_id !== myId) return '';
         if (m.is_sending) return `<span class="read-status" style="font-size: 12px; margin-left: 4px;">🕒</span>`;
         
-        // Неоновые галочки (прочитано)
         if (m.read_by && m.read_by.length > 0) {
-            let title = '';
-            if (activeChat && activeChat.type === 'group') {
-                title = `Прочитали: ${m.read_by.join(', ')}`;
-            }
-            return `<span class="read-status read" title="${title}" style="display:inline-flex; margin-left: 4px; cursor:help;">
+            return `<span class="read-status read" style="display:inline-flex; margin-left: 4px;">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="17 7 8 16 3 11"/><polyline points="22 7 13 16 11 14"/>
                 </svg>
             </span>`;
         }
         
-        // Две серые (собеседник онлайн)
         const isOnline = activeChat && activeChat.type === 'private' && onlineUsersSet.has(activeOtherId);
         if (isOnline) {
             return `<span class="read-status" style="display:inline-flex; margin-left: 4px; color: var(--text-mute);">
@@ -496,7 +489,6 @@
             </span>`;
         }
 
-        // Одна серая (отправлено)
         return `<span class="read-status" style="display:inline-flex; margin-left: 4px; color: var(--text-mute);">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="20 6 9 17 4 12"/>
@@ -520,6 +512,10 @@
         li.dataset.text = m.text || '';
         if (!animate) li.style.animation = 'none';
         
+        if (activeChat && activeChat.type === 'group' && m.read_by && m.read_by.length > 0) {
+            li.title = `Прочитали: ${m.read_by.join(', ')}`;
+        }
+
         const time = new Date(m.created_at || Date.now()).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
         const showSender = !isOwn && activeChat && activeChat.type === 'group';
         
@@ -801,7 +797,6 @@
     
     socket.on('chats_read_update', (data) => {
         if (data.chat_id === activeChatId) {
-            // Вместо перекрашивания просто перезагружаем историю (для групп это проще и точнее)
             if (activeChat && activeChat.type === 'group') {
                 loadHistory(activeChatId);
             } else {
@@ -889,8 +884,6 @@
         chatMenuDropdown.classList.remove('open');
     });
 
-    // --- ЛОГИКА ГРУПП ---
-
     document.getElementById('chatHeaderLeft').addEventListener('click', () => {
         if (activeChat && activeChat.type === 'group') {
             showGroupInfo(activeChatId);
@@ -943,7 +936,6 @@
     document.getElementById('closeGroupInfo').addEventListener('click', () => document.getElementById('groupInfoModal').classList.remove('open'));
     document.getElementById('groupInfoModal').addEventListener('click', (e) => { if (e.target === document.getElementById('groupInfoModal')) document.getElementById('groupInfoModal').classList.remove('open'); });
 
-    // Изменение названия
     document.getElementById('editGroupBtn').addEventListener('click', () => {
         document.getElementById('editGroupNameInput').value = currentGroupInfo.name;
         document.getElementById('editGroupModal').classList.add('open');
@@ -965,7 +957,6 @@
         } else showToast(data.error);
     });
 
-    // Добавление участников
     document.getElementById('addMemberBtn').addEventListener('click', async () => {
         const resAll = await fetch('/api/all-users');
         const dataAll = await resAll.json();
@@ -1014,7 +1005,6 @@
         } else showToast(data.error);
     });
 
-    // Исключение участника
     window.removeMember = async (userId) => {
         if (!confirm('Исключить этого участника?')) return;
         const res = await fetch(`/api/groups/${currentGroupInfo.id}/remove-member`, {
@@ -1027,7 +1017,6 @@
         } else showToast(data.error);
     };
 
-    // --- ПРОФИЛИ ---
     function showProfileModal(userId) {
         fetch('/api/user/' + userId).then(r => r.json()).then(data => {
             if (!data.ok) return;
@@ -1106,14 +1095,34 @@
     document.getElementById('closeGroup').addEventListener('click', () => groupModal.classList.remove('open'));
     groupModal.addEventListener('click', e => { if (e.target === groupModal) groupModal.classList.remove('open'); });
 
-    document.getElementById('createGroupBtn').addEventListener('click', async () => {
+    document.getElementById('createGroupBtn').addEventListener('click', async (e) => {
+        e.preventDefault();
+        const btn = e.currentTarget;
+        if (btn.disabled) return;
+        btn.disabled = true;
+        btn.textContent = 'Создание...';
+
         const name = document.getElementById('groupNameInput').value.trim();
         const checked = Array.from(document.querySelectorAll('#groupUserList input:checked')).map(cb => parseInt(cb.value));
-        if (!name) return showToast('Введите название группы');
-        if (!checked.length) return showToast('Выберите хотя бы одного участника');
+        
+        if (!name || !checked.length) {
+            showToast(!name ? 'Введите название группы' : 'Выберите участников');
+            btn.disabled = false; btn.textContent = 'Создать группу';
+            return;
+        }
+        
         const res = await fetch('/api/create-group', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, member_ids: checked }) });
         const data = await res.json();
-        if (data.ok) { groupModal.classList.remove('open'); loadChats(); } else { showToast(data.error); }
+        
+        btn.disabled = false;
+        btn.textContent = 'Создать группу';
+
+        if (data.ok) { 
+            groupModal.classList.remove('open'); 
+            loadChats(); 
+        } else { 
+            showToast(data.error); 
+        }
     });
 
     fetch('/api/me').then(r => r.json()).then(data => {
