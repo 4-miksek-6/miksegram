@@ -646,10 +646,12 @@
                     file_name: attachedFile ? attachedFile.file_name : null,
                     reply_to_id: replyingTo
                 }, (response) => {
-                    const tempEl = document.querySelector(`.msg[data-temp-id="${response.temp_id}"]`);
-                    if (tempEl) tempEl.remove();
-                    addMessageToDOM(response.msg, true);
-                    loadChats();
+                    if (response && response.msg) {
+                        const tempEl = document.querySelector(`.msg[data-temp-id="${tempId}"]`);
+                        if (tempEl) tempEl.remove();
+                        addMessageToDOM(response.msg, false);
+                        loadChats();
+                    }
                 });
 
                 composerInput.value = '';
