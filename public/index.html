@@ -282,7 +282,7 @@
                     data.users.forEach(u => {
                         const el = document.createElement('div');
                         el.className = 'chat-item';
-                        el.innerHTML = `<div class="avatar" id="s-avatar-${u.id}">?</div><div class="chat-item-body"><div class="chat-item-top"><div class="chat-item-name">${escapeHtml(u.display_name)}</div></div><div class="chat-item-bottom"><div class="chat-item-preview">@${escapeHtml(u.login)}</div></div></div>`;
+                        el.innerHTML = `<div class="avatar" id="s-avatar-${u.id}">?</div><div class="chat-item-body"><div class="chat-item-top"><div class="chat-item-name ${u.name_effect ? 'name-'+u.name_effect : ''}">${escapeHtml(u.display_name)}</div></div><div class="chat-item-bottom"><div class="chat-item-preview">@${escapeHtml(u.login)}</div></div></div>`;
                         el.addEventListener('click', () => { searchInput.value = ''; startEmptyChat(u.id); });
                         chatsList.appendChild(el);
                         applyAvatarTo(document.getElementById(`s-avatar-${u.id}`), u.avatar, u.display_name, u.avatar_frame);
@@ -409,25 +409,18 @@
 
     function renderTicks(m) {
         if (m.sender_id !== myId) return '';
-        
-        // Если сообщение отправляется (заглушка)
         if (m.is_sending) return `<span class="msg-time-status" title="Отправка...">🕒</span>`;
-        
-        // Если сообщение доставлено на сервер (1 галочка)
         if (!m.id) return `<span class="msg-time-status"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>`;
 
-        // Если собеседник прочитал (2 неоновые галочки)
         if (m.read_by && m.read_by.length > 0) {
             return `<span class="msg-time-status read"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/><polyline points="24 6 13 17 8 12"/></svg></span>`;
         }
         
-        // Если собеседник онлайн, но не прочитал (2 серые)
         const isOnline = m.chat_type === 'private' && onlineUsersSet.has(activeOtherId);
         if (isOnline) {
             return `<span class="msg-time-status"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/><polyline points="24 6 13 17 8 12"/></svg></span>`;
         }
 
-        // Иначе просто доставлено (1 серая)
         return `<span class="msg-time-status"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>`;
     }
 
@@ -481,7 +474,7 @@
         `;
         
         li.addEventListener('contextmenu', (e) => {
-            if (m.is_sending) return; // Нельзя нажать ПКМ на "загрузку"
+            if (m.is_sending) return;
             e.preventDefault();
             selectedMsgId = m.id;
             selectedMsgText = m.text || '';
@@ -502,11 +495,7 @@
             reactionsBar.classList.add('open');
         });
 
-        if (m.is_sending) {
-            listEl.appendChild(li);
-        } else {
-            listEl.appendChild(li);
-        }
+        listEl.appendChild(li);
         scrollBottom();
     }
 
@@ -590,7 +579,6 @@
         typingTimeout = setTimeout(() => { isTyping = false; socket.emit('typing', { chat_id: activeChatId, is_typing: false }); }, 2500);
     });
 
-    // ПЕРЕНОС СТРОКИ ТОЛЬКО SHIFT+ENTER. ENTER = ОТПРАВКА
     composerInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
@@ -631,7 +619,6 @@
         xhr.send(formData);
     });
 
-    // ОПТИМИСТИЧНАЯ ОТПРАВКА
     document.getElementById('composer').addEventListener('submit', (e) => {
         e.preventDefault();
         const text = composerInput.value.trim();
@@ -650,7 +637,6 @@
                     is_sending: true
                 };
 
-                // Мгновенно отрисовываем "Отправку"
                 addMessageToDOM(tempMsg, true);
                 
                 socket.emit('send_message', { 
@@ -660,7 +646,6 @@
                     file_name: attachedFile ? attachedFile.file_name : null,
                     reply_to_id: replyingTo
                 }, (response) => {
-                    // Когда сервер ответил — заменяем "Загрузку" на реальное сообщение
                     const tempEl = document.querySelector(`.msg[data-temp-id="${response.temp_id}"]`);
                     if (tempEl) tempEl.remove();
                     addMessageToDOM(response.msg, true);
@@ -689,7 +674,6 @@
     socket.on('new_message', (m) => {
         if (m.chat_id === activeChatId || m.sender_id === activeOtherId) {
             if (activeChatId === null && m.chat_id) activeChatId = m.chat_id;
-            // Если сообщение наше - оно уже отрисовано оптимистично, не дублируем
             if (m.sender_id !== myId) {
                 addMessageToDOM(m, true); 
                 socket.emit('mark_read', m.chat_id);
