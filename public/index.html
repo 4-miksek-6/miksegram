@@ -150,7 +150,6 @@
     </div>
 </div>
 
-<!-- ТУТ ИЗМЕНЕНЫ ОТСТУПЫ ДЛЯ АВАТАРКИ И ИМЕНИ (bottom: 40px) -->
 <div class="modal-overlay" id="profileModal">
     <div class="modal" style="max-width: 420px; padding: 0; overflow: hidden; background: var(--bg-0);">
         <button class="icon-btn" id="closeProfileModal" style="position:absolute; top:16px; right:16px; z-index:10; background:rgba(0,0,0,0.4); color:#fff; border-radius:50%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
@@ -202,6 +201,19 @@
     let replyingTo = null;
     window.currentUser = null;
     
+    const originalTitle = "Miksegram";
+    let unreadTitleCount = 0;
+    let blinkInterval = null;
+
+    window.addEventListener('focus', () => {
+        document.title = originalTitle;
+        unreadTitleCount = 0;
+        if (blinkInterval) {
+            clearInterval(blinkInterval);
+            blinkInterval = null;
+        }
+    });
+
     const chatsList = document.getElementById('chatsList');
     const searchInput = document.getElementById('searchInput');
     const typingText = document.getElementById('typingText');
@@ -696,8 +708,31 @@
             }
         }
         if (m.sender_id !== myId) {
+            // --- ЛОГИКА УВЕДОМЛЕНИЙ ---
             playNotification();
-            if (document.hidden && Notification.permission === 'granted') new Notification(m.sender_name, { body: m.text || 'Прикрепил файл' });
+            
+            if (localStorage.getItem('notif-vibrate') !== 'off' && navigator.vibrate) {
+                navigator.vibrate(200);
+            }
+
+            if (document.hidden && Notification.permission === 'granted' && localStorage.getItem('notif-push') !== 'off') {
+                const hideText = localStorage.getItem('notif-hide-text') !== 'off';
+                const bodyText = hideText ? 'Новое сообщение' : (m.text || 'Прикрепил файл');
+                new Notification(m.sender_name, { body: bodyText });
+            }
+
+            if (document.hidden && localStorage.getItem('notif-blink') !== 'off') {
+                unreadTitleCount++;
+                if (!blinkInterval) {
+                    let toggle = false;
+                    blinkInterval = setInterval(() => {
+                        document.title = toggle ? originalTitle : `(${unreadTitleCount}) Новое сообщение`;
+                        toggle = !toggle;
+                    }, 1000);
+                } else {
+                    document.title = `(${unreadTitleCount}) Новое сообщение`;
+                }
+            }
         }
     });
 

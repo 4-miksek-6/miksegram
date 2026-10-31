@@ -32,17 +32,21 @@ function initMagnetics() {
 }
 
 const notificationSound = new Audio('/notify.mp3');
-notificationSound.volume = 0.5;
 let isPlayingSound = false;
 
 function playNotification() {
+    if (localStorage.getItem('notif-sound') === 'off') return;
     if (isPlayingSound) return;
+    
     try {
         isPlayingSound = true;
+        notificationSound.volume = parseFloat(localStorage.getItem('notif-volume') || '0.5');
         notificationSound.currentTime = 0;
         notificationSound.play();
         notificationSound.onended = () => { isPlayingSound = false; };
-    } catch(e) { isPlayingSound = false; }
+    } catch(e) { 
+        isPlayingSound = false; 
+    }
 }
 
 function requestNotifications() {
@@ -52,24 +56,19 @@ function requestNotifications() {
 }
 
 (function applyStoredSettings() {
-    // 1. Тема
     document.body.dataset.theme = 'cosmos';
     
-    // 2. Акцент
     const accent = localStorage.getItem('accent');
     if (accent && accent !== 'default') document.body.dataset.accent = accent;
     
-    // 3. Пресет фона
     const bgPreset = localStorage.getItem('bg-preset') || 'cosmos';
     document.body.dataset.bg = bgPreset;
 
-    // 4. Прозрачность (НОВОЕ)
     const sidebarOpacity = localStorage.getItem('sidebar-opacity') || '0.55';
     const chatOpacity = localStorage.getItem('chat-opacity') || '0.85';
     document.documentElement.style.setProperty('--sidebar-opacity', sidebarOpacity);
     document.documentElement.style.setProperty('--chat-opacity', chatOpacity);
 
-    // 5. Анимации
     if (localStorage.getItem('anim') === 'off') document.body.classList.add('no-anim');
 })();
 
