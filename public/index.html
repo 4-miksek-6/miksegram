@@ -6,6 +6,22 @@
     <title>Miksegram</title>
     <link rel="stylesheet" href="/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
+    <style>
+        /* Анимация появления сообщений при переключении чата */
+        .messages-list.chat-switch-anim {
+            animation: chatFadeIn 0.25s ease both;
+        }
+        @keyframes chatFadeIn {
+            from { opacity: 0.2; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .msg.reaction-pop {
+            animation: reactionPop 0.15s ease;
+        }
+        @keyframes reactionPop {
+            50% { transform: scale(1.03); }
+        }
+    </style>
 </head>
 <body>
 <div class="bg-layer"></div>
@@ -246,6 +262,11 @@
     let replyingTo = null;
     let currentGroupInfo = null;
     window.currentUser = null;
+
+    // ===== КЭШ И ТОКЕН ЗАГРУЗКИ =====
+    let messagesCache = {};      // chatId -> массив сообщений
+    let messages = [];           // ссылка на кэш активного чата
+    let currentLoadToken = 0;    // защита от гонки при быстром переключении
     
     const originalTitle = "Miksegram";
     let unreadTitleCount = 0;
@@ -272,6 +293,7 @@
     const uploadProgressBar = document.getElementById('uploadProgressBar');
     const replyPreview = document.getElementById('replyPreview');
     const chatMenuDropdown = document.getElementById('chatMenuDropdown');
+    const messagesListEl = document.getElementById('messagesList');
     let selectedMsgId = null;
     let selectedMsgText = null;
 
@@ -391,6 +413,7 @@
     }
 
     async function startEmptyChat(otherId) {
+        if (activeChatId === null && activeOtherId === otherId) return;
         const searchRes = await fetch('/api/user/' + otherId);
         const searchData = await searchRes.json();
         if (!searchData.ok) return;
@@ -399,6 +422,7 @@
         activeChatId = null;
         activeOtherId = otherId;
         activeChat = { type: 'private', name: userData.display_name, login: userData.login, last_seen: userData.last_seen, name_effect: userData.name_effect };
+        messages = [];
         
         document.getElementById('emptyState').style.display = 'none';
         composerInput.disabled = false;
@@ -414,16 +438,26 @@
         document.getElementById('chatLogin').style.color = 'var(--accent)';
         updateChatStatus();
         document.getElementById('typingText').style.display = 'none';
-        document.getElementById('messagesList').innerHTML = '<div class="chat-empty-msg">Напишите первое сообщение</div>';
+        messagesListEl.innerHTML = '<div class="chat-empty-msg">Напишите первое сообщение</div>';
+        messagesListEl.classList.remove('chat-switch-anim');
+        void messagesListEl.offsetWidth;
+        messagesListEl.classList.add('chat-switch-anim');
         renderChats();
         if (window.innerWidth <= 768) document.querySelector('.app').classList.add('mobile-chat-open');
     }
 
     function openChat(chatId, name, avatar, type, otherId = null, login = '', last_seen = null, avatar_frame = 'none', name_effect = 'none', other_last_read = 0) {
+        // Не перезагружаем, если чат уже открыт
+        if (activeChatId === chatId && activeChat) return;
+
+        const prevChatId = activeChatId;
         activeChatId = chatId;
         activeOtherId = otherId;
         activeChat = { type, name, login, last_seen, name_effect, other_last_read };
         
+        // Инкремент токена: всё, что было загружено раньше, будет проигнорировано
+        const myToken = ++currentLoadToken;
+
         document.getElementById('emptyState').style.display = 'none';
         composerInput.disabled = false;
         document.querySelector('.send-btn').disabled = false;
@@ -444,8 +478,22 @@
         }
         
         document.getElementById('typingText').style.display = 'none';
+
+        // Если в кэше уже есть — показываем моментально, без "Загрузка..."
+        if (messagesCache[chatId]) {
+            messages = messagesCache[chatId];
+            renderMessages(true);
+        } else {
+            messagesListEl.innerHTML = '<div style="color:var(--text-mute);text-align:center;padding:20px">Загрузка...</div>';
+        }
+
+        // Анимация переключения
+        messagesListEl.classList.remove('chat-switch-anim');
+        void messagesListEl.offsetWidth;
+        messagesListEl.classList.add('chat-switch-anim');
+
         socket.emit('mark_read', chatId);
-        loadHistory(chatId);
+        loadHistory(chatId, myToken);
         renderChats();
         if (window.innerWidth <= 768) document.querySelector('.app').classList.add('mobile-chat-open');
     }
@@ -455,18 +503,25 @@
         document.getElementById('mobileBackBtn').style.display = 'none';
     });
 
-    function loadHistory(chatId) {
-        const listEl = document.getElementById('messagesList');
-        listEl.innerHTML = '<div style="color:var(--text-mute);text-align:center;padding:20px">Загрузка...</div>';
-        fetch('/api/messages/' + chatId).then(r => r.json()).then(data => {
+    async function loadHistory(chatId, token) {
+        try {
+            const r = await fetch('/api/messages/' + chatId);
+            const data = await r.json();
+
+            // Если за это время пользователь переключился на другой чат — игнорируем ответ
+            if (token !== currentLoadToken) return;
+
             if (data.ok) {
-                listEl.innerHTML = '';
-                if (!data.messages.length) listEl.innerHTML = '<div class="chat-empty-msg">Сообщений пока нет. Напишите первым!</div>';
-                else data.messages.forEach(m => addMessageToDOM(m, false));
-                scrollBottom();
+                messagesCache[chatId] = data.messages;
+                if (chatId === activeChatId) {
+                    messages = data.messages;
+                    renderMessages();
+                }
                 loadChats();
             }
-        });
+        } catch (e) {
+            console.error('Ошибка загрузки истории:', e);
+        }
     }
 
     function renderTicks(m) {
@@ -497,7 +552,6 @@
         </span>`;
     }
 
-    // ==== ПРИНУДИТЕЛЬНОЕ СКАЧИВАНИЕ ФАЙЛОВ ====
     window.forceDownload = async function(url, filename) {
         try {
             showToast('Скачивание...');
@@ -517,26 +571,7 @@
         }
     };
 
-    function addMessageToDOM(m, animate = true) {
-        const listEl = document.getElementById('messagesList');
-        const empty = listEl.querySelector('.chat-empty-msg');
-        if (empty) empty.remove();
-        
-        if (m.id && document.querySelector(`.msg[data-id="${m.id}"]`)) return;
-        if (m.temp_id && document.querySelector(`.msg[data-temp-id="${m.temp_id}"]`)) return;
-
-        const li = document.createElement('li');
-        const isOwn = m.sender_id === myId;
-        li.className = 'msg' + (isOwn ? ' own' : '');
-        if (m.id) li.dataset.id = m.id;
-        if (m.temp_id) li.dataset.tempId = m.temp_id;
-        li.dataset.text = m.text || '';
-        if (!animate) li.style.animation = 'none';
-        
-        if (activeChat && activeChat.type === 'group' && m.read_by && m.read_by.length > 0) {
-            li.title = `Прочитали: ${m.read_by.join(', ')}`;
-        }
-
+    function buildMessageHTML(m, isOwn) {
         const time = new Date(m.created_at || Date.now()).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
         const showSender = !isOwn && activeChat && activeChat.type === 'group';
         
@@ -556,12 +591,12 @@
         let reactionsHtml = '';
         if (m.reactions && m.reactions.length > 0) {
             reactionsHtml = `<div class="msg-reactions">${m.reactions.map(r => {
-                const isMine = r.users && r.users.split(',').includes(myId.toString());
+                const isMine = r.users && r.users.split(',').includes(String(myId));
                 return `<div class="reaction-badge ${isMine ? 'mine' : ''}" onclick="toggleReaction(${m.id}, '${r.emoji}')">${r.emoji} ${r.count}</div>`;
             }).join('')}</div>`;
         }
 
-        li.innerHTML = `
+        return `
             ${showSender ? `<div class="msg-from">${escapeHtml(m.sender_name)}</div>` : ''}
             ${replyHtml}
             ${m.text ? `<div class="msg-text" style="white-space: pre-wrap;">${escapeHtml(m.text)}</div>` : ''}
@@ -569,6 +604,38 @@
             <div class="msg-time">${time} ${isOwn ? renderTicks(m) : ''}</div>
             ${reactionsHtml}
         `;
+    }
+
+    function renderMessages(animateSwitch = false) {
+        messagesListEl.innerHTML = '';
+        if (!messages.length) {
+            messagesListEl.innerHTML = '<div class="chat-empty-msg">Сообщений пока нет. Напишите первым!</div>';
+            return;
+        }
+        messages.forEach(m => addMessageToDOM(m, false));
+        scrollBottom();
+    }
+
+    function addMessageToDOM(m, animate = true) {
+        const empty = messagesListEl.querySelector('.chat-empty-msg');
+        if (empty) empty.remove();
+        
+        if (m.id && document.querySelector(`.msg[data-id="${m.id}"]`)) return;
+        if (m.temp_id && document.querySelector(`.msg[data-temp-id="${m.temp_id}"]`)) return;
+
+        const li = document.createElement('li');
+        const isOwn = m.sender_id === myId;
+        li.className = 'msg' + (isOwn ? ' own' : '');
+        if (m.id) li.dataset.id = m.id;
+        if (m.temp_id) li.dataset.tempId = m.temp_id;
+        li.dataset.text = m.text || '';
+        if (!animate) li.style.animation = 'none';
+        
+        if (activeChat && activeChat.type === 'group' && m.read_by && m.read_by.length > 0) {
+            li.title = `Прочитали: ${m.read_by.join(', ')}`;
+        }
+
+        li.innerHTML = buildMessageHTML(m, isOwn);
         
         li.addEventListener('contextmenu', (e) => {
             if (m.is_sending) return;
@@ -592,7 +659,7 @@
             reactionsBar.classList.add('open');
         });
 
-        listEl.appendChild(li);
+        messagesListEl.appendChild(li);
         scrollBottom();
     }
 
@@ -603,10 +670,74 @@
     document.getElementById('lightboxClose').addEventListener('click', () => document.getElementById('lightbox').classList.remove('open'));
     document.getElementById('lightbox').addEventListener('click', (e) => { if (e.target.id === 'lightbox') document.getElementById('lightbox').classList.remove('open'); });
 
+    // ===== ОПТИМИСТИЧНЫЕ РЕАКЦИИ =====
+    function updateMessageReactionsDOM(msg) {
+        const li = document.querySelector(`.msg[data-id="${msg.id}"]`);
+        if (!li) return;
+        const old = li.querySelector('.msg-reactions');
+        if (old) old.remove();
+        if (msg.reactions && msg.reactions.length > 0) {
+            const html = `<div class="msg-reactions">${msg.reactions.map(r => {
+                const isMine = r.users && r.users.split(',').includes(String(myId));
+                return `<div class="reaction-badge ${isMine ? 'mine' : ''}" onclick="toggleReaction(${msg.id}, '${r.emoji}')">${r.emoji} ${r.count}</div>`;
+            }).join('')}</div>`;
+            li.insertAdjacentHTML('beforeend', html);
+        }
+    }
+
     window.toggleReaction = (msgId, emoji) => {
-        socket.emit('add_reaction', { message_id: msgId, emoji });
         contextMenu.classList.remove('open');
         reactionsBar.classList.remove('open');
+
+        // Оптимистично обновляем локально
+        const msg = messages.find(m => m.id === msgId);
+        if (msg) {
+            if (!msg.reactions) msg.reactions = [];
+            
+            // Уже есть моя реакция с этим эмодзи?
+            const mySameReaction = msg.reactions.find(r => r.emoji === emoji && r.users && r.users.split(',').includes(String(myId)));
+            // Есть ли у меня другая реакция (на любое другое эмодзи)?
+            const myOtherReaction = msg.reactions.find(r => r.emoji !== emoji && r.users && r.users.split(',').includes(String(myId)));
+            
+            // Сначала убираем любую мою старую реакцию
+            if (myOtherReaction) {
+                myOtherReaction.users = myOtherReaction.users.split(',').filter(u => u !== String(myId)).join(',');
+                myOtherReaction.count--;
+                if (myOtherReaction.count <= 0) {
+                    msg.reactions = msg.reactions.filter(r => r !== myOtherReaction);
+                }
+            }
+            
+            if (mySameReaction) {
+                // Убираем мою реакцию
+                mySameReaction.users = mySameReaction.users.split(',').filter(u => u !== String(myId)).join(',');
+                mySameReaction.count--;
+                if (mySameReaction.count <= 0) {
+                    msg.reactions = msg.reactions.filter(r => r !== mySameReaction);
+                }
+            } else {
+                // Добавляем мою реакцию
+                const existing = msg.reactions.find(r => r.emoji === emoji);
+                if (existing) {
+                    existing.count++;
+                    existing.users = existing.users ? existing.users + ',' + myId : String(myId);
+                } else {
+                    msg.reactions.push({ emoji, count: 1, users: String(myId) });
+                }
+            }
+            
+            updateMessageReactionsDOM(msg);
+            // Лёгкая анимация "поп"
+            const li = document.querySelector(`.msg[data-id="${msgId}"]`);
+            if (li) {
+                li.classList.remove('reaction-pop');
+                void li.offsetWidth;
+                li.classList.add('reaction-pop');
+            }
+        }
+
+        // Отправляем на сервер
+        socket.emit('add_reaction', { message_id: msgId, emoji });
     };
 
     document.getElementById('ctxReply').addEventListener('click', () => {
@@ -652,7 +783,7 @@
 
     document.querySelectorAll('#reactionsBar span').forEach(span => {
         span.addEventListener('click', () => {
-            if (selectedMsgId) socket.emit('add_reaction', { message_id: selectedMsgId, emoji: span.dataset.reaction });
+            if (selectedMsgId) toggleReaction(selectedMsgId, span.dataset.reaction);
             contextMenu.classList.remove('open');
             reactionsBar.classList.remove('open');
         });
@@ -733,6 +864,7 @@
                     is_sending: true
                 };
 
+                messages.push(tempMsg);
                 addMessageToDOM(tempMsg, true);
                 
                 socket.emit('send_message', { 
@@ -743,26 +875,29 @@
                     reply_to_id: replyingTo
                 }, async (response) => {
                     const tempEl = document.querySelector(`.msg[data-temp-id="${tempId}"]`);
+                    if (tempEl) tempEl.remove();
                     
-                    // ==== ФИКС: если сервер вернул ошибку — убираем "часики" и показываем тост ====
+                    // Убираем временное сообщение из кэша
+                    messages = messages.filter(m => m.temp_id !== tempId);
+                    
                     if (response && response.error) {
-                        if (tempEl) tempEl.remove();
                         showToast(response.error);
                         return;
                     }
                     
                     if (response && response.msg) {
-                        if (tempEl) tempEl.remove();
-                        addMessageToDOM(response.msg, false);
+                        // Сервер уже пришлёт new_message и update_chats всем, включая нас
+                        // Но подстрахуемся: добавим в кэш, если вдруг new_message не пришёл
+                        if (!messages.find(m => m.id === response.msg.id)) {
+                            messages.push(response.msg);
+                            addMessageToDOM(response.msg, false);
+                        }
+                        messagesCache[response.msg.chat_id] = messages;
                         
-                        // ==== ФИКС: если это был новый чат — сразу открываем его ====
+                        // Если это был новый чат — сразу открываем его
                         if (!activeChatId && response.msg.chat_id) {
                             activeChatId = response.msg.chat_id;
                             await loadChats();
-                            const newChat = chatsData.find(c => c.id === activeChatId);
-                            if (newChat) openChat(newChat.id, newChat.name, newChat.avatar, newChat.type, newChat.other_id, newChat.login, newChat.last_seen, newChat.avatar_frame, newChat.name_effect, newChat.other_last_read);
-                        } else {
-                            loadChats();
                         }
                     }
                 });
@@ -779,10 +914,22 @@
     });
 
     socket.on('new_message', (m) => {
-        if (m.chat_id === activeChatId || m.sender_id === activeOtherId) {
-            if (activeChatId === null && m.chat_id) activeChatId = m.chat_id;
+        // Обновляем кэш для чата этого сообщения
+        if (!messagesCache[m.chat_id]) messagesCache[m.chat_id] = [];
+        if (!messagesCache[m.chat_id].find(x => x.id === m.id)) {
+            messagesCache[m.chat_id].push(m);
+        }
+
+        if (m.chat_id === activeChatId || (activeChatId === null && m.sender_id === activeOtherId)) {
+            if (activeChatId === null && m.chat_id) {
+                activeChatId = m.chat_id;
+                messages = messagesCache[m.chat_id];
+            }
             if (m.sender_id !== myId) {
-                addMessageToDOM(m, true); 
+                if (!messages.find(x => x.id === m.id)) {
+                    messages.push(m);
+                    addMessageToDOM(m, true);
+                }
                 socket.emit('mark_read', m.chat_id);
                 document.getElementById('typingText').style.display = 'none';
             }
@@ -810,25 +957,37 @@
     });
 
     socket.on('message_updated', (m) => {
-        const li = document.querySelector(`.msg[data-id="${m.id}"]`);
-        if (!li) return;
-        const oldReactions = li.querySelector('.msg-reactions');
-        if (oldReactions) oldReactions.remove();
-        if (m.reactions && m.reactions.length > 0) {
-            const reactionsHtml = `<div class="msg-reactions">${m.reactions.map(r => {
-                const isMine = r.users && r.users.split(',').includes(myId.toString());
-                return `<div class="reaction-badge ${isMine ? 'mine' : ''}" onclick="toggleReaction(${m.id}, '${r.emoji}')">${r.emoji} ${r.count}</div>`;
-            }).join('')}</div>`;
-            li.insertAdjacentHTML('beforeend', reactionsHtml);
+        // Обновляем кэш
+        if (messagesCache[m.chat_id]) {
+            const idx = messagesCache[m.chat_id].findIndex(x => x.id === m.id);
+            if (idx !== -1) messagesCache[m.chat_id][idx] = { ...messagesCache[m.chat_id][idx], ...m };
+        }
+        // Обновляем DOM, если сообщение в активном чате
+        const msg = messages.find(x => x.id === m.id);
+        if (msg) {
+            msg.reactions = m.reactions;
+            msg.read_by = m.read_by;
+            updateMessageReactionsDOM(msg);
         }
     });
 
-    socket.on('message_deleted', (data) => { const li = document.querySelector(`.msg[data-id="${data.id}"]`); if (li) li.remove(); });
+    socket.on('message_deleted', (data) => {
+        // Чистим кэш
+        if (messagesCache[data.chat_id]) {
+            messagesCache[data.chat_id] = messagesCache[data.chat_id].filter(m => m.id !== data.id);
+        }
+        if (data.chat_id === activeChatId) {
+            messages = messages.filter(m => m.id !== data.id);
+        }
+        const li = document.querySelector(`.msg[data-id="${data.id}"]`);
+        if (li) li.remove();
+    });
     
     socket.on('chats_read_update', (data) => {
         if (data.chat_id === activeChatId) {
             if (activeChat && activeChat.type === 'group') {
-                loadHistory(activeChatId);
+                // Мягкое обновление без "Загрузка..."
+                loadHistory(activeChatId, currentLoadToken);
             } else {
                 document.querySelectorAll(`.msg.own`).forEach(li => {
                     const statusEl = li.querySelector('.read-status');
@@ -843,7 +1002,11 @@
     });
 
     socket.on('chat_cleared', (data) => {
-        if (data.chat_id === activeChatId) document.getElementById('messagesList').innerHTML = '<div class="chat-empty-msg">История очищена</div>';
+        messagesCache[data.chat_id] = [];
+        if (data.chat_id === activeChatId) {
+            messages = [];
+            messagesListEl.innerHTML = '<div class="chat-empty-msg">История очищена</div>';
+        }
         loadChats();
     });
 
@@ -902,9 +1065,11 @@
         if (!confirm(isGroup ? 'Выйти из группы?' : 'Удалить чат из списка?')) return;
         const res = await fetch('/api/chats/' + activeChatId + '/delete', { method: 'POST' });
         if (res.ok) {
-            document.getElementById('messagesList').innerHTML = '';
+            delete messagesCache[activeChatId];
+            messagesListEl.innerHTML = '';
             document.getElementById('emptyState').style.display = 'flex';
-            activeChatId = null; activeOtherId = null;
+            activeChatId = null; activeOtherId = null; activeChat = null;
+            messages = [];
             document.getElementById('chatHeaderRight').style.display = 'none';
             document.getElementById('chatName').textContent = 'Выберите собеседника';
             document.getElementById('chatAvatar').style.display = 'none';
