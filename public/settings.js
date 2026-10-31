@@ -8,17 +8,14 @@ function applyBackgroundToggle(key, on) {
 
 const AVATAR_FRAMES = [
     { key: 'none', label: 'Нет' },
-    { key: 'rainbow', label: 'Радуга' },
-    { key: 'dashed', label: 'Пунктир' },
     { key: 'glow', label: 'Свечение' },
-    { key: 'fire', label: 'Огонь' }
+    { key: 'dashed', label: 'Пунктир' }
 ];
 
 const NAME_EFFECTS = [
-    { key: 'none', label: 'Обычный' },
-    { key: 'rainbow', label: 'Радуга' },
+    { key: 'none', label: 'Простое' },
     { key: 'glow', label: 'Свечение' },
-    { key: 'duo', label: 'Два цвета' }
+    { key: 'duo', label: 'Цвет' }
 ];
 
 function buildSettingsUI() {
@@ -39,11 +36,21 @@ function buildSettingsUI() {
             
             <div class="settings-preview-col" id="settingsPreviewCol">
                 <div class="settings-label" style="margin-bottom: 16px; text-align: center; width: 100%;">Предпросмотр</div>
-                <!-- Превью рендерится здесь -->
+                <div class="preview-profile-card">
+                    <div class="preview-banner" id="previewBanner"></div>
+                    <div class="preview-avatar-wrap">
+                        <div class="avatar preview-avatar" id="previewAvatar">?</div>
+                    </div>
+                    <div class="preview-info">
+                        <div class="preview-name" id="previewName">...</div>
+                        <div class="preview-login" id="previewLogin">@...</div>
+                        <div class="preview-bio" id="previewBio">...</div>
+                    </div>
+                </div>
             </div>
 
             <div class="settings-controls-col" id="settingsContent">
-                <!-- Настройки рендерятся здесь -->
+                <!-- Настройки -->
             </div>
         </div>
     `;
@@ -57,31 +64,11 @@ function buildSettingsUI() {
     });
 
     function updatePreview() {
-        const previewCol = document.getElementById('settingsPreviewCol');
-        // Сохраняем надпись, перерисовываем только карточку
-        const label = previewCol.querySelector('.settings-label');
-        previewCol.innerHTML = '';
-        previewCol.appendChild(label);
-
-        const card = document.createElement('div');
-        card.className = 'preview-profile-card';
-        card.innerHTML = `
-            <div class="preview-banner" id="previewBanner"></div>
-            <div class="preview-avatar-wrap">
-                <div class="avatar preview-avatar" id="previewAvatar">?</div>
-            </div>
-            <div class="preview-info">
-                <div class="preview-name" id="previewName">...</div>
-                <div class="preview-login" id="previewLogin">@...</div>
-                <div class="preview-bio" id="previewBio">...</div>
-            </div>
-        `;
-        previewCol.appendChild(card);
-
         applyBannerTo(document.getElementById('previewBanner'), u.banner);
         applyAvatarTo(document.getElementById('previewAvatar'), u.avatar, u.display_name, u.avatar_frame);
-        document.getElementById('previewName').textContent = u.display_name || 'Имя';
-        applyNameEffect(document.getElementById('previewName'), u.name_effect);
+        const nameEl = document.getElementById('previewName');
+        nameEl.textContent = u.display_name || 'Имя';
+        applyNameEffect(nameEl, u.name_effect);
         document.getElementById('previewLogin').textContent = '@' + u.login;
         document.getElementById('previewBio').textContent = u.bio || 'Расскажи о себе...';
     }
@@ -95,22 +82,49 @@ function buildSettingsUI() {
             previewCol.style.display = 'flex';
             updatePreview();
 
+            // Вычисляем текущий цвет и активные состояния
+            let frameColor = '#00d4ff';
+            let currentFrame = u.avatar_frame;
+            if (currentFrame.startsWith('custom:')) {
+                frameColor = currentFrame.split(':')[1];
+                currentFrame = 'glow';
+            }
+            if (currentFrame === 'glow') frameColor = frameColor || '#00d4ff'; // Фоллбэк
+
+            let nameColor = '#00d4ff';
+            let currentEffect = u.name_effect;
+            if (currentEffect.startsWith('custom:')) {
+                nameColor = currentEffect.split(':')[1];
+                currentEffect = 'glow';
+            }
+            if (currentEffect === 'glow' || currentEffect === 'duo') nameColor = nameColor || '#00d4ff';
+
+            document.documentElement.style.setProperty('--custom-glow-color', frameColor); // Ставим базовый
+
             content.innerHTML = `
+                <div class="settings-section">
+                    <div class="settings-label">Аватарка и Баннер</div>
+                    <button class="secondary-btn" id="uploadAvatarBtn" style="width:100%; margin-bottom:8px;">Загрузить свою аватарку</button>
+                    <button class="secondary-btn" id="uploadBannerBtn" style="width:100%;">Загрузить свой баннер</button>
+                    <input type="file" id="avatarFile" accept="image/*" style="display:none">
+                    <input type="file" id="bannerFile" accept="image/*" style="display:none">
+                </div>
+
                 <div class="settings-section">
                     <div class="settings-label">Рамка аватара</div>
                     <div class="live-picker-row" id="framePicker"></div>
-                    <div class="color-picker-wrapper" id="frameColorWrapper" style="display:none;">
-                        <span style="font-size:12px; color:var(--text-dim);">Свой цвет свечения:</span>
-                        <input type="color" id="frameColorPicker" value="#00d4ff">
+                    <div class="color-picker-row" id="frameColorRow">
+                        <span class="color-picker-label">Цвет:</span>
+                        <input type="color" id="frameColorPicker" value="${frameColor}">
                     </div>
                 </div>
 
                 <div class="settings-section">
                     <div class="settings-label">Эффект имени</div>
                     <div class="live-picker-row" id="effectPicker"></div>
-                    <div class="color-picker-wrapper" id="nameColorWrapper" style="display:none;">
-                        <span style="font-size:12px; color:var(--text-dim);">Свой цвет свечения:</span>
-                        <input type="color" id="nameColorPicker" value="#00d4ff">
+                    <div class="color-picker-row" id="nameColorRow">
+                        <span class="color-picker-label">Цвет:</span>
+                        <input type="color" id="nameColorPicker" value="${nameColor}">
                     </div>
                 </div>
 
@@ -126,49 +140,10 @@ function buildSettingsUI() {
                 </div>
             `;
 
-            // Аватарка (загрузить)
-            const avatarSec = document.createElement('div');
-            avatarSec.className = 'settings-section';
-            avatarSec.innerHTML = `
-                <div class="settings-label">Аватарка</div>
-                <div class="color-row">
-                    <div class="color-circle grad-cyan active" style="pointer-events:none;"></div>
-                </div>
-                <button class="secondary-btn" id="uploadAvatarBtn" style="margin-top:8px;">Загрузить свою аватарку</button>
-                <input type="file" id="avatarFile" accept="image/*" style="display:none">
-            `;
-            content.insertBefore(avatarSec, content.firstChild);
-
-            // Баннер (загрузить)
-            const bannerSec = document.createElement('div');
-            bannerSec.className = 'settings-section';
-            bannerSec.innerHTML = `
-                <div class="settings-label">Баннер</div>
-                <div class="color-row">
-                    <div class="color-circle grad-aurora active" style="pointer-events:none;"></div>
-                </div>
-                <button class="secondary-btn" id="uploadBannerBtn" style="margin-top:8px;">Загрузить свой баннер</button>
-                <input type="file" id="bannerFile" accept="image/*" style="display:none">
-            `;
-            content.insertBefore(bannerSec, content.children[1]);
-
             // Отрисовка рамок
             const framePicker = document.getElementById('framePicker');
-            const frameColorWrapper = document.getElementById('frameColorWrapper');
-            const frameColorPicker = document.getElementById('frameColorPicker');
-
-            // Если цвет кастомный, парсим его
-            let currentFrame = u.avatar_frame;
-            let customFrameColor = '#00d4ff';
-            if (currentFrame && currentFrame.startsWith('custom:')) {
-                customFrameColor = currentFrame.split(':')[1];
-                currentFrame = 'glow';
-            }
-            frameColorPicker.value = customFrameColor;
-            document.documentElement.style.setProperty('--custom-glow-color', customFrameColor);
-
             AVATAR_FRAMES.forEach(f => {
-                const isActive = currentFrame === f.key || (f.key === 'glow' && u.avatar_frame.startsWith('custom:'));
+                const isActive = currentFrame === f.key;
                 const d = document.createElement('button');
                 d.className = 'live-picker-btn' + (isActive ? ' active' : '');
                 
@@ -179,86 +154,82 @@ function buildSettingsUI() {
                               <span style="font-size:10px; margin-top:4px;">${f.label}</span>`;
 
                 d.addEventListener('click', async () => {
+                    document.querySelectorAll('#framePicker .live-picker-btn').forEach(x => x.classList.remove('active'));
+                    d.classList.add('active');
+
                     let patchValue = f.key;
-                    if (f.key === 'glow') {
-                        frameColorWrapper.style.display = 'flex';
-                        patchValue = `custom:${frameColorPicker.value}`;
-                    } else {
-                        frameColorWrapper.style.display = 'none';
+                    if (f.key === 'glow' || f.key === 'dashed') {
+                        patchValue = `custom:${frameColor}`;
                     }
                     const data = await saveProfilePatch({ avatar_frame: patchValue });
                     if (data.ok) {
                         u.avatar_frame = patchValue;
                         updatePreview();
-                        renderTab('profile'); // Перерисовка для обновления активных состояний
                     }
                 });
                 framePicker.appendChild(d);
             });
 
-            frameColorPicker.addEventListener('input', async (e) => {
+            document.getElementById('frameColorPicker').addEventListener('input', async (e) => {
                 const color = e.target.value;
-                document.documentElement.style.setProperty('--custom-glow-color', color);
-                const patchValue = `custom:${color}`;
-                await saveProfilePatch({ avatar_frame: patchValue });
-                u.avatar_frame = patchValue;
-                updatePreview();
+                frameColor = color;
+                
+                // Применяем цвет только если активна рамка (Свечение или Пунктир)
+                if (currentFrame === 'glow' || currentFrame === 'dashed') {
+                    const patchValue = `custom:${color}`;
+                    await saveProfilePatch({ avatar_frame: patchValue });
+                    u.avatar_frame = patchValue;
+                    updatePreview();
+                    renderTab('profile'); // Перерисовываем, чтобы обновить цвет в превью кнопок
+                }
             });
 
-            // Отрисовка эффектов имени
+            // Отрисовка эффектов
             const effectPicker = document.getElementById('effectPicker');
-            const nameColorWrapper = document.getElementById('nameColorWrapper');
-            const nameColorPicker = document.getElementById('nameColorPicker');
-
-            let currentEffect = u.name_effect;
-            let customNameColor = '#00d4ff';
-            if (currentEffect && currentEffect.startsWith('custom:')) {
-                customNameColor = currentEffect.split(':')[1];
-                currentEffect = 'glow';
-            }
-            nameColorPicker.value = customNameColor;
-
             NAME_EFFECTS.forEach(e => {
-                const isActive = currentEffect === e.key || (e.key === 'glow' && u.name_effect.startsWith('custom:'));
+                const isActive = currentEffect === e.key;
                 const d = document.createElement('button');
                 d.className = 'live-picker-btn' + (isActive ? ' active' : '');
                 
                 let nameClass = e.key !== 'none' ? `name-${e.key}` : '';
-                d.innerHTML = `<span class="live-name-text ${nameClass}">${escapeHtml(u.display_name || 'Имя')}</span>`;
+                d.innerHTML = `<span class="live-name-text ${nameClass}" style="color: var(--custom-glow-color);">${escapeHtml(u.display_name || 'Имя')}</span>`;
                 
                 d.addEventListener('click', async () => {
+                    document.querySelectorAll('#effectPicker .live-picker-btn').forEach(x => x.classList.remove('active'));
+                    d.classList.add('active');
+
                     let patchValue = e.key;
-                    if (e.key === 'glow') {
-                        nameColorWrapper.style.display = 'flex';
-                        patchValue = `custom:${nameColorPicker.value}`;
-                    } else {
-                        nameColorWrapper.style.display = 'none';
+                    if (e.key === 'glow' || e.key === 'duo') {
+                        patchValue = `custom:${nameColor}`;
                     }
                     const data = await saveProfilePatch({ name_effect: patchValue });
                     if (data.ok) {
                         u.name_effect = patchValue;
                         updatePreview();
-                        renderTab('profile');
                     }
                 });
                 effectPicker.appendChild(d);
             });
 
-            nameColorPicker.addEventListener('input', async (e) => {
+            document.getElementById('nameColorPicker').addEventListener('input', async (e) => {
                 const color = e.target.value;
-                document.documentElement.style.setProperty('--custom-glow-color', color); // Влияет и на имя и на рамку, если обе светятся
-                const patchValue = `custom:${color}`;
-                await saveProfilePatch({ name_effect: patchValue });
-                u.name_effect = patchValue;
-                updatePreview();
+                nameColor = color;
+                
+                if (currentEffect === 'glow' || currentEffect === 'duo') {
+                    const patchValue = `custom:${color}`;
+                    await saveProfilePatch({ name_effect: patchValue });
+                    u.name_effect = patchValue;
+                    updatePreview();
+                    renderTab('profile'); 
+                }
             });
 
-            // АВТОСОХРАНЕНИЕ ИМЕНИ И BIO
+            // Автосохранение текста
             document.getElementById('settingsNameInput').addEventListener('change', async (e) => {
                 const val = e.target.value.trim();
                 if (!val) return showToast('Имя не может быть пустым');
                 const data = await saveProfilePatch({ display_name: val });
-                if (data.ok) { u.display_name = val; updatePreview(); renderTab('profile'); }
+                if (data.ok) { u.display_name = val; updatePreview(); }
             });
 
             document.getElementById('settingsBioInput').addEventListener('change', async (e) => {
@@ -267,7 +238,7 @@ function buildSettingsUI() {
                 if (data.ok) { u.bio = val; updatePreview(); }
             });
 
-            // Загрузка картинок
+            // Кроппер
             document.getElementById('uploadAvatarBtn').addEventListener('click', () => document.getElementById('avatarFile').click());
             document.getElementById('uploadBannerBtn').addEventListener('click', () => document.getElementById('bannerFile').click());
 
@@ -332,6 +303,7 @@ function buildSettingsUI() {
             document.getElementById('bannerFile').addEventListener('change', (e) => { if (e.target.files[0]) openCropper(e.target.files[0], true); e.target.value = ''; });
         }
 
+        // Остальные вкладки остаются без изменений...
         if (tabName === 'appearance') {
             previewCol.style.display = 'none';
             content.innerHTML = `
