@@ -23,7 +23,7 @@
                     <div class="login" id="myLogin">@...</div>
                 </div>
                 <button class="icon-btn" id="settingsBtn" title="Настройки">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 10v6M4.2 4.2l4.3 4.3m7 7l4.3 4.3M1 12h6m10 0h6M4.2 19.8l4.3-4.3m7-7l4.3-4.3"/></svg>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                 </button>
             </div>
         </div>
@@ -128,9 +128,12 @@
 </div>
 
 <div class="modal-overlay" id="settingsModal">
-    <div class="modal">
-        <div class="modal-header"><h2 class="modal-title">Настройки</h2><button class="icon-btn" id="closeSettings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
-        <div class="modal-body" id="settingsBody"></div>
+    <div class="modal" style="max-width: 800px; height: 85vh; padding: 0; overflow: hidden; display: flex; flex-direction: column;">
+        <div class="modal-header" style="padding: 16px 24px; border-bottom: 1px solid var(--border); margin: 0;">
+            <h2 class="modal-title">Настройки</h2>
+            <button class="icon-btn" id="closeSettings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+        <div class="modal-body" id="settingsBody" style="padding: 0; flex: 1; overflow: hidden;"></div>
     </div>
 </div>
 
@@ -152,7 +155,6 @@
         
         <div id="modalProfileBanner" style="height: 180px; background-size:cover; background-position:center; position:relative; border-radius: 20px 20px 0 0;">
             <div style="position:absolute; inset:0; background:linear-gradient(to bottom, transparent 40%, var(--bg-0) 100%);"></div>
-            
             <div style="position:absolute; bottom: 16px; left: 20px; display:flex; align-items:center; gap: 16px; z-index:2;">
                 <div class="avatar" id="modalProfileAvatar" style="width: 76px; height: 76px; font-size: 30px; border: 3px solid var(--bg-0); box-shadow: 0 4px 12px rgba(0,0,0,0.5);">?</div>
                 <div style="text-shadow: 0 2px 4px rgba(0,0,0,0.8);">
@@ -167,12 +169,11 @@
                 <div style="font-size: 11px; color: var(--text-mute); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">О себе</div>
                 <div id="modalProfileBio" style="font-size: 14px; color: var(--text);">...</div>
             </div>
-            
             <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 16px; padding: 20px; text-align: center; color: var(--text-mute); font-size: 13px;">
                 Тут будет другая информация в будущем
             </div>
-
             <button class="primary-btn" id="modalWriteBtn" style="width: 100%; margin-top: 4px;">Написать сообщение</button>
+            <button class="secondary-btn" id="modalEditBtn" style="width: 100%; display:none;">Редактировать профиль</button>
         </div>
     </div>
 </div>
@@ -197,7 +198,8 @@
     let attachedFile = null;
     let replyingTo = null;
     window.currentUser = null;
-        const chatsList = document.getElementById('chatsList');
+    
+    const chatsList = document.getElementById('chatsList');
     const searchInput = document.getElementById('searchInput');
     const typingText = document.getElementById('typingText');
     const emojiPicker = document.getElementById('emojiPicker');
@@ -538,11 +540,11 @@
         body.scrollTop = body.scrollHeight;
     }
 
-        composerInput.addEventListener('input', function() {
+    composerInput.addEventListener('input', function() {
         this.style.height = 'auto';
         this.style.height = (this.scrollHeight) + 'px';
-        this.scrollTop = this.scrollHeight; // Принудительный скролл вниз
-        
+        this.scrollTop = this.scrollHeight;
+
         if (this.value === '') this.style.height = 'auto';
 
         if (!activeChatId) return;
@@ -552,20 +554,15 @@
     });
 
     composerInput.addEventListener('keydown', (e) => {
-        // Отправка по Enter (если не зажат Shift или Ctrl)
         if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey) {
             e.preventDefault();
             document.getElementById('composer').dispatchEvent(new Event('submit'));
-        } 
-        // Перенос строки по Shift+Enter или Ctrl+Enter
-        else if (e.key === 'Enter' && (e.shiftKey || e.ctrlKey)) {
+        } else if (e.key === 'Enter' && (e.shiftKey || e.ctrlKey)) {
             e.preventDefault();
             const start = this.selectionStart;
             const end = this.selectionEnd;
             this.value = this.value.substring(0, start) + '\n' + this.value.substring(end);
             this.selectionStart = this.selectionEnd = start + 1;
-            
-            // Вызываем событие input, чтобы поле сразу растянулось и прокрутилось
             this.dispatchEvent(new Event('input'));
         }
     });
@@ -753,13 +750,24 @@
                 showToast('Логин скопирован');
             };
             
-            document.getElementById('modalWriteBtn').onclick = () => {
-                document.getElementById('profileModal').classList.remove('open');
-                startEmptyChat(u.id);
-            };
+            const writeBtn = document.getElementById('modalWriteBtn');
+            const editBtn = document.getElementById('modalEditBtn');
             
-            if (u.id === myId) document.getElementById('modalWriteBtn').style.display = 'none';
-            else document.getElementById('modalWriteBtn').style.display = 'flex';
+            if (u.id === myId) {
+                writeBtn.style.display = 'none';
+                editBtn.style.display = 'flex';
+                editBtn.onclick = () => {
+                    document.getElementById('profileModal').classList.remove('open');
+                    openSettings();
+                };
+            } else {
+                writeBtn.style.display = 'flex';
+                editBtn.style.display = 'none';
+                writeBtn.onclick = () => {
+                    document.getElementById('profileModal').classList.remove('open');
+                    startEmptyChat(u.id);
+                };
+            }
 
             document.getElementById('profileModal').classList.add('open');
         });
@@ -773,7 +781,7 @@
     });
 
     document.getElementById('profileCard').addEventListener('click', e => { 
-        if (!e.target.closest('#settingsBtn')) window.location.href = '/profile'; 
+        if (!e.target.closest('#settingsBtn')) showProfileModal(myId);
     });
     
     document.getElementById('settingsBtn').addEventListener('click', e => { e.stopPropagation(); openSettings(); });
@@ -823,7 +831,7 @@
         if (!data.ok) { window.location.href = '/login.html'; return; }
         myId = data.id;
         window.currentUser = data;
-        applyAvatarTo(document.getElementById('myAvatar'), data.avatar, data.display_name);
+                applyAvatarTo(document.getElementById('myAvatar'), data.avatar, data.display_name);
         document.getElementById('myDisplayName').textContent = data.display_name;
         document.getElementById('myLogin').textContent = '@' + data.login;
         loadChats();
