@@ -81,22 +81,20 @@ function buildSettingsUI() {
             updatePreview();
 
             let frameColor = '#00d4ff';
-            let currentFrame = u.avatar_frame;
-            if (currentFrame.startsWith('custom:')) {
-                frameColor = currentFrame.split(':')[1];
-                currentFrame = 'glow';
+            let currentFrame = 'none';
+            if (u.avatar_frame && u.avatar_frame.startsWith('frame_')) {
+                const parts = u.avatar_frame.split(':');
+                currentFrame = parts[0].replace('frame_', '');
+                frameColor = parts[1] || '#00d4ff';
             }
-            if (currentFrame === 'glow' || currentFrame === 'dashed') frameColor = frameColor || '#00d4ff';
 
             let nameColor = '#00d4ff';
-            let currentEffect = u.name_effect;
-            if (currentEffect.startsWith('custom:')) {
-                nameColor = currentEffect.split(':')[1];
-                currentEffect = 'glow';
+            let currentEffect = 'none';
+            if (u.name_effect && u.name_effect.startsWith('name_')) {
+                const parts = u.name_effect.split(':');
+                currentEffect = parts[0].replace('name_', '');
+                nameColor = parts[1] || '#00d4ff';
             }
-            if (currentEffect === 'glow' || currentEffect === 'duo') nameColor = nameColor || '#00d4ff';
-
-            document.documentElement.style.setProperty('--custom-glow-color', frameColor);
 
             content.innerHTML = `
                 <div class="settings-section">
@@ -111,7 +109,7 @@ function buildSettingsUI() {
                     <div class="settings-label">Рамка аватара</div>
                     <div class="live-picker-row" id="framePicker"></div>
                     <div class="color-picker-row" id="frameColorRow">
-                        <span class="color-picker-label">Цвет:</span>
+                        <span class="color-picker-label">Цвет рамки:</span>
                         <input type="color" id="frameColorPicker" value="${frameColor}">
                     </div>
                 </div>
@@ -120,7 +118,7 @@ function buildSettingsUI() {
                     <div class="settings-label">Эффект имени</div>
                     <div class="live-picker-row" id="effectPicker"></div>
                     <div class="color-picker-row" id="nameColorRow">
-                        <span class="color-picker-label">Цвет:</span>
+                        <span class="color-picker-label">Цвет имени:</span>
                         <input type="color" id="nameColorPicker" value="${nameColor}">
                     </div>
                 </div>
@@ -143,34 +141,46 @@ function buildSettingsUI() {
                 const isActive = currentFrame === f.key;
                 const d = document.createElement('button');
                 d.className = 'live-picker-btn' + (isActive ? ' active' : '');
-                let avatarClass = `avatar live-avatar ${u.avatar.startsWith('grad') ? u.avatar : 'has-image'}`;
-                if (f.key !== 'none') avatarClass += ` frame-${f.key}`;
                 
-                d.innerHTML = `<div class="${avatarClass}" style="${!u.avatar.startsWith('grad') ? `background-image:url(${u.avatar}); background-size:cover;` : ''}">${u.avatar.startsWith('grad') ? (u.display_name || '?').trim().charAt(0).toUpperCase() : ''}</div>
+                let avatarClass = `avatar live-avatar ${u.avatar.startsWith('grad') ? u.avatar : 'has-image'}`;
+                let inlineStyles = !u.avatar.startsWith('grad') ? `background-image:url(${u.avatar}); background-size:cover;` : '';
+                
+                if (f.key !== 'none') {
+                    if (f.key === 'glow') inlineStyles += `border: 2px solid ${frameColor}; box-shadow: 0 0 10px ${frameColor};`;
+                    if (f.key === 'dashed') inlineStyles += `border: 2px dashed ${frameColor};`;
+                }
+                
+                d.innerHTML = `<div class="${avatarClass}" style="${inlineStyles}">${u.avatar.startsWith('grad') ? (u.display_name || '?').trim().charAt(0).toUpperCase() : ''}</div>
                               <span style="font-size:10px; margin-top:4px;">${f.label}</span>`;
 
                 d.addEventListener('click', async () => {
                     document.querySelectorAll('#framePicker .live-picker-btn').forEach(x => x.classList.remove('active'));
                     d.classList.add('active');
+                    
                     let patchValue = f.key;
-                    if (f.key === 'glow' || f.key === 'dashed') patchValue = `custom:${frameColor}`;
+                    if (f.key === 'glow') patchValue = `frame_glow:${frameColor}`;
+                    if (f.key === 'dashed') patchValue = `frame_dashed:${frameColor}`;
+
                     const data = await saveProfilePatch({ avatar_frame: patchValue });
-                    if (data.ok) { u.avatar_frame = patchValue; updatePreview(); }
+                    if (data.ok) { 
+                        Object.assign(u, data.user); 
+                        updatePreview(); 
+                        renderTab('profile'); // Обновляем превью
+                    }
                 });
                 framePicker.appendChild(d);
             });
 
-            // ИСПРАВЛЕНИЕ: Слушаем 'change' вместо 'input', чтобы не спамить базу
+            // Изменение цвета рамки
             document.getElementById('frameColorPicker').addEventListener('change', async (e) => {
-                const color = e.target.value;
-                frameColor = color;
+                frameColor = e.target.value;
                 if (currentFrame === 'glow' || currentFrame === 'dashed') {
-                    const patchValue = `custom:${color}`;
+                    let patchValue = currentFrame === 'glow' ? `frame_glow:${frameColor}` : `frame_dashed:${frameColor}`;
                     const data = await saveProfilePatch({ avatar_frame: patchValue });
-                    if (data.ok) {
-                        u.avatar_frame = patchValue;
-                        updatePreview();
-                        document.documentElement.style.setProperty('--custom-glow-color', color);
+                    if (data.ok) { 
+                        Object.assign(u, data.user);
+                        updatePreview(); 
+                        renderTab('profile'); 
                     }
                 }
             });
@@ -181,50 +191,60 @@ function buildSettingsUI() {
                 const isActive = currentEffect === e.key;
                 const d = document.createElement('button');
                 d.className = 'live-picker-btn' + (isActive ? ' active' : '');
-                let nameClass = e.key !== 'none' ? `name-${e.key}` : '';
-                d.innerHTML = `<span class="live-name-text ${nameClass}" style="color: var(--custom-glow-color);">${escapeHtml(u.display_name || 'Имя')}</span>`;
                 
+                let inlineStyles = '';
+                if (e.key === 'glow') inlineStyles = `color: #fff; text-shadow: 0 0 10px ${nameColor};`;
+                if (e.key === 'duo') inlineStyles = `color: ${nameColor}; font-weight: 800;`;
+                
+                d.innerHTML = `<span class="live-name-text" style="${inlineStyles}">${escapeHtml(u.display_name || 'Имя')}</span>`;
+
                 d.addEventListener('click', async () => {
                     document.querySelectorAll('#effectPicker .live-picker-btn').forEach(x => x.classList.remove('active'));
                     d.classList.add('active');
+                    
                     let patchValue = e.key;
-                    if (e.key === 'glow' || e.key === 'duo') patchValue = `custom:${nameColor}`;
+                    if (e.key === 'glow') patchValue = `name_glow:${nameColor}`;
+                    if (e.key === 'duo') patchValue = `name_color:${nameColor}`;
+
                     const data = await saveProfilePatch({ name_effect: patchValue });
-                    if (data.ok) { u.name_effect = patchValue; updatePreview(); }
+                    if (data.ok) { 
+                        Object.assign(u, data.user); 
+                        updatePreview(); 
+                        renderTab('profile');
+                    }
                 });
                 effectPicker.appendChild(d);
             });
 
-            // ИСПРАВЛЕНИЕ: Слушаем 'change' вместо 'input'
+            // Изменение цвета имени
             document.getElementById('nameColorPicker').addEventListener('change', async (e) => {
-                const color = e.target.value;
-                nameColor = color;
+                nameColor = e.target.value;
                 if (currentEffect === 'glow' || currentEffect === 'duo') {
-                    const patchValue = `custom:${color}`;
+                    let patchValue = currentEffect === 'glow' ? `name_glow:${nameColor}` : `name_color:${nameColor}`;
                     const data = await saveProfilePatch({ name_effect: patchValue });
-                    if (data.ok) {
-                        u.name_effect = patchValue;
-                        updatePreview();
-                        document.documentElement.style.setProperty('--custom-glow-color', color);
+                    if (data.ok) { 
+                        Object.assign(u, data.user);
+                        updatePreview(); 
+                        renderTab('profile');
                     }
                 }
             });
 
-            // Автосохранение текста (срабатывает при потере фокуса)
+            // Автосохранение текста
             document.getElementById('settingsNameInput').addEventListener('change', async (e) => {
                 const val = e.target.value.trim();
                 if (!val) return showToast('Имя не может быть пустым');
                 const data = await saveProfilePatch({ display_name: val });
-                if (data.ok) { u.display_name = val; updatePreview(); }
+                if (data.ok) { Object.assign(u, data.user); updatePreview(); }
             });
 
             document.getElementById('settingsBioInput').addEventListener('change', async (e) => {
                 const val = e.target.value.trim();
                 const data = await saveProfilePatch({ bio: val });
-                if (data.ok) { u.bio = val; updatePreview(); }
+                if (data.ok) { Object.assign(u, data.user); updatePreview(); }
             });
 
-            // Загрузка картинок
+            // Кроппер
             document.getElementById('uploadAvatarBtn').addEventListener('click', () => document.getElementById('avatarFile').click());
             document.getElementById('uploadBannerBtn').addEventListener('click', () => document.getElementById('bannerFile').click());
 

@@ -52,7 +52,6 @@ function requestNotifications() {
 }
 
 (function applyStoredSettings() {
-    // Всегда используем тему Космос
     document.body.dataset.theme = 'cosmos';
     const accent = localStorage.getItem('accent');
     if (accent && accent !== 'default') document.body.dataset.accent = accent;
@@ -74,106 +73,72 @@ function showToast(text) {
     toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
 }
 
-const AVATAR_GRADIENTS = [
-    { key: 'grad-aurora', label: 'Аврора' }, { key: 'grad-emerald', label: 'Изумруд' },
-    { key: 'grad-cyan', label: 'Бирюза' }, { key: 'grad-violet', label: 'Фиолет' },
-    { key: 'grad-pink', label: 'Розовый' }, { key: 'grad-lavender', label: 'Лаванда' },
-    { key: 'grad-magenta', label: 'Малина' }, { key: 'grad-sunset', label: 'Закат' }
-];
-
-const BANNER_GRADIENTS = [
-    { key: 'ban-aurora', label: 'Аврора', css: 'linear-gradient(135deg, #00ffa3 0%, #00d4ff 30%, #a855f7 70%, #ff4ec7 100%)' },
-    { key: 'ban-sunset', label: 'Закат', css: 'linear-gradient(135deg, #ff512f 0%, #ffb347 50%, #ff4ec7 100%)' },
-    { key: 'ban-ocean', label: 'Океан', css: 'linear-gradient(135deg, #001f54 0%, #0057b8 50%, #00d4ff 100%)' },
-    { key: 'ban-forest', label: 'Лес', css: 'linear-gradient(135deg, #0a3d1c 0%, #00ffa3 100%)' },
-    { key: 'ban-candy', label: 'Карамель', css: 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 50%, #a18cd1 100%)' },
-    { key: 'ban-fire', label: 'Огонь', css: 'linear-gradient(135deg, #200122 0%, #6f0000 50%, #ff512f 100%)' },
-    { key: 'ban-neon', label: 'Неон', css: 'linear-gradient(135deg, #00ffff 0%, #cc00ff 50%, #ff00aa 100%)' },
-    { key: 'ban-ice', label: 'Лёд', css: 'linear-gradient(135deg, #e0eafc 0%, #7db9e8 50%, #1e3c72 100%)' }
-];
-
-const THEMES = [
-    { key: 'cosmos', label: 'Космос' }
-];
-
-const ACCENTS = [
-    { key: 'default', label: 'Аврора', color: '#00d4ff' },
-    { key: 'emerald', label: 'Изумруд', color: '#00ffa3' },
-    { key: 'cyan', label: 'Бирюза', color: '#00d4ff' },
-    { key: 'blue', label: 'Голубой', color: '#4d9fff' },
-    { key: 'violet', label: 'Фиолет', color: '#a855f7' },
-    { key: 'lavender', label: 'Лаванда', color: '#b794f6' },
-    { key: 'pink', label: 'Розовый', color: '#ff4ec7' },
-    { key: 'magenta', label: 'Малина', color: '#ff2d95' },
-    { key: 'red', label: 'Красный', color: '#ff3b3b' },
-    { key: 'orange', label: 'Оранжевый', color: '#ff7b00' },
-    { key: 'amber', label: 'Янтарь', color: '#ffb347' },
-    { key: 'yellow', label: 'Желтый', color: '#facc15' },
-    { key: 'lime', label: 'Лайм', color: '#b8ff00' },
-    { key: 'gold', label: 'Золото', color: '#ffd700' },
-    { key: 'white', label: 'Белый', color: '#ffffff' }
-];
-
 function applyAvatarTo(el, avatar, displayName, frame = 'none') {
     el.style.backgroundImage = ''; el.style.backgroundSize = ''; el.style.backgroundPosition = '';
     el.textContent = '';
     el.className = el.className.replace(/\b(has-image|grad-\w+|frame-\w+)\b/g, '').replace(/\s+/g, ' ').trim();
     
-    if (frame !== 'none') el.classList.add('frame-' + frame);
-    
+    // Сбрасываем предыдущие стили рамки
+    el.style.border = 'none';
+    el.style.boxShadow = '';
+    el.style.padding = '0';
+
     if (!avatar || avatar.startsWith('grad-')) {
-        el.classList.add(avatar || 'grad-emerald');
+        el.classList.add(avatar || 'grad-cyan');
         el.textContent = (displayName || '?').trim().charAt(0).toUpperCase();
     } else {
         el.classList.add('has-image');
         el.style.backgroundImage = `url(${avatar})`;
         el.style.backgroundSize = 'cover'; el.style.backgroundPosition = 'center';
     }
+
+    // Применяем новые форматы рамок
+    if (frame && frame !== 'none') {
+        if (frame.startsWith('frame_glow:')) {
+            const color = frame.split(':')[1];
+            el.style.border = `2px solid ${color}`;
+            el.style.boxShadow = `0 0 15px ${color}`;
+        } else if (frame.startsWith('frame_dashed:')) {
+            const color = frame.split(':')[1];
+            el.style.border = `2px dashed ${color}`;
+        }
+    }
 }
 
 function applyNameEffect(el, effect) {
     el.className = el.className.replace(/\bname-\w+\b/g, '').replace(/\s+/g, ' ').trim();
-    if (effect && effect !== 'none') el.classList.add('name-' + effect);
+    el.style.textShadow = '';
+    el.style.color = '';
+    el.style.background = '';
+    el.style.webkitBackgroundClip = '';
+    el.style.webkitTextFillColor = '';
+    
+    if (!effect || effect === 'none') return;
+    
+    if (effect.startsWith('name_glow:')) {
+        const color = effect.split(':')[1];
+        el.style.textShadow = `0 0 10px ${color}, 0 0 20px ${color}`;
+        el.style.color = '#fff';
+    } else if (effect.startsWith('name_color:')) {
+        const color = effect.split(':')[1];
+        el.style.color = color;
+        el.style.textShadow = `0 0 5px ${color}`;
+        el.style.fontWeight = '800';
+    }
 }
 
 function applyBannerTo(el, banner) {
     if (!banner) {
-        el.style.background = 'linear-gradient(135deg, #00ffa3, #00d4ff, #a855f7, #ff4ec7)';
+        el.style.background = 'var(--grad-aurora)';
         el.style.backgroundImage = ''; return;
     }
-    if (banner.startsWith('ban-')) {
-        const b = BANNER_GRADIENTS.find(x => x.key === banner);
-        el.style.backgroundImage = '';
-        el.style.background = b ? b.css : 'linear-gradient(135deg, #00ffa3, #ff4ec7)';
-    } else {
-        el.style.background = '';
-        el.style.backgroundImage = `url(${banner})`;
-        el.style.backgroundSize = 'cover'; el.style.backgroundPosition = 'center';
-    }
+    el.style.background = '';
+    el.style.backgroundImage = `url(${banner})`;
+    el.style.backgroundSize = 'cover'; el.style.backgroundPosition = 'center';
 }
 
-function fileToDataURL(file, maxSize = 800) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-            const img = new Image();
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                let { width, height } = img;
-                if (width > maxSize || height > maxSize) {
-                    if (width > height) { height = height * maxSize / width; width = maxSize; }
-                    else { width = width * maxSize / height; height = maxSize; }
-                }
-                canvas.width = width; canvas.height = height;
-                canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-                resolve(canvas.toDataURL('image/jpeg', 0.85));
-            };
-            img.onerror = reject;
-            img.src = reader.result;
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-    });
+function escapeHtml(str) {
+    return String(str || '').replace(/[&<>"']/g, s => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[s]));
 }
 
 async function saveProfilePatch(patch) {
@@ -184,8 +149,4 @@ async function saveProfilePatch(patch) {
     const data = await res.json();
     if (data.ok && typeof window.onSettingsSaved === 'function') window.onSettingsSaved(data.user);
     return data;
-}
-
-function escapeHtml(str) {
-    return String(str || '').replace(/[&<>"']/g, s => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[s]));
 }
