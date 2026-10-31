@@ -10,6 +10,10 @@
     --shadow-soft: 0 8px 32px rgba(0,0,0,0.45); --shadow-glow: 0 0 32px rgba(168,85,247,0.35);
     --accent: #00d4ff; --accent-2: #a855f7;
     --custom-glow-color: #00d4ff;
+    
+    /* НОВЫЕ ПЕРЕМЕННЫЕ ДЛЯ ПРОЗРАЧНОСТИ (по умолчанию) */
+    --sidebar-opacity: 0.55;
+    --chat-opacity: 0.85;
 }
 
 body[data-accent="emerald"] { --accent: #00ffa3; --accent-2: #7dffce; }
@@ -52,22 +56,18 @@ body.no-anim * { animation: none !important; transition: none !important; }
 @keyframes twinkle { 50% { opacity: 1; transform: scale(1.2); } }
 .grain { position: fixed; inset: 0; z-index: -1; opacity: 0.06; mix-blend-mode: overlay; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); transition: opacity 0.4s; }
 
-/* ПРЕСЕТЫ ФОНА (ИСПРАВЛЕНО) */
+/* ПРЕСЕТЫ ФОНА */
 body[data-bg="minimal"] .bg-blobs, body[data-bg="minimal"] .bg-grid, body[data-bg="minimal"] .stars, body[data-bg="minimal"] .grain { opacity: 0; pointer-events: none; }
 body[data-bg="minimal"] .bg-layer { background: #08080c; }
-
 body[data-bg="cyber"] .bg-blobs { opacity: 0; }
 body[data-bg="cyber"] .bg-layer { background: linear-gradient(180deg, #0f0518, #05020a); }
 body[data-bg="cyber"] .bg-grid { opacity: 1; background-image: linear-gradient(rgba(168,85,247,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(168,85,247,0.3) 1px, transparent 1px); background-size: 40px 40px; }
-
 body[data-bg="matrix"] .bg-blobs { opacity: 0; }
 body[data-bg="matrix"] .bg-layer { background: #020c05; }
 body[data-bg="matrix"] .bg-grid { opacity: 1; background-image: linear-gradient(rgba(0,255,163,0.2) 1px, transparent 1px), linear-gradient(90deg, rgba(0,255,163,0.2) 1px, transparent 1px); background-size: 30px 30px; }
-
 body[data-bg="ocean"] .bg-grid { opacity: 0; }
 body[data-bg="ocean"] .bg-layer { background: radial-gradient(ellipse at 50% 50%, #0ea5e930, transparent 70%), #02101e; }
 body[data-bg="ocean"] .bg-blobs { opacity: 0.8; filter: blur(80px) hue-rotate(20deg); }
-
 
 .app { position: relative; height: 100vh; display: grid; grid-template-columns: 340px 1fr; z-index: 1; padding: 16px; gap: 16px; }
 .avatar { width: 46px; height: 46px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: 'Unbounded', sans-serif; font-weight: 700; font-size: 17px; color: #06101c; flex-shrink: 0; box-shadow: 0 4px 16px rgba(0,0,0,0.4); background-size: cover; background-position: center; position: relative; }
@@ -75,7 +75,17 @@ body[data-bg="ocean"] .bg-blobs { opacity: 0.8; filter: blur(80px) hue-rotate(20
 .grad-cyan { background: var(--grad-cyan); }
 .grad-aurora { background: var(--grad-aurora); }
 
-.sidebar { display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--border); border-radius: 22px; backdrop-filter: blur(24px); box-shadow: var(--shadow-soft); overflow: hidden; }
+/* ПРИМЕНЯЕМ ПРОЗРАЧНОСТЬ К САЙДБАРУ */
+.sidebar { 
+    display: flex; flex-direction: column; 
+    background: rgba(18, 22, 40, var(--sidebar-opacity)); 
+    border: 1px solid var(--border); 
+    border-radius: 22px; 
+    backdrop-filter: blur(24px); 
+    box-shadow: var(--shadow-soft); 
+    overflow: hidden; 
+    transition: background 0.3s ease;
+}
 .sidebar-top { padding: 16px 16px 8px; }
 .profile-card { display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: 16px; cursor: pointer; transition: background 0.25s; }
 .profile-card:hover { background: rgba(255,255,255,0.05); }
@@ -108,7 +118,18 @@ body[data-bg="ocean"] .bg-blobs { opacity: 0.8; filter: blur(80px) hue-rotate(20
 .unread-badge { min-width: 20px; height: 20px; padding: 0 6px; background: var(--accent); color: #06101c; border-radius: 10px; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 12px var(--accent); }
 .chats-empty { padding: 30px 16px; text-align: center; color: var(--text-mute); font-size: 13px; }
 
-.chat-area { display: flex; flex-direction: column; background: var(--panel-strong); border: 1px solid var(--border); border-radius: 22px; backdrop-filter: blur(24px); box-shadow: var(--shadow-soft); overflow: hidden; position: relative; }
+/* ПРИМЕНЯЕМ ПРОЗРАЧНОСТЬ К ЧАТУ */
+.chat-area { 
+    display: flex; flex-direction: column; 
+    background: rgba(22, 26, 46, var(--chat-opacity)); 
+    border: 1px solid var(--border); 
+    border-radius: 22px; 
+    backdrop-filter: blur(24px); 
+    box-shadow: var(--shadow-soft); 
+    overflow: hidden; 
+    position: relative; 
+    transition: background 0.3s ease;
+}
 .chat-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid var(--border); background: rgba(10,15,30,0.5); backdrop-filter: blur(16px); }
 .chat-header-left { display: flex; align-items: center; gap: 14px; min-width: 0; }
 .chat-header-info { min-width: 0; }
@@ -230,6 +251,13 @@ body[data-bg="ocean"] .bg-blobs { opacity: 0.8; filter: blur(80px) hue-rotate(20
 .color-circle.active { border-color: #fff; box-shadow: 0 0 20px currentColor; transform: scale(1.1); }
 .color-circle::after { content: '✓'; color: #fff; font-weight: bold; font-size: 20px; opacity: 0; text-shadow: 0 1px 4px rgba(0,0,0,0.8); }
 .color-circle.active::after { opacity: 1; }
+
+/* НОВЫЕ СТИЛИ ДЛЯ ПОЛЗУНКОВ */
+.opacity-control { display: flex; flex-direction: column; gap: 8px; max-width: 300px; margin-top: 8px; }
+.opacity-control span { font-size: 12px; color: var(--text-dim); display: flex; justify-content: space-between; }
+.opacity-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 5px; outline: none; }
+.opacity-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); cursor: pointer; box-shadow: 0 0 10px var(--accent); }
+.opacity-slider::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: var(--accent); cursor: pointer; box-shadow: 0 0 10px var(--accent); border: none; }
 
 .settings-field { display: flex; flex-direction: column; gap: 6px; }
 .settings-field-label { font-size: 12px; color: var(--text-dim); }

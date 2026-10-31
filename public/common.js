@@ -52,15 +52,24 @@ function requestNotifications() {
 }
 
 (function applyStoredSettings() {
+    // 1. Тема
     document.body.dataset.theme = 'cosmos';
     
+    // 2. Акцент
     const accent = localStorage.getItem('accent');
     if (accent && accent !== 'default') document.body.dataset.accent = accent;
     
-    // Восстанавливаем фон
+    // 3. Пресет фона
     const bgPreset = localStorage.getItem('bg-preset') || 'cosmos';
     document.body.dataset.bg = bgPreset;
 
+    // 4. Прозрачность (НОВОЕ)
+    const sidebarOpacity = localStorage.getItem('sidebar-opacity') || '0.55';
+    const chatOpacity = localStorage.getItem('chat-opacity') || '0.85';
+    document.documentElement.style.setProperty('--sidebar-opacity', sidebarOpacity);
+    document.documentElement.style.setProperty('--chat-opacity', chatOpacity);
+
+    // 5. Анимации
     if (localStorage.getItem('anim') === 'off') document.body.classList.add('no-anim');
 })();
 

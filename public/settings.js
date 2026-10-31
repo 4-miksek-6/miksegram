@@ -324,6 +324,9 @@ function buildSettingsUI() {
         if (tabName === 'appearance') {
             layout.classList.add('no-preview');
             const currentBg = localStorage.getItem('bg-preset') || 'cosmos';
+            
+            const savedSidebarOpacity = localStorage.getItem('sidebar-opacity') || '0.55';
+            const savedChatOpacity = localStorage.getItem('chat-opacity') || '0.85';
 
             content.innerHTML = `
                 <div class="settings-section">
@@ -334,8 +337,42 @@ function buildSettingsUI() {
                     <div class="settings-label" style="margin-bottom: 8px;">Цветовой акцент</div>
                     <div class="accent-grid" id="accentGrid"></div>
                 </div>
+                <div class="settings-section" style="margin-top:24px;">
+                    <div class="settings-label" style="margin-bottom: 8px;">Прозрачность интерфейса</div>
+                    
+                    <div class="opacity-control">
+                        <span>Левое меню (чаты): <span id="val-sidebar">${Math.round(savedSidebarOpacity * 100)}%</span></span>
+                        <input type="range" min="0.1" max="1.0" step="0.05" value="${savedSidebarOpacity}" id="sidebarOpacity" class="opacity-slider">
+                    </div>
+                    
+                    <div class="opacity-control" style="margin-top:12px;">
+                        <span>Область чата: <span id="val-chat">${Math.round(savedChatOpacity * 100)}%</span></span>
+                        <input type="range" min="0.1" max="1.0" step="0.05" value="${savedChatOpacity}" id="chatOpacity" class="opacity-slider">
+                    </div>
+                </div>
             `;
 
+            // Ползунки прозрачности
+            const sidebarSlider = document.getElementById('sidebarOpacity');
+            const chatSlider = document.getElementById('chatOpacity');
+            const valSidebar = document.getElementById('val-sidebar');
+            const valChat = document.getElementById('val-chat');
+
+            sidebarSlider.addEventListener('input', (e) => {
+                const val = e.target.value;
+                document.documentElement.style.setProperty('--sidebar-opacity', val);
+                localStorage.setItem('sidebar-opacity', val);
+                valSidebar.textContent = Math.round(val * 100) + '%';
+            });
+
+            chatSlider.addEventListener('input', (e) => {
+                const val = e.target.value;
+                document.documentElement.style.setProperty('--chat-opacity', val);
+                localStorage.setItem('chat-opacity', val);
+                valChat.textContent = Math.round(val * 100) + '%';
+            });
+
+            // Пресеты фона
             const presetGrid = document.getElementById('presetGrid');
             BG_PRESETS.forEach(p => {
                 const btn = document.createElement('div');
@@ -355,6 +392,7 @@ function buildSettingsUI() {
                 presetGrid.appendChild(btn);
             });
 
+            // Акценты
             const accentGrid = document.getElementById('accentGrid');
             ACCENTS.forEach(a => {
                 const btn = document.createElement('button');
