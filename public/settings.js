@@ -11,6 +11,21 @@ function applyTheme(theme) {
     localStorage.setItem('theme', theme);
 }
 
+const AVATAR_FRAMES = [
+    { key: 'none', label: 'Нет' },
+    { key: 'rainbow', label: 'Радуга' },
+    { key: 'dashed', label: 'Пунктир' },
+    { key: 'glow', label: 'Свечение' },
+    { key: 'fire', label: 'Огонь' }
+];
+
+const NAME_EFFECTS = [
+    { key: 'none', label: 'Обычный' },
+    { key: 'rainbow', label: 'Радуга' },
+    { key: 'glow', label: 'Свечение' },
+    { key: 'duo', label: 'Два цвета' }
+];
+
 function buildSettingsUI() {
     const body = document.getElementById('settingsBody');
     if (!body || !window.currentUser) return;
@@ -26,7 +41,14 @@ function buildSettingsUI() {
                 <div class="settings-tab" data-tab="account">Аккаунт</div>
                 <button class="danger-btn" id="logoutBtn" style="margin-top:auto; padding:10px;">Выйти</button>
             </div>
-            <div class="settings-content" id="settingsContent"></div>
+            
+            <div class="settings-preview-col" id="settingsPreviewCol">
+                <!-- Сюда рендерится превью -->
+            </div>
+
+            <div class="settings-controls-col" id="settingsContent">
+                <!-- Сюда рендерятся настройки -->
+            </div>
         </div>
     `;
 
@@ -38,35 +60,66 @@ function buildSettingsUI() {
         });
     });
 
+    function updatePreview() {
+        const previewCol = document.getElementById('settingsPreviewCol');
+        previewCol.innerHTML = `
+            <div class="preview-profile-card">
+                <div class="preview-banner" id="previewBanner"></div>
+                <div class="preview-avatar-wrap">
+                    <div class="avatar preview-avatar" id="previewAvatar">?</div>
+                </div>
+                <div class="preview-info">
+                    <div class="preview-name" id="previewName">...</div>
+                    <div class="preview-login" id="previewLogin">@...</div>
+                    <div class="preview-bio" id="previewBio">...</div>
+                </div>
+            </div>
+        `;
+
+        applyBannerTo(document.getElementById('previewBanner'), u.banner);
+        applyAvatarTo(document.getElementById('previewAvatar'), u.avatar, u.display_name, u.avatar_frame);
+        document.getElementById('previewName').textContent = u.display_name || 'Имя';
+        applyNameEffect(document.getElementById('previewName'), u.name_effect);
+        document.getElementById('previewLogin').textContent = '@' + u.login;
+        document.getElementById('previewBio').textContent = u.bio || 'Расскажи о себе...';
+    }
+
     function renderTab(tabName) {
         const content = document.getElementById('settingsContent');
+        const previewCol = document.getElementById('settingsPreviewCol');
         content.innerHTML = '';
 
         if (tabName === 'profile') {
+            previewCol.style.display = 'flex'; // Показываем превью
+            updatePreview();
+
             content.innerHTML = `
                 <div class="settings-section">
-                    <div class="settings-label">Профиль</div>
-                    <div class="settings-preview">
-                        <div class="settings-banner" id="previewBanner"></div>
-                        <div class="settings-preview-avatar" id="previewAvatar">?</div>
-                    </div>
-                    
-                    <div class="settings-grid-label">Аватар (цвет)</div>
-                    <div class="grid-picker" id="avatarPicker"></div>
+                    <div class="settings-label">Аватарка</div>
+                    <div class="color-row" id="avatarPicker"></div>
                     <button class="secondary-btn" id="uploadAvatarBtn">Загрузить свою аватарку</button>
                     <input type="file" id="avatarFile" accept="image/*" style="display:none">
+                </div>
 
-                    <div class="settings-grid-label">Рамка аватара</div>
-                    <div class="grid-picker" id="framePicker"></div>
-                    
-                    <div class="settings-grid-label">Баннер (цвет)</div>
-                    <div class="grid-picker" id="bannerPicker"></div>
+                <div class="settings-section">
+                    <div class="settings-label">Рамка аватара</div>
+                    <div class="live-picker-row" id="framePicker"></div>
+                </div>
+
+                <div class="settings-section">
+                    <div class="settings-label">Баннер</div>
+                    <div class="color-row" id="bannerPicker"></div>
                     <button class="secondary-btn" id="uploadBannerBtn">Загрузить свой баннер</button>
                     <input type="file" id="bannerFile" accept="image/*" style="display:none">
-                    
-                    <div class="settings-grid-label">Эффект имени</div>
-                    <div class="grid-picker" id="effectPicker"></div>
+                </div>
 
+                <div class="settings-section">
+                    <div class="settings-label">Эффект имени</div>
+                    <div class="live-picker-row" id="effectPicker"></div>
+                </div>
+
+                <div class="settings-section">
+                    <div class="settings-label">Личные данные</div>
                     <label class="settings-field">
                         <span class="settings-field-label">Отображаемое имя</span>
                         <input id="settingsNameInput" maxlength="40" value="${escapeHtml(u.display_name)}">
@@ -79,102 +132,95 @@ function buildSettingsUI() {
                 </div>
             `;
 
-            const previewBanner = document.getElementById('previewBanner');
-            const previewAvatar = document.getElementById('previewAvatar');
-            applyBannerTo(previewBanner, u.banner);
-            applyAvatarTo(previewAvatar, u.avatar, u.display_name, u.avatar_frame);
-
-            // Выбор градиента аватара
+            // Отрисовка выбора аватара (кружочки)
             const avatarPicker = document.getElementById('avatarPicker');
             AVATAR_GRADIENTS.forEach(g => {
                 const d = document.createElement('button');
-                d.className = 'grad-swatch ' + g.key + (u.avatar === g.key ? ' active' : '');
+                d.className = 'color-circle ' + g.key + (u.avatar === g.key ? ' active' : '');
                 d.title = g.label;
                 d.addEventListener('click', async () => {
                     const data = await saveProfilePatch({ avatar: g.key });
                     if (data.ok) {
                         u.avatar = g.key;
-                        applyAvatarTo(previewAvatar, g.key, u.display_name, u.avatar_frame);
-                        document.querySelectorAll('#avatarPicker .grad-swatch').forEach(x => x.classList.remove('active'));
+                        updatePreview();
+                        document.querySelectorAll('#avatarPicker .color-circle').forEach(x => x.classList.remove('active'));
                         d.classList.add('active');
                     }
                 });
                 avatarPicker.appendChild(d);
             });
 
-            // Выбор рамки
-            const FRAMES = [
-                { key: 'none', label: 'Нет', color: 'transparent' },
-                { key: 'pink', label: 'Розовая', color: '#ff4ec7' },
-                { key: 'cyan', label: 'Голубая', color: '#00d4ff' },
-                { key: 'emerald', label: 'Зеленая', color: '#00ffa3' },
-                { key: 'gold', label: 'Золотая', color: '#ffd700' },
-                { key: 'red', label: 'Красная', color: '#ff3b3b' }
-            ];
-            const framePicker = document.getElementById('framePicker');
-            FRAMES.forEach(f => {
-                const d = document.createElement('button');
-                d.className = 'grad-swatch' + (u.avatar_frame === f.key ? ' active' : '');
-                d.style.background = f.color;
-                d.style.borderColor = f.color;
-                if (f.key === 'none') d.style.border = '2px dashed var(--text-mute)';
-                d.title = f.label;
-                d.addEventListener('click', async () => {
-                    const data = await saveProfilePatch({ avatar_frame: f.key });
-                    if (data.ok) {
-                        u.avatar_frame = f.key;
-                        applyAvatarTo(previewAvatar, u.avatar, u.display_name, f.key);
-                        document.querySelectorAll('#framePicker .grad-swatch').forEach(x => x.classList.remove('active'));
-                        d.classList.add('active');
-                    }
-                });
-                framePicker.appendChild(d);
-            });
-
-            // Выбор баннера
+            // Отрисовка выбора баннера (кружочки)
             const bannerPicker = document.getElementById('bannerPicker');
             BANNER_GRADIENTS.forEach(b => {
                 const d = document.createElement('button');
-                d.className = 'grad-swatch' + (u.banner === b.key ? ' active' : '');
-                d.style.background = b.css; d.title = b.label;
+                d.className = 'color-circle' + (u.banner === b.key ? ' active' : '');
+                d.style.background = b.css;
+                d.title = b.label;
                 d.addEventListener('click', async () => {
                     const data = await saveProfilePatch({ banner: b.key });
                     if (data.ok) {
                         u.banner = b.key;
-                        applyBannerTo(previewBanner, b.key);
-                        document.querySelectorAll('#bannerPicker .grad-swatch').forEach(x => x.classList.remove('active'));
+                        updatePreview();
+                        document.querySelectorAll('#bannerPicker .color-circle').forEach(x => x.classList.remove('active'));
                         d.classList.add('active');
                     }
                 });
                 bannerPicker.appendChild(d);
             });
 
-            // Выбор эффекта имени
-            const EFFECTS = [
-                { key: 'none', label: 'Обычный' },
-                { key: 'gradient', label: 'Градиент' },
-                { key: 'glow', label: 'Свечение' },
-                { key: 'neon', label: 'Неон' }
-            ];
-            const effectPicker = document.getElementById('effectPicker');
-            EFFECTS.forEach(e => {
+            // Отрисовка выбора рамки (живое превью с аватаркой)
+            const framePicker = document.getElementById('framePicker');
+            AVATAR_FRAMES.forEach(f => {
                 const d = document.createElement('button');
-                d.className = 'grad-swatch' + (u.name_effect === e.key ? ' active' : '');
-                d.style.background = 'rgba(255,255,255,0.1)';
-                d.innerHTML = `<span style="font-size:10px">${e.label}</span>`;
+                d.className = 'live-picker-btn' + (u.avatar_frame === f.key ? ' active' : '');
+                d.innerHTML = `<div class="avatar live-avatar ${u.avatar.startsWith('grad') ? u.avatar : 'has-image'}" 
+                                style="${u.avatar.startsWith('grad') ? '' : `background-image:url(${u.avatar}); background-size:cover;`} 
+                                ${f.key !== 'none' ? `class="avatar live-avatar frame-${f.key}"` : ''}">
+                                ${u.avatar.startsWith('grad') ? (u.display_name || '?').trim().charAt(0).toUpperCase() : ''}
+                              </div>
+                              <span style="font-size:10px; margin-top:4px;">${f.label}</span>`;
+                
+                // Костыль для правильного применения классов рамок
+                const avatarDiv = d.querySelector('.avatar');
+                avatarDiv.className = `avatar live-avatar ${u.avatar.startsWith('grad') ? u.avatar : 'has-image'}`;
+                if (f.key !== 'none') avatarDiv.classList.add(`frame-${f.key}`);
+                if (!u.avatar.startsWith('grad')) {
+                    avatarDiv.style.backgroundImage = `url(${u.avatar})`;
+                    avatarDiv.style.backgroundSize = 'cover';
+                }
+
+                d.addEventListener('click', async () => {
+                    const data = await saveProfilePatch({ avatar_frame: f.key });
+                    if (data.ok) {
+                        u.avatar_frame = f.key;
+                        updatePreview();
+                        document.querySelectorAll('#framePicker .live-picker-btn').forEach(x => x.classList.remove('active'));
+                        d.classList.add('active');
+                    }
+                });
+                framePicker.appendChild(d);
+            });
+
+            // Отрисовка выбора эффекта имени (живое превью с твоим именем)
+            const effectPicker = document.getElementById('effectPicker');
+            NAME_EFFECTS.forEach(e => {
+                const d = document.createElement('button');
+                d.className = 'live-picker-btn' + (u.name_effect === e.key ? ' active' : '');
+                d.innerHTML = `<span class="live-name-text ${e.key !== 'none' ? 'name-' + e.key : ''}">${escapeHtml(u.display_name || 'Имя')}</span>`;
                 d.addEventListener('click', async () => {
                     const data = await saveProfilePatch({ name_effect: e.key });
                     if (data.ok) {
                         u.name_effect = e.key;
-                        applyNameEffect(previewAvatar.parentElement.querySelector('.settings-preview-avatar'), e.key); // just for preview if needed
-                        document.querySelectorAll('#effectPicker .grad-swatch').forEach(x => x.classList.remove('active'));
+                        updatePreview();
+                        document.querySelectorAll('#effectPicker .live-picker-btn').forEach(x => x.classList.remove('active'));
                         d.classList.add('active');
                     }
                 });
                 effectPicker.appendChild(d);
             });
 
-            // Загрузка аватара через кроппер
+            // Кроппер и сохранение
             document.getElementById('uploadAvatarBtn').addEventListener('click', () => document.getElementById('avatarFile').click());
             document.getElementById('uploadBannerBtn').addEventListener('click', () => document.getElementById('bannerFile').click());
 
@@ -210,8 +256,7 @@ function buildSettingsUI() {
                     modal.querySelector('#cancelCropBtn').onclick = () => { cropper.destroy(); modal.remove(); };
 
                     modal.querySelector('#saveCropBtn').onclick = () => {
-                        const btn = modal.querySelector('#saveCropBtn');
-                        btn.textContent = 'Загрузка...';
+                        modal.querySelector('#saveCropBtn').textContent = 'Загрузка...';
                         cropper.getCroppedCanvas({ width: isBanner ? 1200 : 400 }).toBlob(async (blob) => {
                             const formData = new FormData();
                             formData.append('file', blob, 'avatar.jpg');
@@ -222,9 +267,10 @@ function buildSettingsUI() {
                                     const patch = isBanner ? { banner: data.url } : { avatar: data.url };
                                     const updateRes = await saveProfilePatch(patch);
                                     if (updateRes.ok) {
-                                        if (isBanner) { u.banner = data.url; applyBannerTo(previewBanner, data.url); }
-                                        else { u.avatar = data.url; applyAvatarTo(previewAvatar, data.url, u.display_name, u.avatar_frame); }
-                                        showToast('Успешно!');
+                                        if (isBanner) u.banner = data.url; else u.avatar = data.url;
+                                        updatePreview();
+                                        renderTab('profile'); // Перерисовываем, чтобы обновить превью рамок
+                                        showToast('Успешно обновлено!');
                                     }
                                 } else showToast(data.error);
                             } catch (err) { showToast('Ошибка сети'); } 
@@ -242,15 +288,22 @@ function buildSettingsUI() {
                 const display_name = document.getElementById('settingsNameInput').value.trim();
                 const bio = document.getElementById('settingsBioInput').value.trim();
                 const data = await saveProfilePatch({ display_name, bio });
-                if (data.ok) showToast('Профиль сохранён ✨'); else showToast(data.error);
+                if (data.ok) { 
+                    u.display_name = display_name; 
+                    u.bio = bio; 
+                    updatePreview();
+                    renderTab('profile'); // Обновляем превью имени в кнопках
+                    showToast('Профиль сохранён ✨'); 
+                } else showToast(data.error);
             });
         }
 
         if (tabName === 'appearance') {
+            previewCol.style.display = 'none'; // Скрываем превью, чтобы не мешало
             content.innerHTML = `
                 <div class="settings-section">
-                    <div class="settings-label">Акцент</div>
-                    <div class="accent-grid" id="accentGrid"></div>
+                    <div class="settings-label">Цветовой акцент</div>
+                    <div class="color-row" id="accentGrid"></div>
                 </div>
                 <div class="settings-section">
                     <div class="settings-label">Фон и Анимации</div>
@@ -267,14 +320,15 @@ function buildSettingsUI() {
             const accentGrid = document.getElementById('accentGrid');
             ACCENTS.forEach(a => {
                 const btn = document.createElement('button');
-                btn.className = 'accent-swatch';
-                btn.style.background = a.color; btn.title = a.label;
+                btn.className = 'color-circle';
+                btn.style.background = a.color;
+                btn.title = a.label;
                 if ((document.body.dataset.accent || 'default') === a.key) btn.classList.add('active');
                 btn.addEventListener('click', () => {
                     if (a.key === 'default') delete document.body.dataset.accent;
                     else document.body.dataset.accent = a.key;
                     localStorage.setItem('accent', a.key);
-                    document.querySelectorAll('#accentGrid .accent-swatch').forEach(x => x.classList.remove('active'));
+                    document.querySelectorAll('#accentGrid .color-circle').forEach(x => x.classList.remove('active'));
                     btn.classList.add('active');
                     showToast('Акцент: ' + a.label);
                 });
@@ -292,6 +346,7 @@ function buildSettingsUI() {
         }
 
         if (tabName === 'notifications') {
+            previewCol.style.display = 'none';
             content.innerHTML = `
                 <div class="settings-section">
                     <div class="settings-label">Уведомления</div>
@@ -304,6 +359,7 @@ function buildSettingsUI() {
         }
 
         if (tabName === 'security') {
+            previewCol.style.display = 'none';
             content.innerHTML = `
                 <div class="settings-section">
                     <div class="settings-label">Смена пароля</div>
@@ -334,6 +390,7 @@ function buildSettingsUI() {
         }
 
         if (tabName === 'account') {
+            previewCol.style.display = 'none';
             content.innerHTML = `
                 <div class="settings-section">
                     <div class="settings-label">Аккаунт</div>
