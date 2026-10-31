@@ -1,10 +1,10 @@
-function applyBackgroundToggle(key, on) {
-    if (key === 'bg-blobs') document.querySelectorAll('.bg-blobs').forEach(e => e.style.display = on ? '' : 'none');
-    if (key === 'bg-stars') document.querySelectorAll('.stars').forEach(e => e.style.display = on ? '' : 'none');
-    if (key === 'bg-grid') document.querySelectorAll('.bg-grid').forEach(e => e.style.display = on ? '' : 'none');
-    if (key === 'bg-grain') document.querySelectorAll('.grain').forEach(e => e.style.display = on ? '' : 'none');
-    if (key === 'anim') document.body.classList.toggle('no-anim', !on);
-}
+const BG_PRESETS = [
+    { key: 'cosmos', label: 'Космос' },
+    { key: 'minimal', label: 'Минимализм' },
+    { key: 'cyber', label: 'Киберпанк' },
+    { key: 'matrix', label: 'Матрица' },
+    { key: 'ocean', label: 'Океан' }
+];
 
 const AVATAR_FRAMES = [
     { key: 'none', label: 'Нет' },
@@ -76,14 +76,8 @@ function buildSettingsUI() {
         const layout = document.getElementById('settingsLayout');
         content.innerHTML = '';
 
-        // Управляем колонками (3 колонки для профиля, 2 для остальных)
         if (tabName === 'profile') {
             layout.classList.remove('no-preview');
-        } else {
-            layout.classList.add('no-preview');
-        }
-
-        if (tabName === 'profile') {
             updatePreview();
 
             let frameColor = '#00d4ff';
@@ -312,85 +306,76 @@ function buildSettingsUI() {
         }
 
         if (tabName === 'appearance') {
+            layout.classList.add('no-preview');
+
             content.innerHTML = `
                 <div class="settings-section">
-                    <div class="settings-label" style="margin-bottom: 16px;">Цветовой акцент</div>
-                    <div class="accent-grid" id="accentGrid"></div>
+                    <div class="settings-label" style="margin-bottom: 8px;">Фон приложения</div>
+                    <div class="preset-grid" id="presetGrid"></div>
                 </div>
-                <div class="settings-section" style="margin-top:32px;">
-                    <div class="settings-label" style="margin-bottom: 16px;">Фон и Анимации</div>
-                    <div class="toggle-list">
-                        <label class="toggle-row">
-                            <span><span style="margin-right:10px; font-size:16px;">🌫️</span> Живые пятна</span>
-                            <input type="checkbox" data-toggle="bg-blobs"><span class="toggle-switch"></span>
-                        </label>
-                        <label class="toggle-row">
-                            <span><span style="margin-right:10px; font-size:16px;">✨</span> Звёзды</span>
-                            <input type="checkbox" data-toggle="bg-stars"><span class="toggle-switch"></span>
-                        </label>
-                        <label class="toggle-row">
-                            <span><span style="margin-right:10px; font-size:16px;">🕸️</span> Сетка</span>
-                            <input type="checkbox" data-toggle="bg-grid"><span class="toggle-switch"></span>
-                        </label>
-                        <label class="toggle-row">
-                            <span><span style="margin-right:10px; font-size:16px;">🎞️</span> Зернистость</span>
-                            <input type="checkbox" data-toggle="bg-grain"><span class="toggle-switch"></span>
-                        </label>
-                        <label class="toggle-row">
-                            <span><span style="margin-right:10px; font-size:16px;">🧲</span> Магнитные кнопки</span>
-                            <input type="checkbox" data-toggle="anim"><span class="toggle-switch"></span>
-                        </label>
-                    </div>
+                <div class="settings-section" style="margin-top:16px;">
+                    <div class="settings-label" style="margin-bottom: 8px;">Цветовой акцент</div>
+                    <div class="accent-grid" id="accentGrid"></div>
                 </div>
             `;
 
+            // Пресеты фона
+            const presetGrid = document.getElementById('presetGrid');
+            const currentBg = localStorage.getItem('bg-preset') || 'cosmos';
+            
+            BG_PRESETS.forEach(p => {
+                const btn = document.createElement('div');
+                btn.className = 'preset-card' + (currentBg === p.key ? ' active' : '');
+                btn.innerHTML = `
+                    <div class="preset-preview" data-bg="${p.key}"></div>
+                    <span class="preset-name">${p.label}</span>
+                `;
+                btn.addEventListener('click', () => {
+                    document.body.dataset.bg = p.key;
+                    localStorage.setItem('bg-preset', p.key);
+                    
+                    document.querySelectorAll('#presetGrid .preset-card').forEach(x => x.classList.remove('active'));
+                    btn.classList.add('active');
+                    showToast('Фон: ' + p.label);
+                });
+                presetGrid.appendChild(btn);
+            });
+
+            // Акценты
             const accentGrid = document.getElementById('accentGrid');
             ACCENTS.forEach(a => {
                 const btn = document.createElement('button');
-                btn.className = 'accent-btn';
-                btn.style.background = `linear-gradient(135deg, ${a.color}40, ${a.color})`;
-                btn.style.color = a.color; // Устанавливаем цвет свечения
-                btn.textContent = a.label;
+                btn.className = 'color-circle';
+                btn.style.background = a.color;
+                btn.style.color = a.color; // Для свечения
                 
-                if ((document.body.dataset.accent || 'default') === a.key) {
-                    btn.classList.add('active');
-                }
+                if ((document.body.dataset.accent || 'default') === a.key) btn.classList.add('active');
 
                 btn.addEventListener('click', () => {
                     if (a.key === 'default') delete document.body.dataset.accent;
                     else document.body.dataset.accent = a.key;
                     localStorage.setItem('accent', a.key);
                     
-                    document.querySelectorAll('#accentGrid .accent-btn').forEach(x => x.classList.remove('active'));
+                    document.querySelectorAll('#accentGrid .color-circle').forEach(x => x.classList.remove('active'));
                     btn.classList.add('active');
                     showToast('Акцент: ' + a.label);
                 });
                 accentGrid.appendChild(btn);
             });
-
-            document.querySelectorAll('[data-toggle]').forEach(input => {
-                const key = input.dataset.toggle;
-                input.checked = (localStorage.getItem(key) !== 'off');
-                input.addEventListener('change', () => {
-                    localStorage.setItem(key, input.checked ? 'on' : 'off');
-                    applyBackgroundToggle(key, input.checked);
-                });
-            });
         }
 
         if (tabName === 'notifications') {
+            layout.classList.add('no-preview');
             content.innerHTML = `
                 <div class="settings-section">
                     <div class="settings-label">Уведомления</div>
-                    <div class="toggle-list">
-                        <label class="toggle-row"><span>Звуки сообщений</span><input type="checkbox" checked><span class="toggle-switch"></span></label>
-                        <label class="toggle-row"><span>Push-уведомления</span><input type="checkbox" checked><span class="toggle-switch"></span></label>
-                    </div>
+                    <p style="font-size:13px; color:var(--text-dim);">Эти настройки скоро появятся.</p>
                 </div>
             `;
         }
 
         if (tabName === 'security') {
+            layout.classList.add('no-preview');
             content.innerHTML = `
                 <div class="settings-section">
                     <div class="settings-label">Смена пароля</div>
@@ -421,6 +406,7 @@ function buildSettingsUI() {
         }
 
         if (tabName === 'account') {
+            layout.classList.add('no-preview');
             content.innerHTML = `
                 <div class="settings-section">
                     <div class="settings-label">Аккаунт</div>

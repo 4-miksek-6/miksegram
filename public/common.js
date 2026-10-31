@@ -53,13 +53,13 @@ function requestNotifications() {
 
 (function applyStoredSettings() {
     document.body.dataset.theme = 'cosmos';
+    
     const accent = localStorage.getItem('accent');
     if (accent && accent !== 'default') document.body.dataset.accent = accent;
     
-    if (localStorage.getItem('bg-blobs') === 'off') document.querySelectorAll('.bg-blobs').forEach(e => e.style.display = 'none');
-    if (localStorage.getItem('bg-stars') === 'off') document.querySelectorAll('.stars').forEach(e => e.style.display = 'none');
-    if (localStorage.getItem('bg-grid') === 'off') document.querySelectorAll('.bg-grid').forEach(e => e.style.display = 'none');
-    if (localStorage.getItem('bg-grain') === 'off') document.querySelectorAll('.grain').forEach(e => e.style.display = 'none');
+    const bgPreset = localStorage.getItem('bg-preset') || 'cosmos';
+    document.body.dataset.bg = bgPreset;
+
     if (localStorage.getItem('anim') === 'off') document.body.classList.add('no-anim');
 })();
 
@@ -78,7 +78,6 @@ function applyAvatarTo(el, avatar, displayName, frame = 'none') {
     el.textContent = '';
     el.className = el.className.replace(/\b(has-image|grad-\w+|frame-\w+)\b/g, '').replace(/\s+/g, ' ').trim();
     
-    // Сбрасываем предыдущие стили рамки
     el.style.border = 'none';
     el.style.boxShadow = '';
     el.style.padding = '0';
@@ -92,7 +91,6 @@ function applyAvatarTo(el, avatar, displayName, frame = 'none') {
         el.style.backgroundSize = 'cover'; el.style.backgroundPosition = 'center';
     }
 
-    // Применяем новые форматы рамок
     if (frame && frame !== 'none') {
         if (frame.startsWith('frame_glow:')) {
             const color = frame.split(':')[1];
