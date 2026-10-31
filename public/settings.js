@@ -49,9 +49,7 @@ function buildSettingsUI() {
                 </div>
             </div>
 
-            <div class="settings-controls-col" id="settingsContent">
-                <!-- Настройки -->
-            </div>
+            <div class="settings-controls-col" id="settingsContent"></div>
         </div>
     `;
 
@@ -82,14 +80,13 @@ function buildSettingsUI() {
             previewCol.style.display = 'flex';
             updatePreview();
 
-            // Вычисляем текущий цвет и активные состояния
             let frameColor = '#00d4ff';
             let currentFrame = u.avatar_frame;
             if (currentFrame.startsWith('custom:')) {
                 frameColor = currentFrame.split(':')[1];
                 currentFrame = 'glow';
             }
-            if (currentFrame === 'glow') frameColor = frameColor || '#00d4ff'; // Фоллбэк
+            if (currentFrame === 'glow' || currentFrame === 'dashed') frameColor = frameColor || '#00d4ff';
 
             let nameColor = '#00d4ff';
             let currentEffect = u.name_effect;
@@ -99,7 +96,7 @@ function buildSettingsUI() {
             }
             if (currentEffect === 'glow' || currentEffect === 'duo') nameColor = nameColor || '#00d4ff';
 
-            document.documentElement.style.setProperty('--custom-glow-color', frameColor); // Ставим базовый
+            document.documentElement.style.setProperty('--custom-glow-color', frameColor);
 
             content.innerHTML = `
                 <div class="settings-section">
@@ -140,13 +137,12 @@ function buildSettingsUI() {
                 </div>
             `;
 
-            // Отрисовка рамок
+            // Рамки
             const framePicker = document.getElementById('framePicker');
             AVATAR_FRAMES.forEach(f => {
                 const isActive = currentFrame === f.key;
                 const d = document.createElement('button');
                 d.className = 'live-picker-btn' + (isActive ? ' active' : '');
-                
                 let avatarClass = `avatar live-avatar ${u.avatar.startsWith('grad') ? u.avatar : 'has-image'}`;
                 if (f.key !== 'none') avatarClass += ` frame-${f.key}`;
                 
@@ -156,75 +152,65 @@ function buildSettingsUI() {
                 d.addEventListener('click', async () => {
                     document.querySelectorAll('#framePicker .live-picker-btn').forEach(x => x.classList.remove('active'));
                     d.classList.add('active');
-
                     let patchValue = f.key;
-                    if (f.key === 'glow' || f.key === 'dashed') {
-                        patchValue = `custom:${frameColor}`;
-                    }
+                    if (f.key === 'glow' || f.key === 'dashed') patchValue = `custom:${frameColor}`;
                     const data = await saveProfilePatch({ avatar_frame: patchValue });
-                    if (data.ok) {
-                        u.avatar_frame = patchValue;
-                        updatePreview();
-                    }
+                    if (data.ok) { u.avatar_frame = patchValue; updatePreview(); }
                 });
                 framePicker.appendChild(d);
             });
 
-            document.getElementById('frameColorPicker').addEventListener('input', async (e) => {
+            // ИСПРАВЛЕНИЕ: Слушаем 'change' вместо 'input', чтобы не спамить базу
+            document.getElementById('frameColorPicker').addEventListener('change', async (e) => {
                 const color = e.target.value;
                 frameColor = color;
-                
-                // Применяем цвет только если активна рамка (Свечение или Пунктир)
                 if (currentFrame === 'glow' || currentFrame === 'dashed') {
                     const patchValue = `custom:${color}`;
-                    await saveProfilePatch({ avatar_frame: patchValue });
-                    u.avatar_frame = patchValue;
-                    updatePreview();
-                    renderTab('profile'); // Перерисовываем, чтобы обновить цвет в превью кнопок
+                    const data = await saveProfilePatch({ avatar_frame: patchValue });
+                    if (data.ok) {
+                        u.avatar_frame = patchValue;
+                        updatePreview();
+                        document.documentElement.style.setProperty('--custom-glow-color', color);
+                    }
                 }
             });
 
-            // Отрисовка эффектов
+            // Эффекты
             const effectPicker = document.getElementById('effectPicker');
             NAME_EFFECTS.forEach(e => {
                 const isActive = currentEffect === e.key;
                 const d = document.createElement('button');
                 d.className = 'live-picker-btn' + (isActive ? ' active' : '');
-                
                 let nameClass = e.key !== 'none' ? `name-${e.key}` : '';
                 d.innerHTML = `<span class="live-name-text ${nameClass}" style="color: var(--custom-glow-color);">${escapeHtml(u.display_name || 'Имя')}</span>`;
                 
                 d.addEventListener('click', async () => {
                     document.querySelectorAll('#effectPicker .live-picker-btn').forEach(x => x.classList.remove('active'));
                     d.classList.add('active');
-
                     let patchValue = e.key;
-                    if (e.key === 'glow' || e.key === 'duo') {
-                        patchValue = `custom:${nameColor}`;
-                    }
+                    if (e.key === 'glow' || e.key === 'duo') patchValue = `custom:${nameColor}`;
                     const data = await saveProfilePatch({ name_effect: patchValue });
-                    if (data.ok) {
-                        u.name_effect = patchValue;
-                        updatePreview();
-                    }
+                    if (data.ok) { u.name_effect = patchValue; updatePreview(); }
                 });
                 effectPicker.appendChild(d);
             });
 
-            document.getElementById('nameColorPicker').addEventListener('input', async (e) => {
+            // ИСПРАВЛЕНИЕ: Слушаем 'change' вместо 'input'
+            document.getElementById('nameColorPicker').addEventListener('change', async (e) => {
                 const color = e.target.value;
                 nameColor = color;
-                
                 if (currentEffect === 'glow' || currentEffect === 'duo') {
                     const patchValue = `custom:${color}`;
-                    await saveProfilePatch({ name_effect: patchValue });
-                    u.name_effect = patchValue;
-                    updatePreview();
-                    renderTab('profile'); 
+                    const data = await saveProfilePatch({ name_effect: patchValue });
+                    if (data.ok) {
+                        u.name_effect = patchValue;
+                        updatePreview();
+                        document.documentElement.style.setProperty('--custom-glow-color', color);
+                    }
                 }
             });
 
-            // Автосохранение текста
+            // Автосохранение текста (срабатывает при потере фокуса)
             document.getElementById('settingsNameInput').addEventListener('change', async (e) => {
                 const val = e.target.value.trim();
                 if (!val) return showToast('Имя не может быть пустым');
@@ -238,7 +224,7 @@ function buildSettingsUI() {
                 if (data.ok) { u.bio = val; updatePreview(); }
             });
 
-            // Кроппер
+            // Загрузка картинок
             document.getElementById('uploadAvatarBtn').addEventListener('click', () => document.getElementById('avatarFile').click());
             document.getElementById('uploadBannerBtn').addEventListener('click', () => document.getElementById('bannerFile').click());
 
@@ -303,7 +289,6 @@ function buildSettingsUI() {
             document.getElementById('bannerFile').addEventListener('change', (e) => { if (e.target.files[0]) openCropper(e.target.files[0], true); e.target.value = ''; });
         }
 
-        // Остальные вкладки остаются без изменений...
         if (tabName === 'appearance') {
             previewCol.style.display = 'none';
             content.innerHTML = `
