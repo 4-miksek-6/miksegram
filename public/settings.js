@@ -352,7 +352,6 @@ function buildSettingsUI() {
                 </div>
             `;
 
-            // Ползунки прозрачности
             const sidebarSlider = document.getElementById('sidebarOpacity');
             const chatSlider = document.getElementById('chatOpacity');
             const valSidebar = document.getElementById('val-sidebar');
@@ -372,7 +371,6 @@ function buildSettingsUI() {
                 valChat.textContent = Math.round(val * 100) + '%';
             });
 
-            // Пресеты фона
             const presetGrid = document.getElementById('presetGrid');
             BG_PRESETS.forEach(p => {
                 const btn = document.createElement('div');
@@ -392,7 +390,6 @@ function buildSettingsUI() {
                 presetGrid.appendChild(btn);
             });
 
-            // Акценты
             const accentGrid = document.getElementById('accentGrid');
             ACCENTS.forEach(a => {
                 const btn = document.createElement('button');
@@ -417,12 +414,106 @@ function buildSettingsUI() {
 
         if (tabName === 'notifications') {
             layout.classList.add('no-preview');
+
             content.innerHTML = `
                 <div class="settings-section">
-                    <div class="settings-label">Уведомления</div>
-                    <p style="font-size:13px; color:var(--text-dim);">Эти настройки скоро появятся.</p>
+                    <div class="settings-label" style="margin-bottom: 8px;">Основные</div>
+                    <div class="toggle-list">
+                        <label class="toggle-row">
+                            <span>🔔 Push-уведомления</span>
+                            <input type="checkbox" id="toggle-push"><span class="toggle-switch"></span>
+                        </label>
+                        <label class="toggle-row">
+                            <span>🙈 Скрывать текст в Push</span>
+                            <input type="checkbox" id="toggle-hide-text"><span class="toggle-switch"></span>
+                        </label>
+                        <label class="toggle-row">
+                            <span>📳 Вибрация (на телефоне)</span>
+                            <input type="checkbox" id="toggle-vibrate"><span class="toggle-switch"></span>
+                        </label>
+                        <label class="toggle-row">
+                            <span>✨ Мигание заголовка вкладки</span>
+                            <input type="checkbox" id="toggle-blink"><span class="toggle-switch"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="settings-section" style="margin-top:24px;">
+                    <div class="settings-label" style="margin-bottom: 8px;">Звуки</div>
+                    <div class="toggle-list" style="margin-bottom: 12px;">
+                        <label class="toggle-row">
+                            <span>🔊 Звуки сообщений</span>
+                            <input type="checkbox" id="toggle-sound"><span class="toggle-switch"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="opacity-control" id="volume-control">
+                        <span>Громкость: <span id="val-volume">50%</span></span>
+                        <input type="range" min="0" max="1" step="0.05" value="0.5" id="slider-volume" class="opacity-slider">
+                    </div>
+                    
+                    <button class="secondary-btn" id="test-sound-btn" style="margin-top: 12px; width: fit-content;">🔉 Проверить звук</button>
                 </div>
             `;
+
+            // Загрузка текущих настроек
+            const pushToggle = document.getElementById('toggle-push');
+            const hideTextToggle = document.getElementById('toggle-hide-text');
+            const vibrateToggle = document.getElementById('toggle-vibrate');
+            const blinkToggle = document.getElementById('toggle-blink');
+            const soundToggle = document.getElementById('toggle-sound');
+            const volumeSlider = document.getElementById('slider-volume');
+            const valVolume = document.getElementById('val-volume');
+            const volumeControl = document.getElementById('volume-control');
+            const testSoundBtn = document.getElementById('test-sound-btn');
+
+            pushToggle.checked = localStorage.getItem('notif-push') !== 'off';
+            hideTextToggle.checked = localStorage.getItem('notif-hide-text') !== 'off';
+            vibrateToggle.checked = localStorage.getItem('notif-vibrate') !== 'off';
+            blinkToggle.checked = localStorage.getItem('notif-blink') !== 'off';
+            soundToggle.checked = localStorage.getItem('notif-sound') !== 'off';
+            
+            const savedVol = localStorage.getItem('notif-volume') || '0.5';
+            volumeSlider.value = savedVol;
+            valVolume.textContent = Math.round(savedVol * 100) + '%';
+
+            if (!soundToggle.checked) {
+                volumeSlider.disabled = true;
+                testSoundBtn.disabled = true;
+                volumeControl.style.opacity = '0.5';
+            }
+
+            // Обработчики
+            pushToggle.addEventListener('change', (e) => localStorage.setItem('notif-push', e.target.checked ? 'on' : 'off'));
+            hideTextToggle.addEventListener('change', (e) => localStorage.setItem('notif-hide-text', e.target.checked ? 'on' : 'off'));
+            vibrateToggle.addEventListener('change', (e) => localStorage.setItem('notif-vibrate', e.target.checked ? 'on' : 'off'));
+            blinkToggle.addEventListener('change', (e) => localStorage.setItem('notif-blink', e.target.checked ? 'on' : 'off'));
+            
+            soundToggle.addEventListener('change', (e) => {
+                localStorage.setItem('notif-sound', e.target.checked ? 'on' : 'off');
+                if (e.target.checked) {
+                    volumeSlider.disabled = false;
+                    testSoundBtn.disabled = false;
+                    volumeControl.style.opacity = '1';
+                } else {
+                    volumeSlider.disabled = true;
+                    testSoundBtn.disabled = true;
+                    volumeControl.style.opacity = '0.5';
+                }
+            });
+
+            volumeSlider.addEventListener('input', (e) => {
+                const val = e.target.value;
+                valVolume.textContent = Math.round(val * 100) + '%';
+                localStorage.setItem('notif-volume', val);
+            });
+
+            testSoundBtn.addEventListener('click', () => {
+                const vol = parseFloat(localStorage.getItem('notif-volume') || '0.5');
+                const testAudio = new Audio('/notify.mp3');
+                testAudio.volume = vol;
+                testAudio.play().catch(() => showToast('Браузер заблокировал звук'));
+            });
         }
 
         if (tabName === 'security') {
