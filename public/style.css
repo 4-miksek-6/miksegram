@@ -408,3 +408,73 @@ textarea.composer-input { max-height: 120px; overflow-y: auto; font-family: inhe
     .modal { max-height: 95vh; border-radius: 20px; }
     #toast { bottom: 80px; }
 }
+
+/* --- НОВЫЙ СПИСОК ПОЛЬЗОВАТЕЛЕЙ В ГРУППЕ --- */
+.group-user-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 250px;
+    overflow-y: auto;
+    padding-right: 4px;
+    margin-top: 10px;
+}
+
+.group-user-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+    margin: 0;
+}
+
+.group-user-row:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: var(--border-hi);
+}
+
+.group-user-row input[type="checkbox"] {
+    display: none;
+}
+
+.group-user-row::after {
+    content: '';
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--text-mute);
+    border-radius: 6px;
+    margin-left: auto;
+    flex-shrink: 0;
+    transition: all 0.2s;
+}
+
+.group-user-row:has(input:checked) {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.group-user-row:has(input:checked)::after {
+    background: var(--accent);
+    border-color: var(--accent);
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' fill='none' stroke='%2306101c' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' xmlns='http://www.w3.org/2000/svg'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+    background-size: 14px;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+.group-user-row .avatar {
+    width: 40px;
+    height: 40px;
+    font-size: 16px;
+}
+
+.group-user-row span {
+    font-size: 14px;
+    color: var(--text);
+    line-height: 1.3;
+}   

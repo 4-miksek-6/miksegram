@@ -136,7 +136,6 @@ app.get('/api/all-users', async (req, res) => {
   const uRes = await db.execute({ sql: 'SELECT id, login, display_name, avatar FROM users WHERE id != ? ORDER BY display_name ASC', args: [req.session.userId] });
   res.json({ ok: true, users: uRes.rows });
 });
-
 app.get('/api/chats', async (req, res) => {
   if (!req.session.userId) return res.json({ ok: false });
   const myId = req.session.userId;
@@ -345,7 +344,6 @@ app.post('/api/messages/:id/delete', async (req, res) => {
   if (msgRes.rows.length === 0 || msgRes.rows[0].sender_id !== myId) return res.json({ ok: false });
   const msg = msgRes.rows[0];
   
-  // Удаление файла из Supabase (если он есть)
   if (msg.file_url && msg.file_url.includes('supabase.co')) {
     try {
       const fileName = msg.file_url.split('/').pop();

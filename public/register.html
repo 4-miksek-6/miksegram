@@ -28,7 +28,9 @@
         <input id="password" type="password" placeholder="Пароль (мин. 4 символа)" autocomplete="new-password">
         
         <button type="button" id="btn">Создать аккаунт</button>
-        <div id="error" class="auth-error" style="font-weight:600;"></div>
+        
+        <!-- Блок для вывода ошибок -->
+        <div id="error" class="auth-error" style="font-weight:600; color: #ff4ec7;"></div>
         
         <div class="auth-link" style="margin-bottom:24px;">Уже есть аккаунт? <a href="/login.html">Войти</a></div>
         
@@ -52,20 +54,32 @@
         err.textContent = '';
         
         if (!login || !display_name || !password) {
-            err.textContent = 'Заполни все поля';
+            err.textContent = 'Пожалуйста, заполни все поля';
             return;
         }
 
-        const res = await fetch('/api/register', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ login, display_name, password })
-        });
-        const data = await res.json();
-        
-        if (data.ok) {
-            window.location.href = '/';
-        } else {
-            err.textContent = data.error;
+        // Делаем кнопку неактивной на время запроса
+        const btn = document.getElementById('btn');
+        btn.disabled = true;
+        btn.textContent = 'Создаем...';
+
+        try {
+            const res = await fetch('/api/register', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ login, display_name, password })
+            });
+            const data = await res.json();
+            
+            if (data.ok) {
+                window.location.href = '/';
+            } else {
+                err.textContent = data.error;
+            }
+        } catch (e) {
+            err.textContent = 'Ошибка сети. Проверь интернет.';
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Создать аккаунт';
         }
     }
 

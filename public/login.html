@@ -14,6 +14,7 @@
 <div class="grain"></div>
 
 <div class="auth-wrap" style="flex-direction:column;">
+    <!-- Экран ввода логина и пароля -->
     <div class="auth-card" id="loginScreen">
         <h1>С возвращением!</h1>
         <p style="text-align:center; color:var(--text-dim); font-size:13px; margin-bottom:20px;">Мы рады видеть тебя снова</p>
@@ -26,7 +27,9 @@
         <input id="password" type="password" placeholder="Пароль" autocomplete="current-password">
         
         <button type="button" id="btn">Войти</button>
-        <div id="error" class="auth-error" style="font-weight:600;"></div>
+        
+        <!-- Блок для вывода ошибок -->
+        <div id="error" class="auth-error" style="font-weight:600; color: #ff4ec7;"></div>
         
         <div class="auth-link" style="margin-bottom:24px;">Нет аккаунта? <a href="/register.html">Зарегистрироваться</a></div>
         
@@ -36,6 +39,7 @@
         </div>
     </div>
 
+    <!-- Экран подтверждения "Это вы?" -->
     <div class="auth-card" id="confirmScreen" style="display:none; text-align:center;">
         <h1>Это вы?</h1>
         <div style="display:flex; flex-direction:column; align-items:center; margin: 24px 0;">
@@ -54,8 +58,7 @@
     initStars();
     initMagnetics();
 
-    let pendingUser = null;
-
+    // Если уже залогинен — сразу на главную
     fetch('/api/me').then(r => r.json()).then(d => { if (d.ok) window.location.href = '/'; });
 
     async function doLogin() {
@@ -65,26 +68,37 @@
         err.textContent = '';
         
         if (!login || !password) {
-            err.textContent = 'Заполни логин и пароль';
+            err.textContent = 'Введите логин и пароль';
             return;
         }
 
-        const res = await fetch('/api/login', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ login, password })
-        });
-        const data = await res.json();
-        
-        if (data.ok) {
-            pendingUser = data.user;
-            document.getElementById('loginScreen').style.display = 'none';
-            document.getElementById('confirmScreen').style.display = 'block';
+        const btn = document.getElementById('btn');
+        btn.disabled = true;
+        btn.textContent = 'Проверяем...';
+
+        try {
+            const res = await fetch('/api/login', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ login, password })
+            });
+            const data = await res.json();
             
-            applyAvatarTo(document.getElementById('confirmAvatar'), data.user.avatar, data.user.display_name);
-            document.getElementById('confirmName').textContent = data.user.display_name;
-            document.getElementById('confirmLogin').textContent = '@' + data.user.login;
-        } else {
-            err.textContent = data.error;
+            if (data.ok) {
+                // Показываем экран подтверждения
+                document.getElementById('loginScreen').style.display = 'none';
+                document.getElementById('confirmScreen').style.display = 'block';
+                
+                applyAvatarTo(document.getElementById('confirmAvatar'), data.user.avatar, data.user.display_name);
+                document.getElementById('confirmName').textContent = data.user.display_name;
+                document.getElementById('confirmLogin').textContent = '@' + data.user.login;
+            } else {
+                err.textContent = data.error;
+            }
+        } catch (e) {
+            err.textContent = 'Ошибка сети. Проверь интернет.';
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Войти';
         }
     }
 
@@ -96,6 +110,7 @@
     });
 
     document.getElementById('confirmNo').addEventListener('click', () => {
+        // Возвращаемся на экран входа
         document.getElementById('confirmScreen').style.display = 'none';
         document.getElementById('loginScreen').style.display = 'block';
         document.getElementById('password').value = '';
