@@ -74,16 +74,7 @@ body[data-bg="ocean"] .bg-blobs { opacity: 0.8; filter: blur(80px) hue-rotate(20
 .grad-cyan { background: var(--grad-cyan); }
 .grad-aurora { background: var(--grad-aurora); }
 
-.sidebar { 
-    display: flex; flex-direction: column; 
-    background: rgba(18, 22, 40, var(--sidebar-opacity)); 
-    border: 1px solid var(--border); 
-    border-radius: 22px; 
-    backdrop-filter: blur(24px); 
-    box-shadow: var(--shadow-soft); 
-    overflow: hidden; 
-    transition: background 0.3s ease;
-}
+.sidebar { display: flex; flex-direction: column; background: rgba(18, 22, 40, var(--sidebar-opacity)); border: 1px solid var(--border); border-radius: 22px; backdrop-filter: blur(24px); box-shadow: var(--shadow-soft); overflow: hidden; transition: background 0.3s ease; }
 .sidebar-top { padding: 16px 16px 8px; }
 .profile-card { display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: 16px; cursor: pointer; transition: background 0.25s; }
 .profile-card:hover { background: rgba(255,255,255,0.05); }
@@ -116,17 +107,7 @@ body[data-bg="ocean"] .bg-blobs { opacity: 0.8; filter: blur(80px) hue-rotate(20
 .unread-badge { min-width: 20px; height: 20px; padding: 0 6px; background: var(--accent); color: #06101c; border-radius: 10px; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 12px var(--accent); }
 .chats-empty { padding: 30px 16px; text-align: center; color: var(--text-mute); font-size: 13px; }
 
-.chat-area { 
-    display: flex; flex-direction: column; 
-    background: rgba(22, 26, 46, var(--chat-opacity)); 
-    border: 1px solid var(--border); 
-    border-radius: 22px; 
-    backdrop-filter: blur(24px); 
-    box-shadow: var(--shadow-soft); 
-    overflow: hidden; 
-    position: relative; 
-    transition: background 0.3s ease;
-}
+.chat-area { display: flex; flex-direction: column; background: rgba(22, 26, 46, var(--chat-opacity)); border: 1px solid var(--border); border-radius: 22px; backdrop-filter: blur(24px); box-shadow: var(--shadow-soft); overflow: hidden; position: relative; transition: background 0.3s ease; }
 .chat-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid var(--border); background: rgba(10,15,30,0.5); backdrop-filter: blur(16px); }
 .chat-header-left { display: flex; align-items: center; gap: 14px; min-width: 0; }
 .chat-header-info { min-width: 0; }
@@ -229,18 +210,15 @@ body[data-bg="ocean"] .bg-blobs { opacity: 0.8; filter: blur(80px) hue-rotate(20
 .live-avatar { width: 44px; height: 44px; font-size: 18px; }
 .live-name-text { font-family: 'Unbounded'; font-size: 13px; font-weight: 600; padding: 0 4px; }
 
-.preset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 16px; width: 100%; max-width: 700px; }
-.preset-card { background: rgba(0,0,0,0.3); border: 2px solid var(--border); border-radius: 16px; padding: 10px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; gap: 8px; align-items: center; }
-.preset-card:hover { border-color: var(--border-hi); transform: translateY(-2px); }
-.preset-card.active { border-color: var(--accent); box-shadow: 0 0 20px color-mix(in srgb, var(--accent) 30%, transparent); }
-.preset-preview { width: 100%; height: 80px; border-radius: 10px; position: relative; overflow: hidden; background-color: #0a0f1e; }
-.preset-name { font-size: 13px; font-weight: 600; color: var(--text); }
-
-.preset-preview[data-bg="cosmos"] { background: radial-gradient(circle at 30% 30%, #00d4ff40, transparent 60%), radial-gradient(circle at 70% 70%, #ff4ec740, transparent 60%), #0a0f1e; }
-.preset-preview[data-bg="minimal"] { background: #08080c; }
-.preset-preview[data-bg="cyber"] { background: linear-gradient(90deg, rgba(168,85,247,0.3) 1px, transparent 1px), linear-gradient(rgba(168,85,247,0.3) 1px, transparent 1px), #0f0518; background-size: 10px 10px; }
-.preset-preview[data-bg="matrix"] { background: linear-gradient(90deg, rgba(0,255,163,0.2) 1px, transparent 1px), linear-gradient(rgba(0,255,163,0.2) 1px, transparent 1px), #020c05; background-size: 10px 10px; }
-.preset-preview[data-bg="ocean"] { background: radial-gradient(circle at 50% 50%, #0ea5e960, transparent 70%), #02101e; }
+.group-user-list { display: flex; flex-direction: column; gap: 8px; max-height: 250px; overflow-y: auto; padding-right: 4px; margin-top: 10px; }
+.group-user-row { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border); border-radius: 12px; cursor: pointer; transition: background 0.2s, border-color 0.2s; margin: 0; }
+.group-user-row:hover { background: rgba(255, 255, 255, 0.08); border-color: var(--border-hi); }
+.group-user-row input[type="checkbox"] { display: none; }
+.group-user-row::after { content: ''; width: 20px; height: 20px; border: 2px solid var(--text-mute); border-radius: 6px; margin-left: auto; flex-shrink: 0; transition: all 0.2s; }
+.group-user-row:has(input:checked) { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.group-user-row:has(input:checked)::after { background: var(--accent); border-color: var(--accent); background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' fill='none' stroke='%2306101c' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' xmlns='http://www.w3.org/2000/svg'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E"); background-size: 14px; background-position: center; background-repeat: no-repeat; }
+.group-user-row .avatar { width: 40px; height: 40px; font-size: 16px; }
+.group-user-row span { font-size: 14px; color: var(--text); line-height: 1.3; }
 
 .accent-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(50px, 1fr)); gap: 16px; width: 100%; max-width: 600px; }
 .color-circle { width: 46px; height: 46px; border-radius: 50%; border: 3px solid transparent; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; }
@@ -277,80 +255,25 @@ body[data-bg="ocean"] .bg-blobs { opacity: 0.8; filter: blur(80px) hue-rotate(20
 .danger-btn { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 18px; border-radius: 12px; background: rgba(255,60,100,0.12); border: 1px solid rgba(255,60,100,0.35); color: #ff5c7c; font-family: 'Unbounded'; font-weight: 600; font-size: 13px; cursor: pointer; transition: all 0.2s; }
 .danger-btn:hover { background: rgba(255,60,100,0.2); box-shadow: 0 0 24px rgba(255,60,100,0.35); }
 
-/* --- НОВЫЕ СТИЛИ ДЛЯ ПАРОЛЯ --- */
-.password-input-wrap {
-    position: relative;
-    display: flex;
-    align-items: center;
-    width: 100%;
-    max-width: 400px;
-}
-.password-input-wrap input {
-    width: 100%;
-    padding-right: 40px;
-}
-.password-toggle {
-    position: absolute;
-    right: 12px;
-    background: none;
-    border: none;
-    color: var(--text-mute);
-    cursor: pointer;
-    font-size: 16px;
-    padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: color 0.2s;
-}
-.password-toggle:hover {
-    color: var(--text);
-}
-.strength-meter {
-    height: 4px;
-    background: rgba(255,255,255,0.1);
-    border-radius: 2px;
-    margin-top: 6px;
-    overflow: hidden;
-    width: 100%;
-    max-width: 400px;
-}
-.strength-bar {
-    height: 100%;
-    width: 0%;
-    transition: all 0.3s ease;
-    border-radius: 2px;
-}
-.strength-text {
-    font-size: 11px;
-    color: var(--text-mute);
-    margin-top: 4px;
-    text-align: right;
-    width: 100%;
-    max-width: 400px;
-}
-.account-block {
-    background: rgba(0,0,0,0.2);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    width: 100%;
-    max-width: 500px;
-}
-.account-block.danger-zone {
-    border-color: rgba(255,60,100,0.3);
-    background: rgba(255,60,100,0.05);
-}
-
 .color-picker-row { display: flex; align-items: center; gap: 12px; background: rgba(0,0,0,0.2); padding: 8px 12px; border-radius: 12px; border: 1px solid var(--border); width: fit-content; }
 .color-picker-label { font-size: 13px; color: var(--text-dim); }
 input[type="color"] { -webkit-appearance: none; appearance: none; border: none; width: 28px; height: 28px; border-radius: 50%; padding: 0; cursor: pointer; background: none; }
 input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
 input[type="color"]::-webkit-color-swatch { border: 2px solid var(--border-hi); border-radius: 50%; }
 
+/* ПАРОЛЬ И СЛОЖНОСТЬ */
+.password-input-wrap { position: relative; display: flex; align-items: center; width: 100%; max-width: 400px; }
+.password-input-wrap input { width: 100%; padding-right: 40px; }
+.password-toggle { position: absolute; right: 12px; background: none; border: none; color: var(--text-mute); cursor: pointer; font-size: 16px; padding: 0; display: flex; align-items: center; justify-content: center; transition: color 0.2s; }
+.password-toggle:hover { color: var(--text); }
+.strength-meter { height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; margin-top: 6px; overflow: hidden; width: 100%; max-width: 400px; }
+.strength-bar { height: 100%; width: 0%; transition: all 0.3s ease; border-radius: 2px; }
+.strength-text { font-size: 11px; color: var(--text-mute); margin-top: 4px; text-align: right; width: 100%; max-width: 400px; }
+
+.account-block { background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 16px; padding: 24px; display: flex; flex-direction: column; gap: 16px; width: 100%; max-width: 500px; }
+.account-block.danger-zone { border-color: rgba(255,60,100,0.3); background: rgba(255,60,100,0.05); }
+
+/* АВТОРИЗАЦИЯ */
 .auth-wrap { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; position: relative; z-index: 1; }
 .auth-card { width: 100%; max-width: 400px; background: var(--panel-strong); border: 1px solid var(--border-hi); border-radius: 24px; padding: 40px 32px; backdrop-filter: blur(28px); box-shadow: var(--shadow-soft), var(--shadow-glow); animation: modalIn 0.6s; }
 .auth-card h1 { margin: 0 0 28px; text-align: center; font-family: 'Unbounded'; font-size: 26px; font-weight: 700; background: var(--grad-aurora); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
