@@ -47,7 +47,6 @@ function buildSettingsUI() {
                 <div class="settings-tab active" data-tab="profile">Профиль</div>
                 <div class="settings-tab" data-tab="appearance">Оформление</div>
                 <div class="settings-tab" data-tab="notifications">Уведомления</div>
-                <div class="settings-tab" data-tab="security">Безопасность</div>
                 <div class="settings-tab" data-tab="account">Аккаунт</div>
                 <button class="danger-btn" id="logoutBtn" style="margin-top:auto; padding:10px;">Выйти</button>
             </div>
@@ -456,7 +455,6 @@ function buildSettingsUI() {
                 </div>
             `;
 
-            // Загрузка текущих настроек
             const pushToggle = document.getElementById('toggle-push');
             const hideTextToggle = document.getElementById('toggle-hide-text');
             const vibrateToggle = document.getElementById('toggle-vibrate');
@@ -483,7 +481,6 @@ function buildSettingsUI() {
                 volumeControl.style.opacity = '0.5';
             }
 
-            // Обработчики
             pushToggle.addEventListener('change', (e) => localStorage.setItem('notif-push', e.target.checked ? 'on' : 'off'));
             hideTextToggle.addEventListener('change', (e) => localStorage.setItem('notif-hide-text', e.target.checked ? 'on' : 'off'));
             vibrateToggle.addEventListener('change', (e) => localStorage.setItem('notif-vibrate', e.target.checked ? 'on' : 'off'));
@@ -516,22 +513,64 @@ function buildSettingsUI() {
             });
         }
 
-        if (tabName === 'security') {
+        if (tabName === 'account') {
             layout.classList.add('no-preview');
             content.innerHTML = `
-                <div class="settings-section">
+                <div class="account-block">
                     <div class="settings-label">Смена пароля</div>
-                    <label class="settings-field">
+                    
+                    <div class="settings-field">
                         <span class="settings-field-label">Текущий пароль</span>
-                        <input type="password" id="oldPassword" placeholder="Старый пароль">
-                    </label>
-                    <label class="settings-field">
+                        <div class="password-input-wrap">
+                            <input type="password" id="oldPassword" placeholder="Введите старый пароль">
+                            <button type="button" class="password-toggle" id="toggleOld">👁️</button>
+                        </div>
+                    </div>
+                    
+                    <div class="settings-field">
                         <span class="settings-field-label">Новый пароль</span>
-                        <input type="password" id="newPassword" placeholder="Новый пароль">
-                    </label>
-                    <button class="primary-btn" id="changePassBtn" style="margin-top:10px;">Сменить пароль</button>
+                        <div class="password-input-wrap">
+                            <input type="password" id="newPassword" placeholder="Введите новый пароль" oninput="updateStrength(this.value)">
+                            <button type="button" class="password-toggle" id="toggleNew">👁️</button>
+                        </div>
+                    </div>
+
+                    <div class="strength-meter"><div class="strength-bar" id="strengthBar"></div></div>
+                    <div class="strength-text" id="strengthText"></div>
+                    
+                    <button class="primary-btn" id="changePassBtn">Сменить пароль</button>
+                </div>
+
+                <div class="account-block" style="margin-top: 16px;">
+                    <div class="settings-label">Выход</div>
+                    <p style="font-size:13px; color:var(--text-dim); margin:0;">Вы можете выйти из аккаунта на этом устройстве.</p>
+                    <button class="secondary-btn" id="logoutBtn2">Выйти из аккаунта</button>
+                </div>
+
+                <div class="account-block danger-zone" style="margin-top: 16px;">
+                    <div class="settings-label" style="color:#ff5c7c;">Удаление аккаунта</div>
+                    <p style="font-size:13px; color:var(--text-dim); margin:0;">Это действие необратимо. Все ваши сообщения, чаты и файлы будут удалены навсегда.</p>
+                    <button class="danger-btn" id="deleteAccountBtn">Удалить аккаунт навсегда</button>
                 </div>
             `;
+
+            // Логика показа пароля
+            function setupToggle(btnId, inputId) {
+                document.getElementById(btnId).addEventListener('click', () => {
+                    const input = document.getElementById(inputId);
+                    if (input.type === 'password') {
+                        input.type = 'text';
+                        document.getElementById(btnId).textContent = '🙈';
+                    } else {
+                        input.type = 'password';
+                        document.getElementById(btnId).textContent = '👁️';
+                    }
+                });
+            }
+            setupToggle('toggleOld', 'oldPassword');
+            setupToggle('toggleNew', 'newPassword');
+
+            // Логика смены пароля
             document.getElementById('changePassBtn').addEventListener('click', async () => {
                 const old_password = document.getElementById('oldPassword').value;
                 const new_password = document.getElementById('newPassword').value;
@@ -542,33 +581,102 @@ function buildSettingsUI() {
                     body: JSON.stringify({ old_password, new_password })
                 });
                 const data = await res.json();
-                if (data.ok) { showToast('Пароль изменен'); document.getElementById('oldPassword').value = ''; document.getElementById('newPassword').value = ''; }
+                if (data.ok) { 
+                    showToast('Пароль успешно изменен'); 
+                    document.getElementById('oldPassword').value = ''; 
+                    document.getElementById('newPassword').value = ''; 
+                    document.getElementById('strengthBar').style.width = '0%';
+                    document.getElementById('strengthText').textContent = '';
+                }
                 else showToast(data.error);
             });
-        }
 
-        if (tabName === 'account') {
-            layout.classList.add('no-preview');
-            content.innerHTML = `
-                <div class="settings-section">
-                    <div class="settings-label">Аккаунт</div>
-                    <p style="font-size:13px; color:var(--text-dim);">Выйдя из аккаунта, вы можете войти снова в любой момент.</p>
-                    <button class="secondary-btn" id="logoutBtn2" style="width:100%; margin-top:10px;">Выйти из аккаунта</button>
-                </div>
-                <div class="settings-section" style="margin-top:24px; border:1px solid rgba(255,60,100,0.3); padding:16px; border-radius:16px;">
-                    <div class="settings-label" style="color:#ff5c7c;">Удаление аккаунта</div>
-                    <p style="font-size:13px; color:var(--text-dim);">Это действие необратимо.</p>
-                    <button class="danger-btn" id="deleteAccountBtn" style="width:100%; margin-top:10px;">Удалить аккаунт навсегда</button>
-                </div>
-            `;
+            // Логика выхода
             document.getElementById('logoutBtn2').addEventListener('click', () => {
                 fetch('/api/logout', { method: 'POST' }).then(() => window.location.href = '/login.html');
             });
+
+            // Логика удаления аккаунта
             document.getElementById('deleteAccountBtn').addEventListener('click', () => {
-                showToast('Функция удаления появится позже');
+                const modal = document.createElement('div');
+                modal.className = 'modal-overlay open';
+                modal.style.zIndex = '3000';
+                modal.innerHTML = `
+                    <div class="modal" style="max-width: 400px; padding: 24px; background: var(--bg-0);">
+                        <h2 class="modal-title" style="color: #ff5c7c; margin-bottom: 12px;">Вы уверены?</h2>
+                        <p style="color: var(--text); margin-bottom: 16px; font-size: 14px;">Это действие навсегда удалит ваш аккаунт и все данные. Для подтверждения введите ваш пароль.</p>
+                        <div class="password-input-wrap">
+                            <input type="password" id="deleteConfirmPass" placeholder="Введите пароль">
+                        </div>
+                        <div style="display:flex; gap:10px; margin-top: 16px;">
+                            <button class="danger-btn" id="confirmDeleteBtn" style="flex:1;">Удалить</button>
+                            <button class="secondary-btn" id="cancelDeleteBtn" style="flex:1;">Отмена</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+
+                modal.querySelector('#cancelDeleteBtn').onclick = () => modal.remove();
+                
+                modal.querySelector('#confirmDeleteBtn').onclick = async () => {
+                    const password = modal.querySelector('#deleteConfirmPass').value;
+                    if (!password) return showToast('Введите пароль');
+                    
+                    const btn = modal.querySelector('#confirmDeleteBtn');
+                    btn.textContent = 'Удаление...';
+                    btn.disabled = true;
+
+                    const res = await fetch('/api/delete-account', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ password })
+                    });
+                    const data = await res.json();
+                    
+                    if (data.ok) {
+                        window.location.href = '/login.html';
+                    } else {
+                        showToast(data.error);
+                        btn.textContent = 'Удалить';
+                        btn.disabled = false;
+                    }
+                };
             });
         }
     }
+
+    // Логика сложности пароля (глобальная функция, чтобы работал oninput)
+    window.updateStrength = (val) => {
+        const bar = document.getElementById('strengthBar');
+        const text = document.getElementById('strengthText');
+        if (!bar || !text) return;
+        
+        let strength = 0;
+        if (val.length >= 4) strength++;
+        if (val.length >= 8) strength++;
+        if (/[A-Z]/.test(val)) strength++;
+        if (/[0-9]/.test(val)) strength++;
+        if (/[^A-Za-z0-9]/.test(val)) strength++;
+
+        const percent = (strength / 5) * 100;
+        bar.style.width = percent + '%';
+
+        if (val.length === 0) {
+            bar.style.width = '0%';
+            text.textContent = '';
+        } else if (strength <= 2) {
+            bar.style.background = '#ff3b3b';
+            text.textContent = 'Слабый пароль';
+            text.style.color = '#ff3b3b';
+        } else if (strength <= 4) {
+            bar.style.background = '#ffb347';
+            text.textContent = 'Средний пароль';
+            text.style.color = '#ffb347';
+        } else {
+            bar.style.background = '#00ffa3';
+            text.textContent = 'Надежный пароль';
+            text.style.color = '#00ffa3';
+        }
+    };
 
     renderTab('profile');
 
