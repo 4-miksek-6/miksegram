@@ -6,6 +6,24 @@ const BG_PRESETS = [
     { key: 'ocean', label: 'Океан' }
 ];
 
+const ACCENTS = [
+    { key: 'default', label: 'Аврора', color: '#00d4ff' },
+    { key: 'emerald', label: 'Изумруд', color: '#00ffa3' },
+    { key: 'cyan', label: 'Бирюза', color: '#00d4ff' },
+    { key: 'blue', label: 'Голубой', color: '#4d9fff' },
+    { key: 'violet', label: 'Фиолет', color: '#a855f7' },
+    { key: 'lavender', label: 'Лаванда', color: '#b794f6' },
+    { key: 'pink', label: 'Розовый', color: '#ff4ec7' },
+    { key: 'magenta', label: 'Малина', color: '#ff2d95' },
+    { key: 'red', label: 'Красный', color: '#ff3b3b' },
+    { key: 'orange', label: 'Оранжевый', color: '#ff7b00' },
+    { key: 'amber', label: 'Янтарь', color: '#ffb347' },
+    { key: 'yellow', label: 'Желтый', color: '#facc15' },
+    { key: 'lime', label: 'Лайм', color: '#b8ff00' },
+    { key: 'gold', label: 'Золото', color: '#ffd700' },
+    { key: 'white', label: 'Белый', color: '#ffffff' }
+];
+
 const AVATAR_FRAMES = [
     { key: 'none', label: 'Нет' },
     { key: 'glow', label: 'Свечение' },
@@ -135,7 +153,6 @@ function buildSettingsUI() {
                 </div>
             `;
 
-            // Рамки
             const framePicker = document.getElementById('framePicker');
             AVATAR_FRAMES.forEach(f => {
                 const isActive = currentFrame === f.key;
@@ -184,7 +201,6 @@ function buildSettingsUI() {
                 }
             });
 
-            // Эффекты
             const effectPicker = document.getElementById('effectPicker');
             NAME_EFFECTS.forEach(e => {
                 const isActive = currentEffect === e.key;
@@ -307,6 +323,7 @@ function buildSettingsUI() {
 
         if (tabName === 'appearance') {
             layout.classList.add('no-preview');
+            const currentBg = localStorage.getItem('bg-preset') || 'cosmos';
 
             content.innerHTML = `
                 <div class="settings-section">
@@ -319,10 +336,7 @@ function buildSettingsUI() {
                 </div>
             `;
 
-            // Пресеты фона
             const presetGrid = document.getElementById('presetGrid');
-            const currentBg = localStorage.getItem('bg-preset') || 'cosmos';
-            
             BG_PRESETS.forEach(p => {
                 const btn = document.createElement('div');
                 btn.className = 'preset-card' + (currentBg === p.key ? ' active' : '');
@@ -341,13 +355,12 @@ function buildSettingsUI() {
                 presetGrid.appendChild(btn);
             });
 
-            // Акценты
             const accentGrid = document.getElementById('accentGrid');
             ACCENTS.forEach(a => {
                 const btn = document.createElement('button');
                 btn.className = 'color-circle';
                 btn.style.background = a.color;
-                btn.style.color = a.color; // Для свечения
+                btn.style.color = a.color; 
                 
                 if ((document.body.dataset.accent || 'default') === a.key) btn.classList.add('active');
 

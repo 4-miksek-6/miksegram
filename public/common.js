@@ -57,6 +57,7 @@ function requestNotifications() {
     const accent = localStorage.getItem('accent');
     if (accent && accent !== 'default') document.body.dataset.accent = accent;
     
+    // Восстанавливаем фон
     const bgPreset = localStorage.getItem('bg-preset') || 'cosmos';
     document.body.dataset.bg = bgPreset;
 
