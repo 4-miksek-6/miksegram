@@ -178,11 +178,12 @@ body.no-anim * { animation: none !important; transition: none !important; }
 .settings-preview-col { padding: 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-right: 1px solid var(--border); background: rgba(0,0,0,0.1); position: relative; }
 .settings-controls-col { padding: 24px; overflow: hidden; display: flex; flex-direction: column; gap: 20px; }
 
-/* Превью профиля (УВЕЛИЧЕНО) */
+/* Превью профиля (УВЕЛИЧЕНО И ПОДНЯТО) */
 .preview-profile-card { width: 100%; max-width: 360px; background: var(--bg-0); border: 1px solid var(--border); border-radius: 20px; overflow: hidden; box-shadow: 0 15px 40px rgba(0,0,0,0.6); position: relative; display: flex; flex-direction: column; margin-top: 16px; }
 .preview-banner { height: 160px; width: 100%; background-size: cover; background-position: center; position: relative; }
 .preview-banner::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to bottom, transparent 30%, var(--bg-0) 100%); }
-.preview-avatar-wrap { margin-top: -50px; margin-left: 20px; position: relative; z-index: 2; display: inline-flex; }
+/* Вот здесь мы подняли аватарку с -50px на -75px */
+.preview-avatar-wrap { margin-top: -75px; margin-left: 20px; position: relative; z-index: 2; display: inline-flex; }
 .preview-avatar { width: 90px; height: 90px; font-size: 34px; border: 4px solid var(--bg-0); box-shadow: 0 6px 16px rgba(0,0,0,0.6); }
 .preview-info { padding: 12px 20px 24px; position: relative; z-index: 2; text-align: left; }
 .preview-name { font-family: 'Unbounded'; font-size: 24px; font-weight: 700; color: #fff; margin-top: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 4px; display: inline-block; }
@@ -201,14 +202,6 @@ body.no-anim * { animation: none !important; transition: none !important; }
 
 .live-avatar { width: 44px; height: 44px; font-size: 18px; }
 .live-name-text { font-family: 'Unbounded'; font-size: 13px; font-weight: 600; padding: 0 4px; }
-
-/* РАМКИ */
-.frame-glow { border: 2px solid var(--custom-glow-color) !important; box-shadow: 0 0 15px var(--custom-glow-color) !important; }
-.frame-dashed { border: 2px dashed var(--custom-glow-color) !important; }
-
-/* ЭФФЕКТЫ ИМЕНИ */
-.name-glow { color: #fff; text-shadow: 0 0 10px var(--custom-glow-color), 0 0 20px var(--custom-glow-color); padding: 0 4px; }
-.name-duo { color: var(--custom-glow-color); text-shadow: 0 0 5px color-mix(in srgb, var(--custom-glow-color) 50%, transparent); padding: 0 4px; font-weight: 800; }
 
 /* Поля и кнопки */
 .settings-field { display: flex; flex-direction: column; gap: 6px; }

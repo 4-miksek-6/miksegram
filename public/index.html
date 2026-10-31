@@ -150,13 +150,14 @@
     </div>
 </div>
 
+<!-- ТУТ ИЗМЕНЕНЫ ОТСТУПЫ ДЛЯ АВАТАРКИ И ИМЕНИ (bottom: 40px) -->
 <div class="modal-overlay" id="profileModal">
     <div class="modal" style="max-width: 420px; padding: 0; overflow: hidden; background: var(--bg-0);">
         <button class="icon-btn" id="closeProfileModal" style="position:absolute; top:16px; right:16px; z-index:10; background:rgba(0,0,0,0.4); color:#fff; border-radius:50%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         
         <div id="modalProfileBanner" style="height: 180px; background-size:cover; background-position:center; position:relative; border-radius: 20px 20px 0 0;">
             <div style="position:absolute; inset:0; background:linear-gradient(to bottom, transparent 40%, var(--bg-0) 100%);"></div>
-            <div style="position:absolute; bottom: 16px; left: 20px; display:flex; align-items:center; gap: 16px; z-index:2;">
+            <div style="position:absolute; bottom: 40px; left: 20px; display:flex; align-items:center; gap: 16px; z-index:2;">
                 <div class="avatar" id="modalProfileAvatar" style="width: 76px; height: 76px; font-size: 30px; border: 3px solid var(--bg-0); box-shadow: 0 4px 12px rgba(0,0,0,0.5);">?</div>
                 <div style="text-shadow: 0 2px 4px rgba(0,0,0,0.8);">
                     <div id="modalProfileName" style="font-family:'Unbounded'; font-size: 20px; font-weight: 700; color: #fff;">...</div>
@@ -282,7 +283,7 @@
                     data.users.forEach(u => {
                         const el = document.createElement('div');
                         el.className = 'chat-item';
-                        el.innerHTML = `<div class="avatar" id="s-avatar-${u.id}">?</div><div class="chat-item-body"><div class="chat-item-top"><div class="chat-item-name ${u.name_effect ? 'name-'+u.name_effect : ''}">${escapeHtml(u.display_name)}</div></div><div class="chat-item-bottom"><div class="chat-item-preview">@${escapeHtml(u.login)}</div></div></div>`;
+                        el.innerHTML = `<div class="avatar" id="s-avatar-${u.id}">?</div><div class="chat-item-body"><div class="chat-item-top"><div class="chat-item-name">${escapeHtml(u.display_name)}</div></div><div class="chat-item-bottom"><div class="chat-item-preview">@${escapeHtml(u.login)}</div></div></div>`;
                         el.addEventListener('click', () => { searchInput.value = ''; startEmptyChat(u.id); });
                         chatsList.appendChild(el);
                         applyAvatarTo(document.getElementById(`s-avatar-${u.id}`), u.avatar, u.display_name, u.avatar_frame);
@@ -314,7 +315,7 @@
             el.innerHTML = `
                 <div class="avatar-wrap"><div class="avatar" id="c-avatar-${c.id}">?</div>${isOnline ? '<div class="online-dot"></div>' : ''}</div>
                 <div class="chat-item-body">
-                    <div class="chat-item-top"><div class="chat-item-name ${c.name_effect ? 'name-'+c.name_effect : ''}">${escapeHtml(c.name)}</div><div class="chat-item-time">${formatTime(c.last_time)}</div></div>
+                    <div class="chat-item-top"><div class="chat-item-name">${escapeHtml(c.name)}</div><div class="chat-item-time">${formatTime(c.last_time)}</div></div>
                     <div class="chat-item-bottom"><div class="chat-item-preview" style="${unread ? 'color:var(--text);font-weight:600' : ''}">${preview}</div>${unread ? `<div class="unread-badge">${c.unread_count}</div>` : ''}</div>
                 </div>`;
             el.addEventListener('click', () => openChat(c.id, c.name, c.avatar, c.type, c.other_id, c.login, c.last_seen, c.avatar_frame, c.name_effect, c.other_last_read));
@@ -410,10 +411,8 @@
     function renderTicks(m) {
         if (m.sender_id !== myId) return '';
         
-        // 1. Часики (загрузка)
         if (m.is_sending) return `<span class="read-status" style="font-size: 12px; margin-left: 4px;">🕒</span>`;
         
-        // 2. Две неоновые (прочитано)
         if (m.read_by && m.read_by.length > 0) {
             return `<span class="read-status read" style="display:inline-flex; margin-left: 4px;">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -422,7 +421,6 @@
             </span>`;
         }
         
-        // 3. Две серые (собеседник онлайн)
         const isOnline = m.chat_type === 'private' && onlineUsersSet.has(activeOtherId);
         if (isOnline) {
             return `<span class="read-status" style="display:inline-flex; margin-left: 4px; color: var(--text-mute);">
@@ -432,7 +430,6 @@
             </span>`;
         }
 
-        // 4. Одна серая (отправлено, собеседник офлайн)
         return `<span class="read-status" style="display:inline-flex; margin-left: 4px; color: var(--text-mute);">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="20 6 9 17 4 12"/>
@@ -481,7 +478,7 @@
         }
 
         li.innerHTML = `
-            ${showSender ? `<div class="msg-from ${m.name_effect ? 'name-'+m.name_effect : ''}">${escapeHtml(m.sender_name)}</div>` : ''}
+            ${showSender ? `<div class="msg-from">${escapeHtml(m.sender_name)}</div>` : ''}
             ${replyHtml}
             ${m.text ? `<div class="msg-text" style="white-space: pre-wrap;">${escapeHtml(m.text)}</div>` : ''}
             ${fileHtml}
