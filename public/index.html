@@ -7,20 +7,10 @@
     <link rel="stylesheet" href="/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
     <style>
-        /* Анимация появления сообщений при переключении чата */
-        .messages-list.chat-switch-anim {
-            animation: chatFadeIn 0.25s ease both;
-        }
-        @keyframes chatFadeIn {
-            from { opacity: 0.2; transform: translateY(8px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .msg.reaction-pop {
-            animation: reactionPop 0.15s ease;
-        }
-        @keyframes reactionPop {
-            50% { transform: scale(1.03); }
-        }
+        .messages-list.chat-switch-anim { animation: chatFadeIn 0.25s ease both; }
+        @keyframes chatFadeIn { from { opacity: 0.2; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        .msg.reaction-pop { animation: reactionPop 0.15s ease; }
+        @keyframes reactionPop { 50% { transform: scale(1.03); } }
     </style>
 </head>
 <body>
@@ -512,9 +502,30 @@
             if (token !== currentLoadToken) return;
 
             if (data.ok) {
-                messagesCache[chatId] = data.messages;
+                const fetchedMessages = data.messages;
+                
+                if (!messagesCache[chatId]) {
+                    messagesCache[chatId] = fetchedMessages;
+                } else {
+                    // Мерджим: если во время загрузки пришли новые сообщения через сокет, мы их не теряем
+                    const existingIds = new Set(messagesCache[chatId].map(x => x.id));
+                    fetchedMessages.forEach(m => {
+                        if (!existingIds.has(m.id)) {
+                            messagesCache[chatId].push(m);
+                        } else {
+                            // Если уже есть, обновляем данные (например, реакции)
+                            const idx = messagesCache[chatId].findIndex(x => x.id === m.id);
+                            if (idx !== -1) {
+                                messagesCache[chatId][idx] = { ...messagesCache[chatId][idx], ...m };
+                            }
+                        }
+                    });
+                    // Сортируем по id, чтобы порядок был правильным
+                    messagesCache[chatId].sort((a, b) => a.id - b.id);
+                }
+                
                 if (chatId === activeChatId) {
-                    messages = data.messages;
+                    messages = messagesCache[chatId];
                     renderMessages();
                 }
                 loadChats();
@@ -670,7 +681,6 @@
     document.getElementById('lightboxClose').addEventListener('click', () => document.getElementById('lightbox').classList.remove('open'));
     document.getElementById('lightbox').addEventListener('click', (e) => { if (e.target.id === 'lightbox') document.getElementById('lightbox').classList.remove('open'); });
 
-    // ===== ОПТИМИСТИЧНЫЕ РЕАКЦИИ =====
     function updateMessageReactionsDOM(msg) {
         const li = document.querySelector(`.msg[data-id="${msg.id}"]`);
         if (!li) return;
@@ -689,17 +699,13 @@
         contextMenu.classList.remove('open');
         reactionsBar.classList.remove('open');
 
-        // Оптимистично обновляем локально
         const msg = messages.find(m => m.id === msgId);
         if (msg) {
             if (!msg.reactions) msg.reactions = [];
             
-            // Уже есть моя реакция с этим эмодзи?
             const mySameReaction = msg.reactions.find(r => r.emoji === emoji && r.users && r.users.split(',').includes(String(myId)));
-            // Есть ли у меня другая реакция (на любое другое эмодзи)?
             const myOtherReaction = msg.reactions.find(r => r.emoji !== emoji && r.users && r.users.split(',').includes(String(myId)));
             
-            // Сначала убираем любую мою старую реакцию
             if (myOtherReaction) {
                 myOtherReaction.users = myOtherReaction.users.split(',').filter(u => u !== String(myId)).join(',');
                 myOtherReaction.count--;
@@ -709,14 +715,12 @@
             }
             
             if (mySameReaction) {
-                // Убираем мою реакцию
                 mySameReaction.users = mySameReaction.users.split(',').filter(u => u !== String(myId)).join(',');
                 mySameReaction.count--;
                 if (mySameReaction.count <= 0) {
                     msg.reactions = msg.reactions.filter(r => r !== mySameReaction);
                 }
             } else {
-                // Добавляем мою реакцию
                 const existing = msg.reactions.find(r => r.emoji === emoji);
                 if (existing) {
                     existing.count++;
@@ -727,7 +731,6 @@
             }
             
             updateMessageReactionsDOM(msg);
-            // Лёгкая анимация "поп"
             const li = document.querySelector(`.msg[data-id="${msgId}"]`);
             if (li) {
                 li.classList.remove('reaction-pop');
@@ -736,7 +739,6 @@
             }
         }
 
-        // Отправляем на сервер
         socket.emit('add_reaction', { message_id: msgId, emoji });
     };
 
@@ -877,8 +879,10 @@
                     const tempEl = document.querySelector(`.msg[data-temp-id="${tempId}"]`);
                     if (tempEl) tempEl.remove();
                     
-                    // Убираем временное сообщение из кэша
                     messages = messages.filter(m => m.temp_id !== tempId);
+                    if (messagesCache[activeChatId]) {
+                        messagesCache[activeChatId] = messagesCache[activeChatId].filter(m => m.temp_id !== tempId);
+                    }
                     
                     if (response && response.error) {
                         showToast(response.error);
@@ -886,15 +890,12 @@
                     }
                     
                     if (response && response.msg) {
-                        // Сервер уже пришлёт new_message и update_chats всем, включая нас
-                        // Но подстрахуемся: добавим в кэш, если вдруг new_message не пришёл
                         if (!messages.find(m => m.id === response.msg.id)) {
                             messages.push(response.msg);
                             addMessageToDOM(response.msg, false);
                         }
                         messagesCache[response.msg.chat_id] = messages;
                         
-                        // Если это был новый чат — сразу открываем его
                         if (!activeChatId && response.msg.chat_id) {
                             activeChatId = response.msg.chat_id;
                             await loadChats();
@@ -914,8 +915,8 @@
     });
 
     socket.on('new_message', (m) => {
-        // Обновляем кэш для чата этого сообщения
         if (!messagesCache[m.chat_id]) messagesCache[m.chat_id] = [];
+        
         if (!messagesCache[m.chat_id].find(x => x.id === m.id)) {
             messagesCache[m.chat_id].push(m);
         }
@@ -926,14 +927,13 @@
                 messages = messagesCache[m.chat_id];
             }
             if (m.sender_id !== myId) {
-                if (!messages.find(x => x.id === m.id)) {
-                    messages.push(m);
-                    addMessageToDOM(m, true);
-                }
+                // Просто вызываем. Дубликаты addMessageToDOM отсеет сам по data-id
+                addMessageToDOM(m, true);
                 socket.emit('mark_read', m.chat_id);
                 document.getElementById('typingText').style.display = 'none';
             }
         }
+        
         if (m.sender_id !== myId) {
             playNotification();
             if (localStorage.getItem('notif-vibrate') !== 'off' && navigator.vibrate) navigator.vibrate(200);
@@ -957,12 +957,10 @@
     });
 
     socket.on('message_updated', (m) => {
-        // Обновляем кэш
         if (messagesCache[m.chat_id]) {
             const idx = messagesCache[m.chat_id].findIndex(x => x.id === m.id);
             if (idx !== -1) messagesCache[m.chat_id][idx] = { ...messagesCache[m.chat_id][idx], ...m };
         }
-        // Обновляем DOM, если сообщение в активном чате
         const msg = messages.find(x => x.id === m.id);
         if (msg) {
             msg.reactions = m.reactions;
@@ -972,7 +970,6 @@
     });
 
     socket.on('message_deleted', (data) => {
-        // Чистим кэш
         if (messagesCache[data.chat_id]) {
             messagesCache[data.chat_id] = messagesCache[data.chat_id].filter(m => m.id !== data.id);
         }
@@ -986,7 +983,6 @@
     socket.on('chats_read_update', (data) => {
         if (data.chat_id === activeChatId) {
             if (activeChat && activeChat.type === 'group') {
-                // Мягкое обновление без "Загрузка..."
                 loadHistory(activeChatId, currentLoadToken);
             } else {
                 document.querySelectorAll(`.msg.own`).forEach(li => {
