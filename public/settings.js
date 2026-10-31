@@ -6,11 +6,6 @@ function applyBackgroundToggle(key, on) {
     if (key === 'anim') document.body.classList.toggle('no-anim', !on);
 }
 
-function applyTheme(theme) {
-    document.body.dataset.theme = theme;
-    localStorage.setItem('theme', theme);
-}
-
 const AVATAR_FRAMES = [
     { key: 'none', label: 'Нет' },
     { key: 'rainbow', label: 'Радуга' },
@@ -43,11 +38,12 @@ function buildSettingsUI() {
             </div>
             
             <div class="settings-preview-col" id="settingsPreviewCol">
-                <!-- Сюда рендерится превью -->
+                <div class="settings-label" style="margin-bottom: 16px; text-align: center; width: 100%;">Предпросмотр</div>
+                <!-- Превью рендерится здесь -->
             </div>
 
             <div class="settings-controls-col" id="settingsContent">
-                <!-- Сюда рендерятся настройки -->
+                <!-- Настройки рендерятся здесь -->
             </div>
         </div>
     `;
@@ -62,19 +58,25 @@ function buildSettingsUI() {
 
     function updatePreview() {
         const previewCol = document.getElementById('settingsPreviewCol');
-        previewCol.innerHTML = `
-            <div class="preview-profile-card">
-                <div class="preview-banner" id="previewBanner"></div>
-                <div class="preview-avatar-wrap">
-                    <div class="avatar preview-avatar" id="previewAvatar">?</div>
-                </div>
-                <div class="preview-info">
-                    <div class="preview-name" id="previewName">...</div>
-                    <div class="preview-login" id="previewLogin">@...</div>
-                    <div class="preview-bio" id="previewBio">...</div>
-                </div>
+        // Сохраняем надпись, перерисовываем только карточку
+        const label = previewCol.querySelector('.settings-label');
+        previewCol.innerHTML = '';
+        previewCol.appendChild(label);
+
+        const card = document.createElement('div');
+        card.className = 'preview-profile-card';
+        card.innerHTML = `
+            <div class="preview-banner" id="previewBanner"></div>
+            <div class="preview-avatar-wrap">
+                <div class="avatar preview-avatar" id="previewAvatar">?</div>
+            </div>
+            <div class="preview-info">
+                <div class="preview-name" id="previewName">...</div>
+                <div class="preview-login" id="previewLogin">@...</div>
+                <div class="preview-bio" id="previewBio">...</div>
             </div>
         `;
+        previewCol.appendChild(card);
 
         applyBannerTo(document.getElementById('previewBanner'), u.banner);
         applyAvatarTo(document.getElementById('previewAvatar'), u.avatar, u.display_name, u.avatar_frame);
@@ -90,36 +92,29 @@ function buildSettingsUI() {
         content.innerHTML = '';
 
         if (tabName === 'profile') {
-            previewCol.style.display = 'flex'; // Показываем превью
+            previewCol.style.display = 'flex';
             updatePreview();
 
             content.innerHTML = `
                 <div class="settings-section">
-                    <div class="settings-label">Аватарка</div>
-                    <div class="color-row" id="avatarPicker"></div>
-                    <button class="secondary-btn" id="uploadAvatarBtn">Загрузить свою аватарку</button>
-                    <input type="file" id="avatarFile" accept="image/*" style="display:none">
-                </div>
-
-                <div class="settings-section">
                     <div class="settings-label">Рамка аватара</div>
                     <div class="live-picker-row" id="framePicker"></div>
-                </div>
-
-                <div class="settings-section">
-                    <div class="settings-label">Баннер</div>
-                    <div class="color-row" id="bannerPicker"></div>
-                    <button class="secondary-btn" id="uploadBannerBtn">Загрузить свой баннер</button>
-                    <input type="file" id="bannerFile" accept="image/*" style="display:none">
+                    <div class="color-picker-wrapper" id="frameColorWrapper" style="display:none;">
+                        <span style="font-size:12px; color:var(--text-dim);">Свой цвет свечения:</span>
+                        <input type="color" id="frameColorPicker" value="#00d4ff">
+                    </div>
                 </div>
 
                 <div class="settings-section">
                     <div class="settings-label">Эффект имени</div>
                     <div class="live-picker-row" id="effectPicker"></div>
+                    <div class="color-picker-wrapper" id="nameColorWrapper" style="display:none;">
+                        <span style="font-size:12px; color:var(--text-dim);">Свой цвет свечения:</span>
+                        <input type="color" id="nameColorPicker" value="#00d4ff">
+                    </div>
                 </div>
 
-                <div class="settings-section">
-                    <div class="settings-label">Личные данные</div>
+                <div class="settings-section" style="margin-top: 10px;">
                     <label class="settings-field">
                         <span class="settings-field-label">Отображаемое имя</span>
                         <input id="settingsNameInput" maxlength="40" value="${escapeHtml(u.display_name)}">
@@ -128,99 +123,151 @@ function buildSettingsUI() {
                         <span class="settings-field-label">О себе</span>
                         <textarea id="settingsBioInput" maxlength="200" rows="2">${escapeHtml(u.bio || '')}</textarea>
                     </label>
-                    <button class="primary-btn" id="saveProfileBtn">Сохранить профиль</button>
                 </div>
             `;
 
-            // Отрисовка выбора аватара (кружочки)
-            const avatarPicker = document.getElementById('avatarPicker');
-            AVATAR_GRADIENTS.forEach(g => {
-                const d = document.createElement('button');
-                d.className = 'color-circle ' + g.key + (u.avatar === g.key ? ' active' : '');
-                d.title = g.label;
-                d.addEventListener('click', async () => {
-                    const data = await saveProfilePatch({ avatar: g.key });
-                    if (data.ok) {
-                        u.avatar = g.key;
-                        updatePreview();
-                        document.querySelectorAll('#avatarPicker .color-circle').forEach(x => x.classList.remove('active'));
-                        d.classList.add('active');
-                    }
-                });
-                avatarPicker.appendChild(d);
-            });
+            // Аватарка (загрузить)
+            const avatarSec = document.createElement('div');
+            avatarSec.className = 'settings-section';
+            avatarSec.innerHTML = `
+                <div class="settings-label">Аватарка</div>
+                <div class="color-row">
+                    <div class="color-circle grad-cyan active" style="pointer-events:none;"></div>
+                </div>
+                <button class="secondary-btn" id="uploadAvatarBtn" style="margin-top:8px;">Загрузить свою аватарку</button>
+                <input type="file" id="avatarFile" accept="image/*" style="display:none">
+            `;
+            content.insertBefore(avatarSec, content.firstChild);
 
-            // Отрисовка выбора баннера (кружочки)
-            const bannerPicker = document.getElementById('bannerPicker');
-            BANNER_GRADIENTS.forEach(b => {
-                const d = document.createElement('button');
-                d.className = 'color-circle' + (u.banner === b.key ? ' active' : '');
-                d.style.background = b.css;
-                d.title = b.label;
-                d.addEventListener('click', async () => {
-                    const data = await saveProfilePatch({ banner: b.key });
-                    if (data.ok) {
-                        u.banner = b.key;
-                        updatePreview();
-                        document.querySelectorAll('#bannerPicker .color-circle').forEach(x => x.classList.remove('active'));
-                        d.classList.add('active');
-                    }
-                });
-                bannerPicker.appendChild(d);
-            });
+            // Баннер (загрузить)
+            const bannerSec = document.createElement('div');
+            bannerSec.className = 'settings-section';
+            bannerSec.innerHTML = `
+                <div class="settings-label">Баннер</div>
+                <div class="color-row">
+                    <div class="color-circle grad-aurora active" style="pointer-events:none;"></div>
+                </div>
+                <button class="secondary-btn" id="uploadBannerBtn" style="margin-top:8px;">Загрузить свой баннер</button>
+                <input type="file" id="bannerFile" accept="image/*" style="display:none">
+            `;
+            content.insertBefore(bannerSec, content.children[1]);
 
-            // Отрисовка выбора рамки (живое превью с аватаркой)
+            // Отрисовка рамок
             const framePicker = document.getElementById('framePicker');
+            const frameColorWrapper = document.getElementById('frameColorWrapper');
+            const frameColorPicker = document.getElementById('frameColorPicker');
+
+            // Если цвет кастомный, парсим его
+            let currentFrame = u.avatar_frame;
+            let customFrameColor = '#00d4ff';
+            if (currentFrame && currentFrame.startsWith('custom:')) {
+                customFrameColor = currentFrame.split(':')[1];
+                currentFrame = 'glow';
+            }
+            frameColorPicker.value = customFrameColor;
+            document.documentElement.style.setProperty('--custom-glow-color', customFrameColor);
+
             AVATAR_FRAMES.forEach(f => {
+                const isActive = currentFrame === f.key || (f.key === 'glow' && u.avatar_frame.startsWith('custom:'));
                 const d = document.createElement('button');
-                d.className = 'live-picker-btn' + (u.avatar_frame === f.key ? ' active' : '');
-                d.innerHTML = `<div class="avatar live-avatar ${u.avatar.startsWith('grad') ? u.avatar : 'has-image'}" 
-                                style="${u.avatar.startsWith('grad') ? '' : `background-image:url(${u.avatar}); background-size:cover;`} 
-                                ${f.key !== 'none' ? `class="avatar live-avatar frame-${f.key}"` : ''}">
-                                ${u.avatar.startsWith('grad') ? (u.display_name || '?').trim().charAt(0).toUpperCase() : ''}
-                              </div>
-                              <span style="font-size:10px; margin-top:4px;">${f.label}</span>`;
+                d.className = 'live-picker-btn' + (isActive ? ' active' : '');
                 
-                // Костыль для правильного применения классов рамок
-                const avatarDiv = d.querySelector('.avatar');
-                avatarDiv.className = `avatar live-avatar ${u.avatar.startsWith('grad') ? u.avatar : 'has-image'}`;
-                if (f.key !== 'none') avatarDiv.classList.add(`frame-${f.key}`);
-                if (!u.avatar.startsWith('grad')) {
-                    avatarDiv.style.backgroundImage = `url(${u.avatar})`;
-                    avatarDiv.style.backgroundSize = 'cover';
-                }
+                let avatarClass = `avatar live-avatar ${u.avatar.startsWith('grad') ? u.avatar : 'has-image'}`;
+                if (f.key !== 'none') avatarClass += ` frame-${f.key}`;
+                
+                d.innerHTML = `<div class="${avatarClass}" style="${!u.avatar.startsWith('grad') ? `background-image:url(${u.avatar}); background-size:cover;` : ''}">${u.avatar.startsWith('grad') ? (u.display_name || '?').trim().charAt(0).toUpperCase() : ''}</div>
+                              <span style="font-size:10px; margin-top:4px;">${f.label}</span>`;
 
                 d.addEventListener('click', async () => {
-                    const data = await saveProfilePatch({ avatar_frame: f.key });
+                    let patchValue = f.key;
+                    if (f.key === 'glow') {
+                        frameColorWrapper.style.display = 'flex';
+                        patchValue = `custom:${frameColorPicker.value}`;
+                    } else {
+                        frameColorWrapper.style.display = 'none';
+                    }
+                    const data = await saveProfilePatch({ avatar_frame: patchValue });
                     if (data.ok) {
-                        u.avatar_frame = f.key;
+                        u.avatar_frame = patchValue;
                         updatePreview();
-                        document.querySelectorAll('#framePicker .live-picker-btn').forEach(x => x.classList.remove('active'));
-                        d.classList.add('active');
+                        renderTab('profile'); // Перерисовка для обновления активных состояний
                     }
                 });
                 framePicker.appendChild(d);
             });
 
-            // Отрисовка выбора эффекта имени (живое превью с твоим именем)
+            frameColorPicker.addEventListener('input', async (e) => {
+                const color = e.target.value;
+                document.documentElement.style.setProperty('--custom-glow-color', color);
+                const patchValue = `custom:${color}`;
+                await saveProfilePatch({ avatar_frame: patchValue });
+                u.avatar_frame = patchValue;
+                updatePreview();
+            });
+
+            // Отрисовка эффектов имени
             const effectPicker = document.getElementById('effectPicker');
+            const nameColorWrapper = document.getElementById('nameColorWrapper');
+            const nameColorPicker = document.getElementById('nameColorPicker');
+
+            let currentEffect = u.name_effect;
+            let customNameColor = '#00d4ff';
+            if (currentEffect && currentEffect.startsWith('custom:')) {
+                customNameColor = currentEffect.split(':')[1];
+                currentEffect = 'glow';
+            }
+            nameColorPicker.value = customNameColor;
+
             NAME_EFFECTS.forEach(e => {
+                const isActive = currentEffect === e.key || (e.key === 'glow' && u.name_effect.startsWith('custom:'));
                 const d = document.createElement('button');
-                d.className = 'live-picker-btn' + (u.name_effect === e.key ? ' active' : '');
-                d.innerHTML = `<span class="live-name-text ${e.key !== 'none' ? 'name-' + e.key : ''}">${escapeHtml(u.display_name || 'Имя')}</span>`;
+                d.className = 'live-picker-btn' + (isActive ? ' active' : '');
+                
+                let nameClass = e.key !== 'none' ? `name-${e.key}` : '';
+                d.innerHTML = `<span class="live-name-text ${nameClass}">${escapeHtml(u.display_name || 'Имя')}</span>`;
+                
                 d.addEventListener('click', async () => {
-                    const data = await saveProfilePatch({ name_effect: e.key });
+                    let patchValue = e.key;
+                    if (e.key === 'glow') {
+                        nameColorWrapper.style.display = 'flex';
+                        patchValue = `custom:${nameColorPicker.value}`;
+                    } else {
+                        nameColorWrapper.style.display = 'none';
+                    }
+                    const data = await saveProfilePatch({ name_effect: patchValue });
                     if (data.ok) {
-                        u.name_effect = e.key;
+                        u.name_effect = patchValue;
                         updatePreview();
-                        document.querySelectorAll('#effectPicker .live-picker-btn').forEach(x => x.classList.remove('active'));
-                        d.classList.add('active');
+                        renderTab('profile');
                     }
                 });
                 effectPicker.appendChild(d);
             });
 
-            // Кроппер и сохранение
+            nameColorPicker.addEventListener('input', async (e) => {
+                const color = e.target.value;
+                document.documentElement.style.setProperty('--custom-glow-color', color); // Влияет и на имя и на рамку, если обе светятся
+                const patchValue = `custom:${color}`;
+                await saveProfilePatch({ name_effect: patchValue });
+                u.name_effect = patchValue;
+                updatePreview();
+            });
+
+            // АВТОСОХРАНЕНИЕ ИМЕНИ И BIO
+            document.getElementById('settingsNameInput').addEventListener('change', async (e) => {
+                const val = e.target.value.trim();
+                if (!val) return showToast('Имя не может быть пустым');
+                const data = await saveProfilePatch({ display_name: val });
+                if (data.ok) { u.display_name = val; updatePreview(); renderTab('profile'); }
+            });
+
+            document.getElementById('settingsBioInput').addEventListener('change', async (e) => {
+                const val = e.target.value.trim();
+                const data = await saveProfilePatch({ bio: val });
+                if (data.ok) { u.bio = val; updatePreview(); }
+            });
+
+            // Загрузка картинок
             document.getElementById('uploadAvatarBtn').addEventListener('click', () => document.getElementById('avatarFile').click());
             document.getElementById('uploadBannerBtn').addEventListener('click', () => document.getElementById('bannerFile').click());
 
@@ -269,8 +316,8 @@ function buildSettingsUI() {
                                     if (updateRes.ok) {
                                         if (isBanner) u.banner = data.url; else u.avatar = data.url;
                                         updatePreview();
-                                        renderTab('profile'); // Перерисовываем, чтобы обновить превью рамок
-                                        showToast('Успешно обновлено!');
+                                        renderTab('profile');
+                                        showToast('Успешно!');
                                     }
                                 } else showToast(data.error);
                             } catch (err) { showToast('Ошибка сети'); } 
@@ -283,29 +330,16 @@ function buildSettingsUI() {
 
             document.getElementById('avatarFile').addEventListener('change', (e) => { if (e.target.files[0]) openCropper(e.target.files[0], false); e.target.value = ''; });
             document.getElementById('bannerFile').addEventListener('change', (e) => { if (e.target.files[0]) openCropper(e.target.files[0], true); e.target.value = ''; });
-
-            document.getElementById('saveProfileBtn').addEventListener('click', async () => {
-                const display_name = document.getElementById('settingsNameInput').value.trim();
-                const bio = document.getElementById('settingsBioInput').value.trim();
-                const data = await saveProfilePatch({ display_name, bio });
-                if (data.ok) { 
-                    u.display_name = display_name; 
-                    u.bio = bio; 
-                    updatePreview();
-                    renderTab('profile'); // Обновляем превью имени в кнопках
-                    showToast('Профиль сохранён ✨'); 
-                } else showToast(data.error);
-            });
         }
 
         if (tabName === 'appearance') {
-            previewCol.style.display = 'none'; // Скрываем превью, чтобы не мешало
+            previewCol.style.display = 'none';
             content.innerHTML = `
                 <div class="settings-section">
                     <div class="settings-label">Цветовой акцент</div>
                     <div class="color-row" id="accentGrid"></div>
                 </div>
-                <div class="settings-section">
+                <div class="settings-section" style="margin-top:16px;">
                     <div class="settings-label">Фон и Анимации</div>
                     <div class="toggle-list">
                         <label class="toggle-row"><span>Живые пятна</span><input type="checkbox" data-toggle="bg-blobs"><span class="toggle-switch"></span></label>
@@ -371,7 +405,7 @@ function buildSettingsUI() {
                         <span class="settings-field-label">Новый пароль</span>
                         <input type="password" id="newPassword" placeholder="Новый пароль">
                     </label>
-                    <button class="primary-btn" id="changePassBtn">Сменить пароль</button>
+                    <button class="primary-btn" id="changePassBtn" style="margin-top:10px;">Сменить пароль</button>
                 </div>
             `;
             document.getElementById('changePassBtn').addEventListener('click', async () => {
@@ -395,12 +429,12 @@ function buildSettingsUI() {
                 <div class="settings-section">
                     <div class="settings-label">Аккаунт</div>
                     <p style="font-size:13px; color:var(--text-dim);">Выйдя из аккаунта, вы можете войти снова в любой момент.</p>
-                    <button class="secondary-btn" id="logoutBtn2" style="width:100%;">Выйти из аккаунта</button>
+                    <button class="secondary-btn" id="logoutBtn2" style="width:100%; margin-top:10px;">Выйти из аккаунта</button>
                 </div>
                 <div class="settings-section" style="margin-top:24px; border:1px solid rgba(255,60,100,0.3); padding:16px; border-radius:16px;">
                     <div class="settings-label" style="color:#ff5c7c;">Удаление аккаунта</div>
                     <p style="font-size:13px; color:var(--text-dim);">Это действие необратимо.</p>
-                    <button class="danger-btn" id="deleteAccountBtn" style="width:100%;">Удалить аккаунт навсегда</button>
+                    <button class="danger-btn" id="deleteAccountBtn" style="width:100%; margin-top:10px;">Удалить аккаунт навсегда</button>
                 </div>
             `;
             document.getElementById('logoutBtn2').addEventListener('click', () => {
