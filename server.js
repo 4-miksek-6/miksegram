@@ -23,11 +23,15 @@ const supabase = createSupabase('https://tvmypcjwrlwiorpmugpb.supabase.co', 'eyJ
 async function initDb() {
   try {
     await db.execute(`CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, login TEXT UNIQUE NOT NULL, display_name TEXT NOT NULL, password TEXT NOT NULL, bio TEXT DEFAULT '', avatar TEXT DEFAULT 'grad-emerald', banner TEXT DEFAULT 'ban-aurora', avatar_frame TEXT DEFAULT 'none', name_effect TEXT DEFAULT 'none', last_seen TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')), created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')));`);
-    await db.execute(`CREATE TABLE IF NOT EXISTS chats (id INTEGER PRIMARY KEY AUTOINCREMENT, type TEXT NOT NULL, name TEXT, avatar TEXT DEFAULT 'grad-aurora', created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')));`);
+    await db.execute(`CREATE TABLE IF NOT EXISTS chats (id INTEGER PRIMARY KEY AUTOINCREMENT, type TEXT NOT NULL, name TEXT, avatar TEXT DEFAULT 'grad-aurora', creator_id INTEGER, created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')));`);
     await db.execute(`CREATE TABLE IF NOT EXISTS chat_members (chat_id INTEGER NOT NULL, user_id INTEGER NOT NULL, hidden INTEGER DEFAULT 0, last_read_msg_id INTEGER DEFAULT 0, PRIMARY KEY (chat_id, user_id));`);
     await db.execute(`CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, chat_id INTEGER NOT NULL, sender_id INTEGER NOT NULL, text TEXT NOT NULL, file_url TEXT, file_type TEXT, file_name TEXT, reply_to_id INTEGER, created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')));`);
     await db.execute(`CREATE TABLE IF NOT EXISTS read_status (chat_id INTEGER NOT NULL, user_id INTEGER NOT NULL, last_read_id INTEGER DEFAULT 0, PRIMARY KEY (chat_id, user_id));`);
     await db.execute(`CREATE TABLE IF NOT EXISTS reactions (message_id INTEGER NOT NULL, user_id INTEGER NOT NULL, emoji TEXT NOT NULL, PRIMARY KEY (message_id, user_id));`);
+    
+    // Безопасное добавление новых полей (если их еще нет)
+    try { await db.execute('ALTER TABLE chats ADD COLUMN creator_id INTEGER'); } catch(e) {}
+    
     console.log('База данных готова!');
   } catch (err) {
     console.error('Ошибка создания таблиц:', err);
@@ -94,7 +98,6 @@ app.post('/api/login', async (req, res) => {
     res.json({ ok: false, error: 'Ошибка сервера при входе' }); 
   }
 });
-
 app.post('/api/logout', async (req, res) => {
   if (req.session.userId) await db.execute({ sql: 'UPDATE users SET last_seen = ? WHERE id = ?', args: [new Date().toISOString(), req.session.userId] });
   req.session.destroy(() => res.json({ ok: true }));
@@ -121,7 +124,6 @@ app.post('/api/change-password', async (req, res) => {
   res.json({ ok: true });
 });
 
-// НОВЫЙ ЭНДПОИНТ: УДАЛЕНИЕ АККАУНТА
 app.post('/api/delete-account', async (req, res) => {
   if (!req.session.userId) return res.json({ ok: false });
   const { password } = req.body;
@@ -136,20 +138,18 @@ app.post('/api/delete-account', async (req, res) => {
 
     const myId = req.session.userId;
 
-    // Удаляем данные пользователя
     await db.execute({ sql: 'DELETE FROM reactions WHERE user_id = ?', args: [myId] });
     await db.execute({ sql: 'DELETE FROM messages WHERE sender_id = ?', args: [myId] });
     await db.execute({ sql: 'DELETE FROM chat_members WHERE user_id = ?', args: [myId] });
     await db.execute({ sql: 'DELETE FROM users WHERE id = ?', args: [myId] });
 
-    // Очищаем пустые чаты
     const emptyChats = await db.execute({ sql: 'SELECT c.id FROM chats c LEFT JOIN chat_members cm ON c.id = cm.chat_id WHERE cm.chat_id IS NULL', args: [] });
     for (const c of emptyChats.rows) {
       await db.execute({ sql: 'DELETE FROM chats WHERE id = ?', args: [c.id] });
       await db.execute({ sql: 'DELETE FROM messages WHERE chat_id = ?', args: [c.id] });
     }
 
-    io.emit('update_chats'); // Обновляем списки чатов у всех
+    io.emit('update_chats'); 
     req.session.destroy();
     res.json({ ok: true });
   } catch (e) {
@@ -179,56 +179,6 @@ app.get('/api/all-users', async (req, res) => {
   res.json({ ok: true, users: uRes.rows });
 });
 
-app.get('/api/chats', async (req, res) => {
-  if (!req.session.userId) return res.json({ ok: false });
-  const myId = req.session.userId;
-
-  try {
-    const chatsRes = await db.execute({
-      sql: `
-        SELECT c.id, c.type, c.name, c.avatar,
-               (SELECT text FROM messages WHERE chat_id = c.id ORDER BY id DESC LIMIT 1) as last_text,
-               (SELECT file_type FROM messages WHERE chat_id = c.id ORDER BY id DESC LIMIT 1) as last_file_type,
-               (SELECT sender_id FROM messages WHERE chat_id = c.id ORDER BY id DESC LIMIT 1) as last_sender_id,
-               (SELECT created_at FROM messages WHERE chat_id = c.id ORDER BY id DESC LIMIT 1) as last_time,
-               (SELECT COUNT(*) FROM messages m 
-                WHERE m.chat_id = c.id 
-                AND m.id > COALESCE((SELECT last_read_id FROM read_status WHERE chat_id = c.id AND user_id = ?), 0)
-                AND m.sender_id != ?) as unread_count
-        FROM chats c
-        JOIN chat_members cm ON c.id = cm.chat_id
-        WHERE cm.user_id = ? AND cm.hidden = 0
-        AND (c.type = 'group' OR (SELECT COUNT(*) FROM messages WHERE chat_id = c.id) > 0)
-        ORDER BY last_time DESC, c.id DESC
-      `,
-      args: [myId, myId, myId]
-    });
-
-    const result = [];
-    for (const c of chatsRes.rows) {
-      if (c.type === 'private') {
-        const otherRes = await db.execute({
-          sql: `SELECT u.id, u.display_name, u.login, u.avatar, u.avatar_frame, u.name_effect, u.last_seen, cm.last_read_msg_id FROM users u JOIN chat_members cm ON u.id = cm.user_id WHERE cm.chat_id = ? AND u.id != ?`,
-          args: [c.id, myId]
-        });
-        if (otherRes.rows.length > 0) {
-          const other = otherRes.rows[0];
-          result.push({ 
-            ...c, name: other.display_name, avatar: other.avatar, avatar_frame: other.avatar_frame, name_effect: other.name_effect, 
-            other_id: other.id, login: other.login, last_seen: other.last_seen, other_last_read: other.last_read_msg_id 
-          });
-          continue;
-        }
-      }
-      result.push(c);
-    }
-    res.json({ ok: true, chats: result });
-  } catch (error) {
-    console.error('Ошибка получения чатов:', error);
-    res.json({ ok: false, chats: [] });
-  }
-});
-
 app.get('/api/search-user', async (req, res) => {
   if (!req.session.userId) return res.json({ ok: false });
   const q = (req.query.q || '').trim().toLowerCase().replace(/^@/, '');
@@ -251,7 +201,7 @@ app.post('/api/create-group', async (req, res) => {
   if (!name || !name.trim()) return res.json({ ok: false, error: 'Введите название' });
   if (!Array.isArray(member_ids) || member_ids.length === 0) return res.json({ ok: false, error: 'Выберите участников' });
 
-  const info = await db.execute({ sql: 'INSERT INTO chats (type, name) VALUES (?, ?)', args: ['group', name.trim().slice(0, 50)] });
+  const info = await db.execute({ sql: 'INSERT INTO chats (type, name, creator_id) VALUES (?, ?, ?)', args: ['group', name.trim().slice(0, 50), myId] });
   const chatId = Number(info.lastInsertRowid);
   
   await db.execute({ sql: 'INSERT INTO chat_members (chat_id, user_id) VALUES (?, ?)', args: [chatId, myId] });
@@ -263,118 +213,90 @@ app.post('/api/create-group', async (req, res) => {
   res.json({ ok: true, chat_id: chatId });
 });
 
-app.post('/api/chats/:id/clear', async (req, res) => {
-  if (!req.session.userId) return res.json({ ok: false });
-  const chatId = parseInt(req.params.id);
-  const myId = req.session.userId;
-  
-  await db.execute({ sql: 'DELETE FROM messages WHERE chat_id = ? AND sender_id = ?', args: [chatId, myId] });
-  await db.execute({ sql: 'DELETE FROM read_status WHERE chat_id = ? AND user_id = ?', args: [chatId, myId] });
-  
-  io.to('user_' + myId).emit('chat_cleared', { chat_id: chatId });
-  io.to('user_' + myId).emit('update_chats');
-  res.json({ ok: true });
-});
+// --- УПРАВЛЕНИЕ ГРУППАМИ ---
 
-app.post('/api/chats/:id/delete', async (req, res) => {
+app.get('/api/groups/:id', async (req, res) => {
   if (!req.session.userId) return res.json({ ok: false });
   const chatId = parseInt(req.params.id);
   const myId = req.session.userId;
-  
+
+  const member = await db.execute({ sql: 'SELECT * FROM chat_members WHERE chat_id = ? AND user_id = ?', args: [chatId, myId] });
+  if (member.rows.length === 0) return res.json({ ok: false, error: 'Вы не в этой группе' });
+
   const chatRes = await db.execute({ sql: 'SELECT * FROM chats WHERE id = ?', args: [chatId] });
   if (chatRes.rows.length === 0) return res.json({ ok: false });
   const chat = chatRes.rows[0];
 
-  if (chat.type === 'group') {
-    await db.execute({ sql: 'DELETE FROM chat_members WHERE chat_id = ? AND user_id = ?', args: [chatId, myId] });
-    const remaining = await db.execute({ sql: 'SELECT COUNT(*) as c FROM chat_members WHERE chat_id = ?', args: [chatId] });
-    if (remaining.rows[0].c === 0) {
-      await db.execute({ sql: 'DELETE FROM messages WHERE chat_id = ?', args: [chatId] });
-      await db.execute({ sql: 'DELETE FROM chats WHERE id = ?', args: [chatId] });
-    }
-  } else {
-    await db.execute({ sql: 'UPDATE chat_members SET hidden = 1 WHERE chat_id = ? AND user_id = ?', args: [chatId, myId] });
-  }
+  const membersRes = await db.execute({
+    sql: `SELECT u.id, u.login, u.display_name, u.avatar, u.avatar_frame, u.name_effect 
+          FROM users u JOIN chat_members cm ON u.id = cm.user_id WHERE cm.chat_id = ? ORDER BY u.display_name ASC`,
+    args: [chatId]
+  });
+
+  res.json({ ok: true, group: chat, members: membersRes.rows });
+});
+
+app.post('/api/groups/:id/update', async (req, res) => {
+  if (!req.session.userId) return res.json({ ok: false });
+  const chatId = parseInt(req.params.id);
+  const { name } = req.body;
+  const myId = req.session.userId;
+
+  const chatRes = await db.execute({ sql: 'SELECT * FROM chats WHERE id = ?', args: [chatId] });
+  const chat = chatRes.rows[0];
+  if (!chat || chat.creator_id !== myId) return res.json({ ok: false, error: 'Только создатель может менять группу' });
+
+  await db.execute({ sql: 'UPDATE chats SET name = ? WHERE id = ?', args: [String(name).trim().slice(0, 50), chatId] });
   
-  io.to('user_' + myId).emit('update_chats');
+  const members = await db.execute({ sql: 'SELECT user_id FROM chat_members WHERE chat_id = ?', args: [chatId] });
+  members.rows.forEach(m => io.to('user_' + m.user_id).emit('update_chats'));
+
   res.json({ ok: true });
 });
 
-async function getMsgWithDetails(msgId) {
-  const msgRes = await db.execute({
-    sql: `SELECT m.id, m.chat_id, m.sender_id, m.text, m.file_url, m.file_type, m.file_name, m.reply_to_id, m.created_at, u.display_name as sender_name, u.avatar as sender_avatar, u.avatar_frame, u.name_effect FROM messages m JOIN users u ON m.sender_id = u.id WHERE m.id = ?`,
-    args: [msgId]
-  });
-  if (msgRes.rows.length === 0) return null;
-  const msg = msgRes.rows[0];
-  
-  if (msg.reply_to_id) {
-    const rRes = await db.execute({ sql: 'SELECT text, file_type, file_name, sender_id, u.display_name as sender_name FROM messages m JOIN users u ON m.sender_id = u.id WHERE m.id = ?', args: [msg.reply_to_id] });
-    if (rRes.rows.length > 0) msg.reply_to = rRes.rows[0];
-  }
-  
-  const reactions = await db.execute({ sql: 'SELECT emoji, COUNT(*) as count, GROUP_CONCAT(user_id) as users FROM reactions WHERE message_id = ? GROUP BY emoji', args: [msgId] });
-  msg.reactions = reactions.rows;
-  
-  const chatRes = await db.execute({ sql: 'SELECT type FROM chats WHERE id = ?', args: [msg.chat_id] });
-  msg.chat_type = chatRes.rows[0].type;
-
-  const reads = await db.execute({ 
-    sql: 'SELECT user_id FROM chat_members WHERE chat_id = ? AND last_read_msg_id >= ? AND user_id != ?', 
-    args: [msg.chat_id, msgId, msg.sender_id] 
-  });
-  msg.read_by = reads.rows.map(r => r.user_id);
-  
-  return msg;
-}
-
-app.get('/api/messages/:chatId', async (req, res) => {
+app.post('/api/groups/:id/add-members', async (req, res) => {
   if (!req.session.userId) return res.json({ ok: false });
+  const chatId = parseInt(req.params.id);
+  const { member_ids } = req.body;
   const myId = req.session.userId;
-  const chatId = parseInt(req.params.chatId);
-  
-  try {
-    const member = await db.execute({ sql: 'SELECT * FROM chat_members WHERE chat_id = ? AND user_id = ?', args: [chatId, myId] });
-    if (member.rows.length === 0) return res.json({ ok: false });
 
-    const rawMsgs = await db.execute({
-      sql: `SELECT m.*, u.display_name as sender_name, u.avatar as sender_avatar, u.avatar_frame, u.name_effect 
-            FROM messages m JOIN users u ON m.sender_id = u.id WHERE m.chat_id = ? ORDER BY m.id ASC`,
-      args: [chatId]
-    });
+  const chatRes = await db.execute({ sql: 'SELECT * FROM chats WHERE id = ?', args: [chatId] });
+  const chat = chatRes.rows[0];
+  if (!chat || chat.creator_id !== myId) return res.json({ ok: false, error: 'Только создатель может добавлять участников' });
 
-    const allReactions = await db.execute({
-      sql: `SELECT r.message_id, r.emoji, COUNT(*) as count, GROUP_CONCAT(r.user_id) as users 
-            FROM reactions r JOIN messages m ON r.message_id = m.id 
-            WHERE m.chat_id = ? GROUP BY r.message_id, r.emoji`,
-      args: [chatId]
-    });
-
-    const allReads = await db.execute({
-      sql: `SELECT user_id, last_read_msg_id FROM chat_members WHERE chat_id = ? AND user_id != ?`,
-      args: [chatId, myId]
-    });
-
-    const msgs = rawMsgs.rows.map(m => {
-      m.reactions = allReactions.rows.filter(r => r.message_id === m.id);
-      m.read_by = allReads.rows.filter(r => r.last_read_msg_id >= m.id).map(r => r.user_id);
-      return m;
-    });
-
-    const lastId = msgs.length ? msgs[msgs.length - 1].id : 0;
-    if (lastId > 0) {
-      await db.execute({ sql: `INSERT INTO read_status (chat_id, user_id, last_read_id) VALUES (?, ?, ?) ON CONFLICT(chat_id, user_id) DO UPDATE SET last_read_id = excluded.last_read_id`, args: [chatId, myId, lastId] });
-      await db.execute({ sql: 'UPDATE chat_members SET last_read_msg_id = ? WHERE chat_id = ? AND user_id = ?', args: [lastId, chatId, myId] });
-      io.to('user_' + myId).emit('chats_read_update', { chat_id: chatId, last_read: lastId });
-    }
-
-    res.json({ ok: true, messages: msgs });
-  } catch (error) {
-    console.error('Ошибка загрузки истории:', error);
-    res.json({ ok: false, messages: [] });
+  for (const id of member_ids) {
+    try {
+      await db.execute({ sql: 'INSERT INTO chat_members (chat_id, user_id) VALUES (?, ?)', args: [chatId, id] });
+      io.to('user_' + id).emit('update_chats');
+    } catch(e) { /* Игнорируем, если уже в группе */ }
   }
+  
+  const members = await db.execute({ sql: 'SELECT user_id FROM chat_members WHERE chat_id = ?', args: [chatId] });
+  members.rows.forEach(m => io.to('user_' + m.user_id).emit('update_chats'));
+
+  res.json({ ok: true });
 });
 
+app.post('/api/groups/:id/remove-member', async (req, res) => {
+  if (!req.session.userId) return res.json({ ok: false });
+  const chatId = parseInt(req.params.id);
+  const { user_id } = req.body;
+  const myId = req.session.userId;
+
+  const chatRes = await db.execute({ sql: 'SELECT * FROM chats WHERE id = ?', args: [chatId] });
+  const chat = chatRes.rows[0];
+  if (!chat || chat.creator_id !== myId) return res.json({ ok: false, error: 'Только создатель может исключать участников' });
+  
+  if (user_id === myId) return res.json({ ok: false, error: 'Создатель не может исключить сам себя' });
+
+  await db.execute({ sql: 'DELETE FROM chat_members WHERE chat_id = ? AND user_id = ?', args: [chatId, user_id] });
+  
+  const members = await db.execute({ sql: 'SELECT user_id FROM chat_members WHERE chat_id = ?', args: [chatId] });
+  members.rows.forEach(m => io.to('user_' + m.user_id).emit('update_chats'));
+  io.to('user_' + user_id).emit('update_chats');
+
+  res.json({ ok: true });
+});
 const storage = multer.memoryStorage();
 const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } });
 
@@ -424,6 +346,86 @@ app.post('/api/upload-avatar', (req, res) => {
       res.json({ ok: false, error: 'Ошибка сервера' });
     }
   });
+});
+
+async function getMsgWithDetails(msgId) {
+  const msgRes = await db.execute({
+    sql: `SELECT m.id, m.chat_id, m.sender_id, m.text, m.file_url, m.file_type, m.file_name, m.reply_to_id, m.created_at, u.display_name as sender_name, u.avatar as sender_avatar, u.avatar_frame, u.name_effect FROM messages m JOIN users u ON m.sender_id = u.id WHERE m.id = ?`,
+    args: [msgId]
+  });
+  if (msgRes.rows.length === 0) return null;
+  const msg = msgRes.rows[0];
+  
+  if (msg.reply_to_id) {
+    const rRes = await db.execute({ sql: 'SELECT text, file_type, file_name, sender_id, u.display_name as sender_name FROM messages m JOIN users u ON m.sender_id = u.id WHERE m.id = ?', args: [msg.reply_to_id] });
+    if (rRes.rows.length > 0) msg.reply_to = rRes.rows[0];
+  }
+  
+  const reactions = await db.execute({ sql: 'SELECT emoji, COUNT(*) as count, GROUP_CONCAT(user_id) as users FROM reactions WHERE message_id = ? GROUP BY emoji', args: [msgId] });
+  msg.reactions = reactions.rows;
+  
+  const chatRes = await db.execute({ sql: 'SELECT type FROM chats WHERE id = ?', args: [msg.chat_id] });
+  msg.chat_type = chatRes.rows[0].type;
+
+  // Для галочек в группах отдаем имена тех, кто прочитал
+  const reads = await db.execute({ 
+    sql: `SELECT u.display_name FROM users u 
+          JOIN chat_members cm ON u.id = cm.user_id 
+          WHERE cm.chat_id = ? AND cm.last_read_msg_id >= ? AND u.id != ?`, 
+    args: [msg.chat_id, msgId, msg.sender_id] 
+  });
+  msg.read_by = reads.rows.map(r => r.display_name);
+  
+  return msg;
+}
+
+app.get('/api/messages/:chatId', async (req, res) => {
+  if (!req.session.userId) return res.json({ ok: false });
+  const myId = req.session.userId;
+  const chatId = parseInt(req.params.chatId);
+  
+  try {
+    const member = await db.execute({ sql: 'SELECT * FROM chat_members WHERE chat_id = ? AND user_id = ?', args: [chatId, myId] });
+    if (member.rows.length === 0) return res.json({ ok: false });
+
+    const rawMsgs = await db.execute({
+      sql: `SELECT m.*, u.display_name as sender_name, u.avatar as sender_avatar, u.avatar_frame, u.name_effect 
+            FROM messages m JOIN users u ON m.sender_id = u.id WHERE m.chat_id = ? ORDER BY m.id ASC`,
+      args: [chatId]
+    });
+
+    const allReactions = await db.execute({
+      sql: `SELECT r.message_id, r.emoji, COUNT(*) as count, GROUP_CONCAT(r.user_id) as users 
+            FROM reactions r JOIN messages m ON r.message_id = m.id 
+            WHERE m.chat_id = ? GROUP BY r.message_id, r.emoji`,
+      args: [chatId]
+    });
+
+    const allReads = await db.execute({
+      sql: `SELECT cm.last_read_msg_id, u.display_name FROM chat_members cm 
+            JOIN users u ON cm.user_id = u.id
+            WHERE cm.chat_id = ? AND cm.user_id != ?`,
+      args: [chatId, myId]
+    });
+
+    const msgs = rawMsgs.rows.map(m => {
+      m.reactions = allReactions.rows.filter(r => r.message_id === m.id);
+      m.read_by = allReads.rows.filter(r => r.last_read_msg_id >= m.id).map(r => r.display_name);
+      return m;
+    });
+
+    const lastId = msgs.length ? msgs[msgs.length - 1].id : 0;
+    if (lastId > 0) {
+      await db.execute({ sql: `INSERT INTO read_status (chat_id, user_id, last_read_id) VALUES (?, ?, ?) ON CONFLICT(chat_id, user_id) DO UPDATE SET last_read_id = excluded.last_read_id`, args: [chatId, myId, lastId] });
+      await db.execute({ sql: 'UPDATE chat_members SET last_read_msg_id = ? WHERE chat_id = ? AND user_id = ?', args: [lastId, chatId, myId] });
+      io.to('user_' + myId).emit('chats_read_update', { chat_id: chatId, last_read: lastId });
+    }
+
+    res.json({ ok: true, messages: msgs });
+  } catch (error) {
+    console.error('Ошибка загрузки истории:', error);
+    res.json({ ok: false, messages: [] });
+  }
 });
 
 app.post('/api/messages/:id/delete', async (req, res) => {
