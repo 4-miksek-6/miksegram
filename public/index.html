@@ -150,6 +150,54 @@
     </div>
 </div>
 
+<!-- МОДАЛКА ИНФОРМАЦИИ О ГРУППЕ -->
+<div class="modal-overlay" id="groupInfoModal">
+    <div class="modal" style="max-width: 480px; padding: 0; overflow: hidden; background: var(--bg-0); display: flex; flex-direction: column;">
+        <button class="icon-btn" id="closeGroupInfo" style="position:absolute; top:16px; right:16px; z-index:10; background:rgba(0,0,0,0.4); color:#fff; border-radius:50%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        
+        <div class="preview-banner" id="groupInfoBanner" style="height: 160px;"></div>
+        
+        <div style="padding: 20px; flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h2 id="groupInfoName" style="font-family:'Unbounded'; font-size: 22px; font-weight: 700; margin:0;">Группа</h2>
+                <button class="secondary-btn" id="editGroupBtn" style="padding: 6px 12px; font-size:12px; display:none;">✏️ Изменить</button>
+            </div>
+            
+            <div class="settings-label" style="margin-top:8px;">Участники</div>
+            <div id="groupInfoMembers" style="display:flex; flex-direction:column; gap:8px;"></div>
+            
+            <div id="addMemberSection" style="display:none; margin-top: 12px; border-top: 1px solid var(--border); padding-top: 16px;">
+                <button class="primary-btn" id="addMemberBtn" style="width:100%;">+ Добавить участника</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- МОДАЛКА РЕДАКТИРОВАНИЯ ГРУППЫ -->
+<div class="modal-overlay" id="editGroupModal">
+    <div class="modal" style="max-width: 400px; background: var(--bg-0);">
+        <div class="modal-header"><h2 class="modal-title">Изменить группу</h2><button class="icon-btn" id="closeEditGroup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+        <div class="modal-body">
+            <label class="settings-field">
+                <span class="settings-field-label">Название группы</span>
+                <input id="editGroupNameInput" maxlength="50">
+            </label>
+            <button class="primary-btn" id="saveGroupNameBtn" style="margin-top: 16px;">Сохранить</button>
+        </div>
+    </div>
+</div>
+
+<!-- МОДАЛКА ДОБАВЛЕНИЯ УЧАСТНИКОВ -->
+<div class="modal-overlay" id="addMembersModal">
+    <div class="modal" style="max-width: 400px; background: var(--bg-0);">
+        <div class="modal-header"><h2 class="modal-title">Добавить в группу</h2><button class="icon-btn" id="closeAddMembers"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+        <div class="modal-body">
+            <div class="group-user-list" id="addMembersList"></div>
+            <button class="primary-btn" id="confirmAddMembersBtn" style="margin-top: 16px;">Добавить выбранных</button>
+        </div>
+    </div>
+</div>
+
 <div class="modal-overlay" id="profileModal">
     <div class="modal" style="max-width: 420px; padding: 0; overflow: hidden; background: var(--bg-0);">
         <button class="icon-btn" id="closeProfileModal" style="position:absolute; top:16px; right:16px; z-index:10; background:rgba(0,0,0,0.4); color:#fff; border-radius:50%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
@@ -199,6 +247,7 @@
     let isTyping = false;
     let attachedFile = null;
     let replyingTo = null;
+    let currentGroupInfo = null; // Для хранения данных открытой группы
     window.currentUser = null;
     
     const originalTitle = "Miksegram";
@@ -208,10 +257,7 @@
     window.addEventListener('focus', () => {
         document.title = originalTitle;
         unreadTitleCount = 0;
-        if (blinkInterval) {
-            clearInterval(blinkInterval);
-            blinkInterval = null;
-        }
+        if (blinkInterval) { clearInterval(blinkInterval); blinkInterval = null; }
     });
 
     const chatsList = document.getElementById('chatsList');
@@ -237,10 +283,7 @@
     EMOJIS.forEach(e => {
         const span = document.createElement('span');
         span.textContent = e;
-        span.addEventListener('click', () => {
-            composerInput.value += e;
-            composerInput.focus();
-        });
+        span.addEventListener('click', () => { composerInput.value += e; composerInput.focus(); });
         emojiPicker.appendChild(span);
     });
 
@@ -393,9 +436,15 @@
         applyAvatarTo(chatAvatar, avatar, name, avatar_frame);
         document.getElementById('chatName').textContent = name;
         applyNameEffect(document.getElementById('chatName'), name_effect);
-        updateChatStatus();
-        document.getElementById('typingText').style.display = 'none';
         
+        if (type === 'group') {
+            document.getElementById('chatLogin').textContent = 'Группа';
+            document.getElementById('chatLogin').style.color = 'var(--text-dim)';
+        } else {
+            updateChatStatus();
+        }
+        
+        document.getElementById('typingText').style.display = 'none';
         socket.emit('mark_read', chatId);
         loadHistory(chatId);
         renderChats();
@@ -422,18 +471,23 @@
 
     function renderTicks(m) {
         if (m.sender_id !== myId) return '';
-        
         if (m.is_sending) return `<span class="read-status" style="font-size: 12px; margin-left: 4px;">🕒</span>`;
         
+        // Неоновые галочки (прочитано)
         if (m.read_by && m.read_by.length > 0) {
-            return `<span class="read-status read" style="display:inline-flex; margin-left: 4px;">
+            let title = '';
+            if (activeChat && activeChat.type === 'group') {
+                title = `Прочитали: ${m.read_by.join(', ')}`;
+            }
+            return `<span class="read-status read" title="${title}" style="display:inline-flex; margin-left: 4px; cursor:help;">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="17 7 8 16 3 11"/><polyline points="22 7 13 16 11 14"/>
                 </svg>
             </span>`;
         }
         
-        const isOnline = m.chat_type === 'private' && onlineUsersSet.has(activeOtherId);
+        // Две серые (собеседник онлайн)
+        const isOnline = activeChat && activeChat.type === 'private' && onlineUsersSet.has(activeOtherId);
         if (isOnline) {
             return `<span class="read-status" style="display:inline-flex; margin-left: 4px; color: var(--text-mute);">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -442,6 +496,7 @@
             </span>`;
         }
 
+        // Одна серая (отправлено)
         return `<span class="read-status" style="display:inline-flex; margin-left: 4px; color: var(--text-mute);">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="20 6 9 17 4 12"/>
@@ -595,7 +650,6 @@
         this.style.height = 'auto';
         this.style.height = (this.scrollHeight) + 'px';
         this.scrollTop = this.scrollHeight;
-
         if (this.value === '') this.style.height = 'auto';
 
         if (!activeChatId) return;
@@ -708,19 +762,12 @@
             }
         }
         if (m.sender_id !== myId) {
-            // --- ЛОГИКА УВЕДОМЛЕНИЙ ---
             playNotification();
-            
-            if (localStorage.getItem('notif-vibrate') !== 'off' && navigator.vibrate) {
-                navigator.vibrate(200);
-            }
-
+            if (localStorage.getItem('notif-vibrate') !== 'off' && navigator.vibrate) navigator.vibrate(200);
             if (document.hidden && Notification.permission === 'granted' && localStorage.getItem('notif-push') !== 'off') {
                 const hideText = localStorage.getItem('notif-hide-text') !== 'off';
-                const bodyText = hideText ? 'Новое сообщение' : (m.text || 'Прикрепил файл');
-                new Notification(m.sender_name, { body: bodyText });
+                new Notification(m.sender_name, { body: hideText ? 'Новое сообщение' : (m.text || 'Прикрепил файл') });
             }
-
             if (document.hidden && localStorage.getItem('notif-blink') !== 'off') {
                 unreadTitleCount++;
                 if (!blinkInterval) {
@@ -754,14 +801,19 @@
     
     socket.on('chats_read_update', (data) => {
         if (data.chat_id === activeChatId) {
-            document.querySelectorAll(`.msg.own`).forEach(li => {
-                const statusEl = li.querySelector('.read-status');
-                if (statusEl && !statusEl.classList.contains('read')) {
-                    statusEl.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 7 8 16 3 11"/><polyline points="22 7 13 16 11 14"/></svg>`;
-                    statusEl.classList.add('read');
-                    statusEl.style.color = ''; 
-                }
-            });
+            // Вместо перекрашивания просто перезагружаем историю (для групп это проще и точнее)
+            if (activeChat && activeChat.type === 'group') {
+                loadHistory(activeChatId);
+            } else {
+                document.querySelectorAll(`.msg.own`).forEach(li => {
+                    const statusEl = li.querySelector('.read-status');
+                    if (statusEl && !statusEl.classList.contains('read')) {
+                        statusEl.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 7 8 16 3 11"/><polyline points="22 7 13 16 11 14"/></svg>`;
+                        statusEl.classList.add('read');
+                        statusEl.style.color = ''; 
+                    }
+                });
+            }
         }
     });
 
@@ -801,18 +853,14 @@
         e.stopPropagation();
         const btn = document.getElementById('chatMenuBtn');
         const rect = btn.getBoundingClientRect();
-        
-        const menuWidth = 200;
-        let left = rect.right - menuWidth;
-        if (left < 10) left = 10;
+        let left = rect.right - 200; if (left < 10) left = 10;
         
         chatMenuDropdown.style.left = left + 'px';
         chatMenuDropdown.style.top = (rect.bottom + 8) + 'px';
         chatMenuDropdown.classList.add('open');
         
-        const deleteBtn = document.getElementById('menuDelete');
         const deleteText = activeChat && activeChat.type === 'group' ? 'Выйти из группы' : 'Удалить чат';
-        deleteBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> ${deleteText}`;
+        document.getElementById('menuDelete').innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> ${deleteText}`;
     });
 
     document.getElementById('menuSearch').addEventListener('click', () => { chatMenuDropdown.classList.remove('open'); document.getElementById('searchChatBtn').click(); });
@@ -826,8 +874,7 @@
 
     document.getElementById('menuDelete').addEventListener('click', async () => {
         const isGroup = activeChat && activeChat.type === 'group';
-        const msg = isGroup ? 'Выйти из группы?' : 'Удалить чат из списка?';
-        if (!confirm(msg)) return;
+        if (!confirm(isGroup ? 'Выйти из группы?' : 'Удалить чат из списка?')) return;
         const res = await fetch('/api/chats/' + activeChatId + '/delete', { method: 'POST' });
         if (res.ok) {
             document.getElementById('messagesList').innerHTML = '';
@@ -842,6 +889,145 @@
         chatMenuDropdown.classList.remove('open');
     });
 
+    // --- ЛОГИКА ГРУПП ---
+
+    document.getElementById('chatHeaderLeft').addEventListener('click', () => {
+        if (activeChat && activeChat.type === 'group') {
+            showGroupInfo(activeChatId);
+        } else if (activeChat && activeChat.type === 'private' && activeOtherId) {
+            showProfileModal(activeOtherId);
+        }
+    });
+
+    async function showGroupInfo(chatId) {
+        const res = await fetch('/api/groups/' + chatId);
+        const data = await res.json();
+        if (!data.ok) return showToast(data.error);
+        
+        currentGroupInfo = data.group;
+        currentGroupInfo.members = data.members;
+
+        document.getElementById('groupInfoName').textContent = currentGroupInfo.name;
+        applyBannerTo(document.getElementById('groupInfoBanner'), 'ban-aurora');
+
+        const membersList = document.getElementById('groupInfoMembers');
+        membersList.innerHTML = '';
+        data.members.forEach(m => {
+            const isAdmin = m.id === currentGroupInfo.creator_id;
+            const isMe = m.id === myId;
+            const row = document.createElement('div');
+            row.style.cssText = 'display:flex; align-items:center; gap:10px; background:rgba(255,255,255,0.05); padding:10px; border-radius:12px;';
+            row.innerHTML = `
+                <div class="avatar small" id="gm-avatar-${m.id}">?</div>
+                <div style="flex:1;">
+                    <div style="font-family:'Unbounded'; font-size:13px;">${escapeHtml(m.display_name)} ${isAdmin ? '<span style="color:var(--accent); font-size:10px;">(Создатель)</span>' : ''}</div>
+                    <div style="font-size:11px; color:var(--text-dim);">@${escapeHtml(m.login)}</div>
+                </div>
+                ${(!isMe && currentGroupInfo.creator_id === myId) ? `<button class="icon-btn" onclick="removeMember(${m.id})" title="Исключить" style="color:#ff5c7c;">✖</button>` : ''}
+            `;
+            membersList.appendChild(row);
+            applyAvatarTo(document.getElementById(`gm-avatar-${m.id}`), m.avatar, m.display_name, m.avatar_frame);
+        });
+
+        if (currentGroupInfo.creator_id === myId) {
+            document.getElementById('editGroupBtn').style.display = 'block';
+            document.getElementById('addMemberSection').style.display = 'block';
+        } else {
+            document.getElementById('editGroupBtn').style.display = 'none';
+            document.getElementById('addMemberSection').style.display = 'none';
+        }
+
+        document.getElementById('groupInfoModal').classList.add('open');
+    }
+
+    document.getElementById('closeGroupInfo').addEventListener('click', () => document.getElementById('groupInfoModal').classList.remove('open'));
+    document.getElementById('groupInfoModal').addEventListener('click', (e) => { if (e.target === document.getElementById('groupInfoModal')) document.getElementById('groupInfoModal').classList.remove('open'); });
+
+    // Изменение названия
+    document.getElementById('editGroupBtn').addEventListener('click', () => {
+        document.getElementById('editGroupNameInput').value = currentGroupInfo.name;
+        document.getElementById('editGroupModal').classList.add('open');
+    });
+    document.getElementById('closeEditGroup').addEventListener('click', () => document.getElementById('editGroupModal').classList.remove('open'));
+
+    document.getElementById('saveGroupNameBtn').addEventListener('click', async () => {
+        const name = document.getElementById('editGroupNameInput').value.trim();
+        if (!name) return showToast('Введите название');
+        const res = await fetch(`/api/groups/${currentGroupInfo.id}/update`, {
+            method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name })
+        });
+        const data = await res.json();
+        if (data.ok) {
+            showToast('Название изменено');
+            document.getElementById('editGroupModal').classList.remove('open');
+            showGroupInfo(currentGroupInfo.id);
+            loadChats();
+        } else showToast(data.error);
+    });
+
+    // Добавление участников
+    document.getElementById('addMemberBtn').addEventListener('click', async () => {
+        const resAll = await fetch('/api/all-users');
+        const dataAll = await resAll.json();
+        const existingIds = currentGroupInfo.members.map(m => m.id);
+        
+        const listEl = document.getElementById('addMembersList');
+        listEl.innerHTML = '';
+        let count = 0;
+
+        if (dataAll.ok) {
+            dataAll.users.forEach(u => {
+                if (!existingIds.includes(u.id)) {
+                    count++;
+                    const row = document.createElement('label');
+                    row.className = 'group-user-row';
+                    row.innerHTML = `<input type="checkbox" value="${u.id}"><div class="avatar small" id="am-avatar-${u.id}">?</div><span>${escapeHtml(u.display_name)} (@${escapeHtml(u.login)})</span>`;
+                    listEl.appendChild(row);
+                    applyAvatarTo(document.getElementById(`am-avatar-${u.id}`), u.avatar, u.display_name, u.avatar_frame);
+                }
+            });
+        }
+
+        if (count === 0) {
+            listEl.innerHTML = '<div style="color:var(--text-mute);font-size:13px;text-align:center;">Все пользователи уже в группе</div>';
+            document.getElementById('confirmAddMembersBtn').style.display = 'none';
+        } else {
+            document.getElementById('confirmAddMembersBtn').style.display = 'flex';
+        }
+        document.getElementById('addMembersModal').classList.add('open');
+    });
+    
+    document.getElementById('closeAddMembers').addEventListener('click', () => document.getElementById('addMembersModal').classList.remove('open'));
+
+    document.getElementById('confirmAddMembersBtn').addEventListener('click', async () => {
+        const checked = Array.from(document.querySelectorAll('#addMembersList input:checked')).map(cb => parseInt(cb.value));
+        if (!checked.length) return showToast('Выберите участников');
+        
+        const res = await fetch(`/api/groups/${currentGroupInfo.id}/add-members`, {
+            method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ member_ids: checked })
+        });
+        const data = await res.json();
+        if (data.ok) {
+            showToast('Участники добавлены');
+            document.getElementById('addMembersModal').classList.remove('open');
+            showGroupInfo(currentGroupInfo.id);
+        } else showToast(data.error);
+    });
+
+    // Исключение участника
+    window.removeMember = async (userId) => {
+        if (!confirm('Исключить этого участника?')) return;
+        const res = await fetch(`/api/groups/${currentGroupInfo.id}/remove-member`, {
+            method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ user_id: userId })
+        });
+        const data = await res.json();
+        if (data.ok) {
+            showToast('Участник исключен');
+            showGroupInfo(currentGroupInfo.id);
+        } else showToast(data.error);
+    };
+
+    // --- ПРОФИЛИ ---
     function showProfileModal(userId) {
         fetch('/api/user/' + userId).then(r => r.json()).then(data => {
             if (!data.ok) return;
@@ -876,17 +1062,12 @@
                     startEmptyChat(u.id);
                 };
             }
-
             document.getElementById('profileModal').classList.add('open');
         });
     }
 
     document.getElementById('closeProfileModal').addEventListener('click', () => document.getElementById('profileModal').classList.remove('open'));
     document.getElementById('profileModal').addEventListener('click', e => { if (e.target === document.getElementById('profileModal')) document.getElementById('profileModal').classList.remove('open'); });
-
-    document.getElementById('chatHeaderLeft').addEventListener('click', () => {
-        if (activeChat && activeChat.type === 'private' && activeOtherId) showProfileModal(activeOtherId);
-    });
 
     document.getElementById('profileCard').addEventListener('click', e => { 
         if (!e.target.closest('#settingsBtn')) showProfileModal(myId);
