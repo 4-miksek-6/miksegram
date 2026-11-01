@@ -22,7 +22,7 @@
         @keyframes logoFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
         @keyframes logoGlow { from { filter: drop-shadow(0 0 20px var(--accent)); } to { filter: drop-shadow(0 0 60px var(--accent-2)); } }
 
-        /* ===== СТИЛИ ДЛЯ QR-КОДА ===== */
+        /* ===== QR-КОД ===== */
         .qr-dots-bg { position: absolute; inset: 0; overflow: hidden; z-index: 1; pointer-events: none; }
         .qr-dot {
             position: absolute; width: 12px; height: 12px; border-radius: 50%;
@@ -30,7 +30,6 @@
             box-shadow: 0 0 15px currentColor; opacity: 0.6;
         }
         @keyframes qrDotFloat { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-20px) scale(1.2); } }
-
         .qr-card {
             position: relative; z-index: 2;
             background: #ffffff; border-radius: 32px;
@@ -56,6 +55,96 @@
             transform: scale(1.1) translateY(-3px); box-shadow: 0 10px 20px var(--accent);
         }
         .qr-action-btn svg { width: 24px; height: 24px; }
+
+        /* ===== НОВОЕ: РАЗДЕЛИТЕЛИ ДАТ И НЕПРОЧИТАННЫЕ ===== */
+        .msg-date-separator, .unread-divider {
+            list-style: none;
+            text-align: center;
+            margin: 16px 0;
+            position: relative;
+        }
+        .msg-date-separator span {
+            display: inline-block;
+            padding: 4px 14px;
+            background: rgba(0,0,0,0.4);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            font-size: 12px;
+            color: var(--text-mute);
+            backdrop-filter: blur(10px);
+        }
+        .unread-divider::before {
+            content: '';
+            position: absolute;
+            left: 0; right: 0; top: 50%;
+            height: 1px;
+            background: var(--accent);
+            opacity: 0.4;
+        }
+        .unread-divider span {
+            display: inline-block;
+            padding: 4px 14px;
+            background: var(--bg-0);
+            border: 1px solid var(--accent);
+            border-radius: 20px;
+            font-size: 12px;
+            color: var(--accent);
+            position: relative;
+            z-index: 1;
+            box-shadow: 0 0 15px color-mix(in srgb, var(--accent) 30%, transparent);
+        }
+
+        /* ===== НОВОЕ: КНОПКА ВНИЗ ===== */
+        .scroll-to-bottom {
+            position: absolute;
+            bottom: 90px;
+            right: 24px;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: var(--panel-strong);
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5), 0 0 15px color-mix(in srgb, var(--accent) 40%, transparent);
+            transition: all 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+            z-index: 20;
+        }
+        .scroll-to-bottom:hover {
+            background: var(--accent);
+            color: #06101c;
+            transform: scale(1.1);
+        }
+        .scroll-to-bottom.hidden {
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(15px) scale(0.8);
+        }
+        .scroll-badge {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            min-width: 20px;
+            height: 20px;
+            padding: 0 6px;
+            background: #ff3b3b;
+            color: #fff;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 10px #ff3b3b;
+        }
+        .scroll-badge.hidden { display: none; }
+
+        @media (max-width: 768px) {
+            .scroll-to-bottom { bottom: 80px; right: 16px; width: 40px; height: 40px; }
+        }
     </style>
 </head>
 <body>
@@ -119,6 +208,12 @@
             </div>
             <ul class="messages-list" id="messagesList"></ul>
         </div>
+
+        <!-- НОВАЯ КНОПКА ВНИЗ -->
+        <button id="scrollToBottomBtn" class="scroll-to-bottom hidden" title="Вниз">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><polyline points="6 9 12 15 18 9"/></svg>
+            <span id="scrollBadge" class="scroll-badge hidden">0</span>
+        </button>
 
         <div id="filePreview" style="display:none; padding: 10px 16px; border-top: 1px solid var(--border); background: rgba(0,0,0,0.2); align-items: center; gap: 10px;">
             <div id="fileName" style="flex:1; font-size: 13px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div>
@@ -267,7 +362,6 @@
                 <div id="modalProfileBio" style="font-size: 14px; color: var(--text);">...</div>
             </div>
 
-            <!-- Кнопка "Мой QR-код" -->
             <button class="secondary-btn" id="modalQrBtn" style="width: 100%; display:none; align-items: center; justify-content: center; gap: 8px;">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
                 Мой QR-код
@@ -279,7 +373,6 @@
     </div>
 </div>
 
-<!-- ===== МОДАЛКА QR-КОДА ===== -->
 <div class="modal-overlay" id="qrModal">
     <div style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%;">
         <button class="icon-btn" id="closeQrBtn" style="position: absolute; top: 20px; right: 20px; background: rgba(255,255,255,0.1); border-radius: 50%; z-index: 10;">
@@ -328,6 +421,9 @@
     let messages = [];
     let currentLoadToken = 0;
     let qrCodeInstance = null; 
+    
+    // Переменные для кнопки "Вниз"
+    let unreadNewCount = 0;
 
     const originalTitle = "Miksegram";
     let unreadTitleCount = 0;
@@ -358,6 +454,11 @@
     let selectedMsgId = null;
     let selectedMsgText = null;
 
+    // Элементы для скролла
+    const chatBodyEl = document.getElementById('chatBody');
+    const scrollToBottomBtn = document.getElementById('scrollToBottomBtn');
+    const scrollBadge = document.getElementById('scrollBadge');
+
     const EMOJIS = ['😀','😃','😄','😁','😆','😅','😂','🤣','😊','😇','🙂','🙃','😉','😌','😍','🥰','😘','😗','😙','😚','😋','😛','😝','😜','🤪','🤨','🧐','🤓','😎','🥳','😏','😒','😞','😔','😟','😕','🙁','☹️','😣','😖','😫','😩','🥺','😢','😭','😤','😠','😡','🤬','🤯','😳','🥵','🥶','😱','😨','😰','😥','😓','🤗','🤔','🤭','🤫','🤥','😶','😐','😑','😬','🙄','😯','😦','😧','😮','😲','🥱','😴','🤤','😪','😵','🤐','🥴','🤢','🤮','🤧','😷','🤒','🤕','🤑','🤠','😈','👿','👹','👺','🤡','💩','👻','💀','☠️','👽','👾','🤖','🎃','😺','😸','😹','😻','😼','😽','🙀','😿','😾','👋','🤚','🖐','✋','🖖','👌','🤏','✌️','🤞','🤟','🤘','🤙','👈','👉','👆','🖕','👇','☝️','👍','👎','✊','👊','🤛','🤜','👏','🙌','👐','🤲','🤝','🙏','✍️','💅','🤳','💪','🦾','🦿','🦵','🦶','👂','🦻','👃','🧠','🦷','👀','👁','👅','👄','💋','🩸'];
 
     EMOJIS.forEach(e => {
@@ -381,6 +482,26 @@
             chatMenuDropdown.classList.remove('open');
         }
     });
+
+    // ===== ФУНКЦИИ ДЛЯ ДАТ =====
+    function formatDateOnly(iso) {
+        const d = new Date(iso);
+        return d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate();
+    }
+
+    function formatDateLabel(iso) {
+        const d = new Date(iso);
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const msgDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        const diffDays = Math.round((today - msgDate) / 86400000);
+        if (diffDays === 0) return 'Сегодня';
+        if (diffDays === 1) return 'Вчера';
+        if (d.getFullYear() === now.getFullYear()) {
+            return d.toLocaleDateString('ru-RU', { day: '2-digit', month: 'long' });
+        }
+        return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
 
     function formatTime(iso) {
         if (!iso) return '';
@@ -503,6 +624,7 @@
         messagesListEl.classList.remove('chat-switch-anim');
         void messagesListEl.offsetWidth;
         messagesListEl.classList.add('chat-switch-anim');
+        hideScrollBtn();
         renderChats();
         if (window.innerWidth <= 768) document.querySelector('.app').classList.add('mobile-chat-open');
     }
@@ -515,6 +637,7 @@
         activeChat = { type, name, login, last_seen, name_effect, other_last_read };
         
         const myToken = ++currentLoadToken;
+        hideScrollBtn();
 
         document.getElementById('emptyState').style.display = 'none';
         composerInput.disabled = false;
@@ -684,11 +807,36 @@
             messagesListEl.innerHTML = '<div class="chat-empty-msg">Сообщений пока нет. Напишите первым!</div>';
             return;
         }
-        messages.forEach(m => addMessageToDOM(m, false));
+
+        const lastReadId = activeChatId ? parseInt(localStorage.getItem('last_read_' + activeChatId) || '0') : 0;
+        let unreadDividerShown = false;
+        let prevDate = null;
+
+        messages.forEach(m => {
+            const dateOnly = formatDateOnly(m.created_at);
+            if (dateOnly !== prevDate) {
+                const sep = document.createElement('li');
+                sep.className = 'msg-date-separator';
+                sep.innerHTML = `<span>${formatDateLabel(m.created_at)}</span>`;
+                messagesListEl.appendChild(sep);
+                prevDate = dateOnly;
+            }
+
+            if (!unreadDividerShown && lastReadId > 0 && m.id > lastReadId && m.sender_id !== myId) {
+                const divider = document.createElement('li');
+                divider.className = 'unread-divider';
+                divider.innerHTML = '<span>Новые сообщения</span>';
+                messagesListEl.appendChild(divider);
+                unreadDividerShown = true;
+            }
+
+            addMessageToDOM(m, false, false);
+        });
+        
         scrollBottom();
     }
 
-    function addMessageToDOM(m, animate = true) {
+    function addMessageToDOM(m, animate = true, shouldScroll = true) {
         const empty = messagesListEl.querySelector('.chat-empty-msg');
         if (empty) empty.remove();
         
@@ -732,7 +880,7 @@
         });
 
         messagesListEl.appendChild(li);
-        scrollBottom();
+        if (shouldScroll) scrollBottom();
     }
 
     window.openLightbox = (url) => {
@@ -852,10 +1000,51 @@
         });
     });
 
-    function scrollBottom() {
-        const body = document.getElementById('chatBody');
-        body.scrollTop = body.scrollHeight;
+    // ===== СКРОЛЛ И КНОПКА ВНИЗ =====
+    function isAtBottom() {
+        return chatBodyEl.scrollHeight - chatBodyEl.scrollTop - chatBodyEl.clientHeight < 50;
     }
+
+    function scrollBottom() {
+        chatBodyEl.scrollTop = chatBodyEl.scrollHeight;
+        hideScrollBtn();
+        markCurrentRead();
+    }
+
+    function showScrollBtn(count = 0) {
+        scrollToBottomBtn.classList.remove('hidden');
+        if (count > 0) {
+            scrollBadge.textContent = count > 99 ? '99+' : count;
+            scrollBadge.classList.remove('hidden');
+        }
+    }
+
+    function hideScrollBtn() {
+        scrollToBottomBtn.classList.add('hidden');
+        scrollBadge.classList.add('hidden');
+        unreadNewCount = 0;
+    }
+
+    function markCurrentRead() {
+        if (!activeChatId || !messages.length) return;
+        const lastMsg = messages[messages.length - 1];
+        if (lastMsg && lastMsg.id) {
+            localStorage.setItem('last_read_' + activeChatId, String(lastMsg.id));
+        }
+    }
+
+    chatBodyEl.addEventListener('scroll', () => {
+        if (isAtBottom()) {
+            hideScrollBtn();
+            markCurrentRead();
+        } else {
+            showScrollBtn(unreadNewCount);
+        }
+    });
+
+    scrollToBottomBtn.addEventListener('click', () => {
+        scrollBottom();
+    });
 
     composerInput.addEventListener('input', function() {
         this.style.height = 'auto';
@@ -928,7 +1117,7 @@
                 };
 
                 messages.push(tempMsg);
-                addMessageToDOM(tempMsg, true);
+                addMessageToDOM(tempMsg, true, true);
                 
                 socket.emit('send_message', { 
                     temp_id: tempId, chat_id: activeChatId, other_id: activeOtherId, text: text, 
@@ -953,9 +1142,10 @@
                     if (response && response.msg) {
                         if (!messages.find(m => m.id === response.msg.id)) {
                             messages.push(response.msg);
-                            addMessageToDOM(response.msg, false);
+                            addMessageToDOM(response.msg, false, false);
                         }
                         messagesCache[response.msg.chat_id] = messages;
+                        scrollBottom();
                         
                         if (!activeChatId && response.msg.chat_id) {
                             activeChatId = response.msg.chat_id;
@@ -988,8 +1178,15 @@
                 messages = messagesCache[m.chat_id];
             }
             if (m.sender_id !== myId) {
-                addMessageToDOM(m, true);
-                socket.emit('mark_read', m.chat_id);
+                if (isAtBottom()) {
+                    addMessageToDOM(m, true, true);
+                    socket.emit('mark_read', m.chat_id);
+                    markCurrentRead();
+                } else {
+                    addMessageToDOM(m, true, false);
+                    unreadNewCount++;
+                    showScrollBtn(unreadNewCount);
+                }
                 document.getElementById('typingText').style.display = 'none';
             }
         }
@@ -1062,6 +1259,7 @@
         if (data.chat_id === activeChatId) {
             messages = [];
             messagesListEl.innerHTML = '<div class="chat-empty-msg">История очищена</div>';
+            hideScrollBtn();
         }
         loadChats();
     });
@@ -1122,10 +1320,12 @@
         const res = await fetch('/api/chats/' + activeChatId + '/delete', { method: 'POST' });
         if (res.ok) {
             delete messagesCache[activeChatId];
+            localStorage.removeItem('last_read_' + activeChatId);
             messagesListEl.innerHTML = '';
             document.getElementById('emptyState').style.display = 'flex';
             activeChatId = null; activeOtherId = null; activeChat = null;
             messages = [];
+            hideScrollBtn();
             document.getElementById('chatHeaderRight').style.display = 'none';
             document.getElementById('chatName').textContent = 'Выберите собеседника';
             document.getElementById('chatAvatar').style.display = 'none';
