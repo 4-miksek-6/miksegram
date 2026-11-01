@@ -35,7 +35,7 @@
         <div class="auth-link" style="margin-bottom:24px;">Уже есть аккаунт? <a href="/login.html">Войти</a></div>
         
         <div style="display:flex; justify-content:space-between; border-top:1px solid var(--border); padding-top:16px;">
-            <a href="#" style="color:var(--text-mute); font-size:12px; text-decoration:none;">О мессенджере</a>
+            <a href="/about.html" style="color:var(--text-mute); font-size:12px; text-decoration:none;">О мессенджере</a>
             <a href="#" style="color:var(--text-mute); font-size:12px; text-decoration:none;">Поддержка</a>
         </div>
     </div>
@@ -78,7 +78,8 @@
             const data = await res.json();
             
             if (data.ok) {
-                window.location.href = '/';
+                // Редирект на онбординг с параметром welcome=1 (хотя можно и без него, имя подтянется)
+                window.location.href = '/about.html?welcome=1';
             } else {
                 err.textContent = data.error || 'Ошибка регистрации';
             }

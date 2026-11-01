@@ -49,6 +49,7 @@ function buildSettingsUI() {
                 <div class="settings-tab" data-tab="notifications">Уведомления</div>
                 <div class="settings-tab" data-tab="account">Аккаунт</div>
                 <button class="danger-btn" id="logoutBtn" style="margin-top:auto; padding:10px;">Выйти</button>
+                <button class="secondary-btn" id="aboutBtn" style="margin-top: 8px; padding:10px;">ℹ️ О мессенджере</button>
             </div>
             
             <div class="settings-preview-col" id="settingsPreviewCol">
@@ -678,5 +679,10 @@ function buildSettingsUI() {
 
     document.getElementById('logoutBtn').addEventListener('click', () => {
         fetch('/api/logout', { method: 'POST' }).then(() => window.location.href = '/login.html');
+    });
+    
+    // === НОВАЯ КНОПКА "О МЕССЕНДЖЕРЕ" ===
+    document.getElementById('aboutBtn').addEventListener('click', () => {
+        window.location.href = '/about.html';
     });
 }
