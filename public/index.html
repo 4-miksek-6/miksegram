@@ -56,91 +56,51 @@
         }
         .qr-action-btn svg { width: 24px; height: 24px; }
 
-        /* ===== НОВОЕ: РАЗДЕЛИТЕЛИ ДАТ И НЕПРОЧИТАННЫЕ ===== */
+        /* ===== РАЗДЕЛИТЕЛИ ДАТ И НЕПРОЧИТАННЫЕ ===== */
         .msg-date-separator, .unread-divider {
-            list-style: none;
-            text-align: center;
-            margin: 16px 0;
-            position: relative;
+            list-style: none; text-align: center; margin: 16px 0; position: relative;
         }
         .msg-date-separator span {
-            display: inline-block;
-            padding: 4px 14px;
-            background: rgba(0,0,0,0.4);
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            font-size: 12px;
-            color: var(--text-mute);
-            backdrop-filter: blur(10px);
+            display: inline-block; padding: 4px 14px; background: rgba(0,0,0,0.4);
+            border: 1px solid var(--border); border-radius: 20px;
+            font-size: 12px; color: var(--text-mute); backdrop-filter: blur(10px);
         }
         .unread-divider::before {
-            content: '';
-            position: absolute;
-            left: 0; right: 0; top: 50%;
-            height: 1px;
-            background: var(--accent);
-            opacity: 0.4;
+            content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 1px;
+            background: var(--accent); opacity: 0.4;
         }
         .unread-divider span {
-            display: inline-block;
-            padding: 4px 14px;
-            background: var(--bg-0);
-            border: 1px solid var(--accent);
-            border-radius: 20px;
-            font-size: 12px;
-            color: var(--accent);
-            position: relative;
-            z-index: 1;
+            display: inline-block; padding: 4px 14px; background: var(--bg-0);
+            border: 1px solid var(--accent); border-radius: 20px; font-size: 12px;
+            color: var(--accent); position: relative; z-index: 1;
             box-shadow: 0 0 15px color-mix(in srgb, var(--accent) 30%, transparent);
         }
 
-        /* ===== НОВОЕ: КНОПКА ВНИЗ ===== */
+        /* ===== КНОПКА ВНИЗ ===== */
         .scroll-to-bottom {
-            position: absolute;
-            bottom: 90px;
-            right: 24px;
-            width: 44px;
-            height: 44px;
-            border-radius: 50%;
-            background: var(--panel-strong);
-            border: 1px solid var(--accent);
-            color: var(--accent);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.5), 0 0 15px color-mix(in srgb, var(--accent) 40%, transparent);
-            transition: all 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.2);
-            z-index: 20;
+            position: absolute; bottom: 90px; right: 24px; width: 44px; height: 44px;
+            border-radius: 50%; background: var(--panel-strong); border: 1px solid var(--accent);
+            color: var(--accent); display: flex; align-items: center; justify-content: center;
+            cursor: pointer; box-shadow: 0 4px 20px rgba(0,0,0,0.5), 0 0 15px color-mix(in srgb, var(--accent) 40%, transparent);
+            transition: all 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.2); z-index: 20;
         }
-        .scroll-to-bottom:hover {
-            background: var(--accent);
-            color: #06101c;
-            transform: scale(1.1);
-        }
-        .scroll-to-bottom.hidden {
-            opacity: 0;
-            pointer-events: none;
-            transform: translateY(15px) scale(0.8);
-        }
+        .scroll-to-bottom:hover { background: var(--accent); color: #06101c; transform: scale(1.1); }
+        .scroll-to-bottom.hidden { opacity: 0; pointer-events: none; transform: translateY(15px) scale(0.8); }
         .scroll-badge {
-            position: absolute;
-            top: -4px;
-            right: -4px;
-            min-width: 20px;
-            height: 20px;
-            padding: 0 6px;
-            background: #ff3b3b;
-            color: #fff;
-            border-radius: 10px;
-            font-size: 11px;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            position: absolute; top: -4px; right: -4px; min-width: 20px; height: 20px;
+            padding: 0 6px; background: #ff3b3b; color: #fff; border-radius: 10px;
+            font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center;
             box-shadow: 0 0 10px #ff3b3b;
         }
         .scroll-badge.hidden { display: none; }
+
+        /* ===== НЕОНОВОЕ ВРЕМЯ ===== */
+        .msg-time {
+            color: var(--accent) !important;
+            text-shadow: 0 0 6px color-mix(in srgb, var(--accent) 70%, transparent) !important;
+            opacity: 0.95;
+            font-weight: 500;
+        }
 
         @media (max-width: 768px) {
             .scroll-to-bottom { bottom: 80px; right: 16px; width: 40px; height: 40px; }
@@ -209,7 +169,6 @@
             <ul class="messages-list" id="messagesList"></ul>
         </div>
 
-        <!-- НОВАЯ КНОПКА ВНИЗ -->
         <button id="scrollToBottomBtn" class="scroll-to-bottom hidden" title="Вниз">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><polyline points="6 9 12 15 18 9"/></svg>
             <span id="scrollBadge" class="scroll-badge hidden">0</span>
@@ -422,7 +381,6 @@
     let currentLoadToken = 0;
     let qrCodeInstance = null; 
     
-    // Переменные для кнопки "Вниз"
     let unreadNewCount = 0;
 
     const originalTitle = "Miksegram";
@@ -454,7 +412,6 @@
     let selectedMsgId = null;
     let selectedMsgText = null;
 
-    // Элементы для скролла
     const chatBodyEl = document.getElementById('chatBody');
     const scrollToBottomBtn = document.getElementById('scrollToBottomBtn');
     const scrollBadge = document.getElementById('scrollBadge');
@@ -483,7 +440,6 @@
         }
     });
 
-    // ===== ФУНКЦИИ ДЛЯ ДАТ =====
     function formatDateOnly(iso) {
         const d = new Date(iso);
         return d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate();
@@ -568,15 +524,24 @@
 
             const preview = isOwnLast ? 'Ты: ' + previewText : previewText;
             const unread = c.unread_count > 0;
+            
+            // Если это Избранное
+            let avatarHtml = `<div class="avatar" id="c-avatar-${c.id}">?</div>`;
+            if (c.type === 'saved') {
+                avatarHtml = `<div class="avatar" id="c-avatar-${c.id}" style="background: var(--grad-aurora); display:flex; align-items:center; justify-content:center; color:#06101c; font-size:20px;">💾</div>`;
+            }
+
             el.innerHTML = `
-                <div class="avatar-wrap"><div class="avatar" id="c-avatar-${c.id}">?</div>${isOnline ? '<div class="online-dot"></div>' : ''}</div>
+                <div class="avatar-wrap">${avatarHtml}${isOnline ? '<div class="online-dot"></div>' : ''}</div>
                 <div class="chat-item-body">
                     <div class="chat-item-top"><div class="chat-item-name">${escapeHtml(c.name)}</div><div class="chat-item-time">${formatTime(c.last_time)}</div></div>
                     <div class="chat-item-bottom"><div class="chat-item-preview" style="${unread ? 'color:var(--text);font-weight:600' : ''}">${preview}</div>${unread ? `<div class="unread-badge">${c.unread_count}</div>` : ''}</div>
                 </div>`;
             el.addEventListener('click', () => openChat(c.id, c.name, c.avatar, c.type, c.other_id, c.login, c.last_seen, c.avatar_frame, c.name_effect, c.other_last_read));
             chatsList.appendChild(el);
-            applyAvatarTo(document.getElementById(`c-avatar-${c.id}`), c.avatar, c.name, c.avatar_frame);
+            if (c.type !== 'saved') {
+                applyAvatarTo(document.getElementById(`c-avatar-${c.id}`), c.avatar, c.name, c.avatar_frame);
+            }
         });
     }
 
@@ -595,6 +560,15 @@
     }
 
     async function startEmptyChat(otherId) {
+        if (otherId === myId) {
+            // Если пытаемся открыть чат с самим собой — открываем Избранное
+            const savedChat = chatsData.find(c => c.type === 'saved');
+            if (savedChat) {
+                openChat(savedChat.id, savedChat.name, savedChat.avatar, 'saved', null, '', null, 'none', 'none', 0);
+                return;
+            }
+        }
+
         if (activeChatId === null && activeOtherId === otherId) return;
         const searchRes = await fetch('/api/user/' + otherId);
         const searchData = await searchRes.json();
@@ -632,6 +606,13 @@
     function openChat(chatId, name, avatar, type, otherId = null, login = '', last_seen = null, avatar_frame = 'none', name_effect = 'none', other_last_read = 0) {
         if (activeChatId === chatId && activeChat) return;
 
+        // Оптимистично обнуляем счетчик непрочитанных
+        const chatData = chatsData.find(x => x.id === chatId);
+        if (chatData && chatData.unread_count > 0) {
+            chatData.unread_count = 0;
+            renderChats();
+        }
+
         activeChatId = chatId;
         activeOtherId = otherId;
         activeChat = { type, name, login, last_seen, name_effect, other_last_read };
@@ -646,13 +627,27 @@
         
         const chatAvatar = document.getElementById('chatAvatar');
         chatAvatar.style.display = 'flex';
-        applyAvatarTo(chatAvatar, avatar, name, avatar_frame);
+        if (type === 'saved') {
+            chatAvatar.innerHTML = '💾';
+            chatAvatar.style.background = 'var(--grad-aurora)';
+            chatAvatar.style.display = 'flex';
+            chatAvatar.style.alignItems = 'center';
+            chatAvatar.style.justifyContent = 'center';
+            chatAvatar.style.fontSize = '20px';
+            chatAvatar.style.color = '#06101c';
+        } else {
+            applyAvatarTo(chatAvatar, avatar, name, avatar_frame);
+        }
+        
         document.getElementById('chatName').textContent = name;
         applyNameEffect(document.getElementById('chatName'), name_effect);
         
         if (type === 'group') {
             document.getElementById('chatLogin').textContent = 'Группа';
             document.getElementById('chatLogin').style.color = 'var(--text-dim)';
+        } else if (type === 'saved') {
+            document.getElementById('chatLogin').textContent = 'Личные заметки';
+            document.getElementById('chatLogin').style.color = 'var(--text-mute)';
         } else {
             document.getElementById('chatLogin').style.color = 'var(--accent)';
             updateChatStatus();
@@ -833,7 +828,7 @@
             addMessageToDOM(m, false, false);
         });
         
-        scrollBottom();
+        scrollBottom(true);
     }
 
     function addMessageToDOM(m, animate = true, shouldScroll = true) {
@@ -1000,13 +995,12 @@
         });
     });
 
-    // ===== СКРОЛЛ И КНОПКА ВНИЗ =====
     function isAtBottom() {
         return chatBodyEl.scrollHeight - chatBodyEl.scrollTop - chatBodyEl.clientHeight < 50;
     }
 
-    function scrollBottom() {
-        chatBodyEl.scrollTop = chatBodyEl.scrollHeight;
+    function scrollBottom(smooth = false) {
+        chatBodyEl.scrollTo({ top: chatBodyEl.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
         hideScrollBtn();
         markCurrentRead();
     }
@@ -1043,7 +1037,7 @@
     });
 
     scrollToBottomBtn.addEventListener('click', () => {
-        scrollBottom();
+        scrollBottom(true);
     });
 
     composerInput.addEventListener('input', function() {
@@ -1145,7 +1139,7 @@
                             addMessageToDOM(response.msg, false, false);
                         }
                         messagesCache[response.msg.chat_id] = messages;
-                        scrollBottom();
+                        scrollBottom(true);
                         
                         if (!activeChatId && response.msg.chat_id) {
                             activeChatId = response.msg.chat_id;
@@ -1331,6 +1325,9 @@
             document.getElementById('chatAvatar').style.display = 'none';
             document.querySelector('.app').classList.remove('mobile-chat-open');
             loadChats();
+        } else {
+            const data = await res.json();
+            if (data.error) showToast(data.error);
         }
         chatMenuDropdown.classList.remove('open');
     });

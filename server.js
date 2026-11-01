@@ -60,6 +60,32 @@ async function initDb(attempt = 1) {
 }
 initDb();
 
+// --- ХЕЛПЕР: ГАРАНТИРОВАТЬ ЧАТ "ИЗБРАННОЕ" ---
+async function ensureSavedChat(userId) {
+  try {
+    const existing = await db.execute({ 
+      sql: `SELECT c.id FROM chats c JOIN chat_members cm ON c.id = cm.chat_id WHERE cm.user_id = ? AND c.type = 'saved' LIMIT 1`, 
+      args: [userId] 
+    });
+    if (existing.rows.length > 0) return existing.rows[0].id;
+    
+    const info = await db.execute({ 
+      sql: `INSERT INTO chats (type, name, creator_id) VALUES ('saved', 'Избранное', ?)`, 
+      args: [userId] 
+    });
+    const chatId = Number(info.lastInsertRowid);
+    await db.execute({ 
+      sql: `INSERT INTO chat_members (chat_id, user_id) VALUES (?, ?)`, 
+      args: [chatId, userId] 
+    });
+    LOG('API', `Создан чат "Избранное" для пользователя ${userId}`);
+    return chatId;
+  } catch (e) {
+    ERR('API', 'ensureSavedChat:', e.message);
+    return null;
+  }
+}
+
 // --- MIDDLEWARE ---
 app.use(express.json({ limit: '8mb' }));
 app.use(express.urlencoded({ extended: true, limit: '8mb' }));
@@ -98,6 +124,7 @@ app.post('/api/register', async (req, res) => {
     const info = await db.execute({ sql: 'INSERT INTO users (login, display_name, password) VALUES (?, ?, ?)', args: [login, display_name, hash] });
     
     req.session.userId = Number(info.lastInsertRowid);
+    await ensureSavedChat(req.session.userId);
     LOG('API', `Новый пользователь: @${login} (id=${req.session.userId})`);
     res.json({ ok: true });
   } catch (e) { 
@@ -120,6 +147,7 @@ app.post('/api/login', async (req, res) => {
     
     req.session.userId = user.id;
     await db.execute({ sql: 'UPDATE users SET last_seen = ? WHERE id = ?', args: [new Date().toISOString(), user.id] });
+    await ensureSavedChat(user.id);
     
     LOG('API', `Логин: @${user.login} (id=${user.id})`);
     res.json({ ok: true, user: { id: user.id, login: user.login, display_name: user.display_name, avatar: user.avatar } });
@@ -242,9 +270,12 @@ app.get('/api/chats', async (req, res) => {
   const myId = req.session.userId;
 
   try {
+    // Гарантируем "Избранное" (для старых пользователей)
+    await ensureSavedChat(myId);
+
     const chatsRes = await db.execute({
       sql: `
-        SELECT c.id, c.type, c.name, c.avatar, c.creator_id,
+        SELECT c.id, c.type, c.name, c.avatar, c.creator_id, c.created_at,
                (SELECT text FROM messages WHERE chat_id = c.id ORDER BY id DESC LIMIT 1) as last_text,
                (SELECT file_type FROM messages WHERE chat_id = c.id ORDER BY id DESC LIMIT 1) as last_file_type,
                (SELECT sender_id FROM messages WHERE chat_id = c.id ORDER BY id DESC LIMIT 1) as last_sender_id,
@@ -256,7 +287,7 @@ app.get('/api/chats', async (req, res) => {
         FROM chats c
         JOIN chat_members cm ON c.id = cm.chat_id
         WHERE cm.user_id = ? AND cm.hidden = 0
-        ORDER BY last_time DESC, c.id DESC
+        ORDER BY COALESCE(last_time, c.created_at) DESC, c.id DESC
       `,
       args: [myId, myId, myId]
     });
@@ -276,6 +307,18 @@ app.get('/api/chats', async (req, res) => {
           });
           continue;
         }
+      }
+      if (c.type === 'saved') {
+        result.push({ 
+          ...c, 
+          name: 'Избранное', 
+          avatar: 'grad-amber', 
+          other_id: null, 
+          login: '', 
+          last_seen: null, 
+          other_last_read: 0 
+        });
+        continue;
       }
       result.push(c);
     }
@@ -468,6 +511,11 @@ app.post('/api/chats/:id/delete', async (req, res) => {
     const chatRes = await db.execute({ sql: 'SELECT * FROM chats WHERE id = ?', args: [chatId] });
     if (chatRes.rows.length === 0) return res.json({ ok: false });
     const chat = chatRes.rows[0];
+
+    if (chat.type === 'saved') {
+      // Избранное нельзя удалить, можно только очистить
+      return res.json({ ok: false, error: 'Избранное нельзя удалить. Используйте "Очистить историю"' });
+    }
 
     if (chat.type === 'group') {
       await db.execute({ sql: 'DELETE FROM chat_members WHERE chat_id = ? AND user_id = ?', args: [chatId, myId] });
@@ -704,13 +752,16 @@ io.on('connection', (socket) => {
     const clean = (text || '').trim().slice(0, 2000);
     
     try {
-      // Создание нового чата, если его нет
-      if (!chat_id && other_id) {
+      // Если other_id — это я сам, то используем чат "Избранное"
+      if (!chat_id && other_id === myId) {
+        chat_id = await ensureSavedChat(myId);
+      }
+      // Создание нового чата, если его нет и other_id — другой пользователь
+      else if (!chat_id && other_id) {
         LOG('SOCKET', `Пользователь ${myId} создаёт новый чат с ${other_id}`);
         const existing = await db.execute({ sql: `SELECT c.id FROM chats c JOIN chat_members cm1 ON c.id = cm1.chat_id AND cm1.user_id = ? JOIN chat_members cm2 ON c.id = cm2.chat_id AND cm2.user_id = ? WHERE c.type = 'private'`, args: [myId, other_id] });
         if (existing.rows.length > 0) {
           chat_id = existing.rows[0].id;
-          // Показываем чат обоим
           await db.execute({ sql: 'UPDATE chat_members SET hidden = 0 WHERE chat_id = ?', args: [chat_id] });
         } else {
           const info = await db.execute({ sql: 'INSERT INTO chats (type) VALUES (?)', args: ['private'] });
@@ -724,26 +775,21 @@ io.on('connection', (socket) => {
         return;
       }
       
-      // Проверка, что отправитель в чате
       if (!(await isChatMember(chat_id, myId))) {
         if (callback) callback({ error: 'Вы не участник чата' });
         return;
       }
       
-      // Показать чат у всех участников (на случай, если был скрыт)
       await db.execute({ sql: 'UPDATE chat_members SET hidden = 0 WHERE chat_id = ?', args: [chat_id] });
       
-      // Вставка сообщения
       const info = await db.execute({ sql: 'INSERT INTO messages (chat_id, sender_id, text, file_url, file_type, file_name, reply_to_id) VALUES (?, ?, ?, ?, ?, ?, ?)', args: [chat_id, myId, clean, file_url || null, file_type || null, file_name || null, reply_to_id || null] });
       const msgId = Number(info.lastInsertRowid);
       LOG('SOCKET', `Сообщение ${msgId} сохранено в чат ${chat_id}`);
       
       const msg = await getMsgWithDetails(msgId);
       
-      // Отвечаем клиенту СРАЗУ, чтобы убрать "часики"
       if (callback) callback({ temp_id, msg });
 
-      // Рассылка всем участникам
       const members = await db.execute({ sql: 'SELECT user_id FROM chat_members WHERE chat_id = ?', args: [chat_id] });
       members.rows.forEach(m => {
         io.to('user_' + m.user_id).emit('new_message', msg);
