@@ -6,217 +6,243 @@
     <title>О мессенджере — Miksegram</title>
     <link rel="stylesheet" href="/style.css">
     <style>
-        /* ===== СПЕЦИАЛЬНЫЕ СТИЛИ ДЛЯ ОНБОРДИНГА ===== */
-        body { overflow: hidden; } /* Запрещаем скролл страницы */
-
+        /* ===== БАЗОВЫЕ СТИЛИ И ФОН ===== */
+        body { overflow: hidden; background: #03050a; }
+        
+        /* Делаем фон темнее для контраста */
+        .bg-layer { background: radial-gradient(circle at 50% 50%, #0a0f1c, #020305) !important; }
+        
         .onboarding-wrap {
             position: relative;
             z-index: 10;
             width: 100vw;
             height: 100vh;
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
             cursor: pointer;
             user-select: none;
+            overflow: hidden;
         }
 
-        /* Кнопка закрытия/назад */
+        /* Кнопка закрытия */
         .close-btn {
             position: absolute;
-            top: 24px;
-            left: 24px;
-            width: 46px;
-            height: 46px;
+            top: 24px; left: 24px;
+            width: 46px; height: 46px;
             border-radius: 50%;
             background: rgba(255,255,255,0.06);
-            border: 1px solid var(--border);
-            color: var(--text-dim);
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #a0a5c0;
+            display: flex; align-items: center; justify-content: center;
             transition: all 0.3s ease;
-            z-index: 50;
-            text-decoration: none;
+            z-index: 100; text-decoration: none;
         }
         .close-btn:hover {
-            background: rgba(255,255,255,0.12);
-            color: var(--text);
+            background: rgba(255,255,255,0.15); color: #fff;
             transform: scale(1.1) rotate(90deg);
-            box-shadow: 0 0 20px color-mix(in srgb, var(--accent) 40%, transparent);
+            box-shadow: 0 0 20px var(--accent);
         }
         .close-btn svg { width: 22px; height: 22px; }
 
-        /* Слайды */
+        /* ===== КОНТЕЙНЕР СЛАЙДОВ ===== */
         .slide {
             position: absolute;
             inset: 0;
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-            text-align: center;
-            padding: 40px;
             opacity: 0;
             visibility: hidden;
-            transform: translateY(30px) scale(0.95);
-            transition: opacity 0.6s cubic-bezier(0.2, 0.8, 0.2, 1), 
-                        transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1),
-                        visibility 0.6s;
+            transition: all 0.7s cubic-bezier(0.25, 1, 0.5, 1);
+            pointer-events: none;
         }
-        .slide.active {
-            opacity: 1;
-            visibility: visible;
-            transform: translateY(0) scale(1);
-        }
-        .slide.prev {
-            transform: translateY(-30px) scale(0.95);
+        
+        /* Анимация переключения: въезд с разных сторон */
+        .slide.active { opacity: 1; visibility: visible; pointer-events: auto; }
+        .slide.next-slide { transform: translateX(100px) scale(0.9); }
+        .slide.prev-slide { transform: translateX(-100px) scale(0.9); }
+        .slide.active.from-left { transform: translateX(0) scale(1); }
+        .slide.active.from-right { transform: translateX(0) scale(1); }
+
+        /* Стеклянная подложка для текста (чтобы не сливалось) */
+        .glass-panel {
+            background: rgba(10, 15, 25, 0.65);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 30px;
+            padding: 50px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+            max-width: 800px;
+            width: 90%;
+            text-align: center;
+            position: relative;
+            z-index: 10;
         }
 
-        /* Иконки */
-        .slide-icon {
-            width: 140px;
-            height: 140px;
-            margin-bottom: 40px;
-            color: var(--accent);
-            filter: drop-shadow(0 0 20px color-mix(in srgb, var(--accent) 40%, transparent));
-            transition: all 0.4s cubic-bezier(0.2, 0.9, 0.3, 1.5);
-            animation: floatIcon 4s ease-in-out infinite;
-        }
-        .slide-icon:hover {
-            transform: scale(1.15) rotate(5deg);
-            filter: drop-shadow(0 0 40px color-mix(in srgb, var(--accent) 70%, transparent));
-        }
-        @keyframes floatIcon {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-15px); }
-        }
-
-        /* Текст */
         .slide-title {
             font-family: 'Unbounded', sans-serif;
-            font-size: clamp(40px, 8vw, 72px);
+            font-size: clamp(32px, 6vw, 64px);
             font-weight: 800;
             line-height: 1.1;
             margin: 0 0 16px 0;
             background: var(--grad-aurora);
-            -webkit-background-clip: text;
-            background-clip: text;
+            -webkit-background-clip: text; background-clip: text;
             -webkit-text-fill-color: transparent;
-            transition: all 0.3s ease;
-            display: inline-block;
-        }
-        .slide-title:hover {
-            transform: translateY(-4px);
-            filter: drop-shadow(0 10px 20px rgba(0,0,0,0.5));
         }
         
         .slide-subtitle {
             font-family: 'Inter', sans-serif;
-            font-size: clamp(16px, 2vw, 22px);
-            color: var(--text-dim);
-            max-width: 600px;
-            line-height: 1.5;
+            font-size: clamp(16px, 2vw, 20px);
+            color: #d0d5f0;
             margin: 0;
-            transition: all 0.3s ease;
-        }
-        .slide-subtitle:hover { color: var(--text); }
-
-        /* Подсказка "Кликните" */
-        .click-hint {
-            position: absolute;
-            bottom: 40px;
-            font-size: 14px;
-            color: var(--text-mute);
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            animation: pulseHint 2s infinite;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .click-hint svg { width: 20px; height: 20px; }
-        @keyframes pulseHint {
-            0%, 100% { opacity: 0.4; transform: translateY(0); }
-            50% { opacity: 1; transform: translateY(-5px); }
+            line-height: 1.5;
         }
 
-        /* Финальная кнопка */
-        .action-btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 18px 48px;
-            border-radius: 16px;
-            background: var(--grad-aurora);
-            color: #06101c;
+        /* ===== СЦЕНА 1: ПЕЧАТНАЯ МАШИНКА ===== */
+        .typewriter-wrap { min-height: 120px; display: flex; align-items: center; justify-content: center; }
+        .typewriter-text {
             font-family: 'Unbounded', sans-serif;
-            font-size: 18px;
-            font-weight: 700;
-            text-decoration: none;
-            margin-top: 40px;
+            font-size: clamp(36px, 7vw, 72px);
+            font-weight: 800;
+            color: #fff;
+            text-shadow: 0 0 30px rgba(0, 212, 255, 0.4);
+            white-space: pre-wrap;
+        }
+        .cursor { display: inline-block; width: 4px; height: 1em; background: var(--accent); margin-left: 8px; animation: blink 1s step-end infinite; vertical-align: text-bottom; }
+        @keyframes blink { 50% { opacity: 0; } }
+
+        /* ===== СЦЕНА 2: МАКЕТ ЧАТА ===== */
+        .chat-mockup {
+            display: flex; flex-direction: column; gap: 12px;
+            max-width: 340px; margin: 0 auto; text-align: left;
+        }
+        .bubble {
+            padding: 12px 18px; border-radius: 18px; font-size: 14px;
+            opacity: 0; transform: translateY(20px);
+            animation: bubbleUp 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.2) forwards;
+            max-width: 85%;
+        }
+        .bubble.left { background: rgba(255,255,255,0.1); color: #fff; border-bottom-left-radius: 4px; align-self: flex-start; }
+        .bubble.right { background: var(--grad-aurora); color: #06101c; border-bottom-right-radius: 4px; align-self: flex-end; font-weight: 500; }
+        
+        .b1 { animation-delay: 0.5s; }
+        .b2 { animation-delay: 1.5s; }
+        .b3 { animation-delay: 2.5s; }
+        
+        .read-ticks { display: inline-flex; margin-left: 8px; color: #06101c; opacity: 0.6; width: 16px; height: 16px; vertical-align: middle; }
+        @keyframes bubbleUp { to { opacity: 1; transform: translateY(0); } }
+
+        /* ===== СЦЕНА 3: ДИАГРАММА СКОРОСТИ ===== */
+        .chart-container {
+            display: flex; align-items: flex-end; justify-content: center; gap: 12px;
+            height: 150px; margin-top: 30px;
+        }
+        .bar {
+            width: 30px; background: var(--accent); border-radius: 6px 6px 0 0;
+            height: 0; animation: growBar 0.8s cubic-bezier(0.2, 0.9, 0.3, 1.2) forwards;
+            box-shadow: 0 0 15px var(--accent);
+        }
+        .bar:nth-child(1) { animation-delay: 0.2s; height: 30%; opacity: 0.4; }
+        .bar:nth-child(2) { animation-delay: 0.4s; height: 50%; opacity: 0.6; }
+        .bar:nth-child(3) { animation-delay: 0.6s; height: 70%; opacity: 0.8; }
+        .bar:nth-child(4) { animation-delay: 0.8s; height: 100%; background: var(--grad-aurora); box-shadow: 0 0 25px var(--accent); }
+        @keyframes growBar { from { height: 0; } }
+
+        /* ===== СЦЕНА 4: ОРБИТА ИКОНОК ===== */
+        .orbit-system {
+            position: relative; width: 280px; height: 280px; margin: 0 auto;
+        }
+        .orbit-center {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            font-size: 60px; filter: drop-shadow(0 0 20px var(--accent));
+            animation: pulseCenter 2s infinite alternate;
+        }
+        .orbit-ring {
+            position: absolute; inset: 0;
+            animation: rotateOrbit 12s linear infinite;
+        }
+        .orbit-icon {
+            position: absolute; width: 50px; height: 50px;
+            background: rgba(255,255,255,0.1); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; font-size: 24px;
+            border: 1px solid rgba(255,255,255,0.2);
+            animation: counterRotate 12s linear infinite;
+            box-shadow: 0 0 15px rgba(0,0,0,0.5);
+        }
+        .orbit-icon:nth-child(1) { top: 0; left: 50%; transform: translate(-50%, -50%); }
+        .orbit-icon:nth-child(2) { bottom: 0; left: 50%; transform: translate(-50%, 50%); }
+        .orbit-icon:nth-child(3) { left: 0; top: 50%; transform: translate(-50%, -50%); }
+        .orbit-icon:nth-child(4) { right: 0; top: 50%; transform: translate(50%, -50%); }
+
+        @keyframes rotateOrbit { 100% { transform: rotate(360deg); } }
+        @keyframes counterRotate { 100% { transform: rotate(-360deg); } }
+        @keyframes pulseCenter { to { transform: translate(-50%, -50%) scale(1.1); } }
+
+        /* ===== СЦЕНА 5: ПАЛИТРА ===== */
+        .palette-row {
+            display: flex; gap: 15px; justify-content: center; margin-top: 30px;
+        }
+        .palette-color {
+            width: 40px; height: 40px; border-radius: 50%; cursor: pointer;
+            border: 3px solid transparent; transition: all 0.2s;
+        }
+        .palette-color:hover { transform: scale(1.2); }
+        .palette-color.active { border-color: #fff; box-shadow: 0 0 20px currentColor; transform: scale(1.2); }
+
+        /* ===== СЦЕНА 6: ПОРТАЛ ===== */
+        .portal-ring {
+            width: 160px; height: 160px; border-radius: 50%; margin: 0 auto 30px;
+            border: 4px solid var(--accent);
+            box-shadow: 0 0 50px var(--accent), inset 0 0 30px var(--accent);
+            animation: portalPulse 2s infinite alternate;
             position: relative;
-            overflow: hidden;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .portal-ring::after {
+            content: ''; position: absolute; inset: 10px; border-radius: 50%;
+            background: radial-gradient(circle, var(--accent) 0%, transparent 70%);
+            opacity: 0.5;
+        }
+        @keyframes portalPulse { to { box-shadow: 0 0 80px var(--accent), inset 0 0 50px var(--accent); } }
+
+        .action-btn {
+            display: inline-flex; align-items: center; justify-content: center;
+            padding: 18px 48px; border-radius: 16px;
+            background: var(--grad-aurora); color: #06101c;
+            font-family: 'Unbounded', sans-serif; font-size: 18px; font-weight: 700;
+            text-decoration: none; margin-top: 20px;
+            position: relative; overflow: hidden;
             box-shadow: 0 10px 30px color-mix(in srgb, var(--accent) 40%, transparent);
-            transition: all 0.3s ease;
-            cursor: pointer;
-            z-index: 20;
+            transition: all 0.3s ease; z-index: 20;
         }
         .action-btn:hover {
-            transform: translateY(-3px) scale(1.02);
+            transform: translateY(-3px) scale(1.05);
             box-shadow: 0 15px 40px color-mix(in srgb, var(--accent-2) 60%, transparent);
         }
-        .action-btn::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(120deg, transparent 20%, rgba(255,255,255,0.6) 50%, transparent 80%);
-            transform: translateX(-150%);
-            transition: transform 0.6s ease;
-        }
-        .action-btn:hover::before {
-            transform: translateX(150%);
-        }
 
-        /* Точки навигации */
-        .dots-nav {
-            position: absolute;
-            bottom: 30px;
-            display: flex;
-            gap: 12px;
-            z-index: 30;
+        /* ===== ПОДСКАЗКА (5 СЕКУНД) ===== */
+        .click-hint {
+            position: absolute; bottom: 30px;
+            font-size: 14px; color: rgba(255,255,255,0.4);
+            text-transform: uppercase; letter-spacing: 2px;
+            opacity: 0; transition: opacity 0.5s ease;
+            display: flex; align-items: center; gap: 10px;
+            pointer-events: none; z-index: 50;
         }
-        .dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: rgba(255,255,255,0.2);
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        .dot:hover {
-            background: rgba(255,255,255,0.5);
-            transform: scale(1.2);
-        }
-        .dot.active {
-            background: var(--accent);
-            box-shadow: 0 0 12px var(--accent);
-            transform: scale(1.3);
-        }
+        .click-hint.visible { opacity: 1; }
+        .click-hint svg { width: 20px; height: 20px; }
 
-        /* Адаптив */
         @media (max-width: 768px) {
-            .slide-icon { width: 100px; height: 100px; margin-bottom: 24px; }
-            .close-btn { top: 16px; left: 16px; width: 40px; height: 40px; }
-            .dots-nav { bottom: 20px; }
-            .click-hint { bottom: 60px; }
+            .glass-panel { padding: 30px 20px; border-radius: 20px; }
+            .orbit-system { transform: scale(0.8); }
             .action-btn { padding: 14px 32px; font-size: 16px; }
+            .click-hint { bottom: 20px; font-size: 12px; }
         }
     </style>
 </head>
 <body>
-    <!-- Фоновые слои (как в остальном приложении) -->
     <div class="bg-layer"></div>
     <div class="bg-blobs" id="bgBlobs">
         <div class="blob blob-1"></div><div class="blob blob-2"></div>
@@ -227,90 +253,94 @@
     <div class="stars" id="stars"></div>
     <div class="grain"></div>
 
-    <!-- Кнопка закрытия -->
     <a href="#" id="closeBtn" class="close-btn" title="Закрыть">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </a>
 
-    <!-- Контейнер онбординга -->
     <div class="onboarding-wrap" id="onboardingWrap">
         
-        <!-- Слайд 1: Приветствие -->
+        <!-- Слайд 1: Приветствие (Печатная машинка) -->
         <div class="slide active" data-index="0">
-            <svg class="slide-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-            </svg>
-            <h1 class="slide-title" id="greetingTitle">Привет</h1>
-            <p class="slide-subtitle" style="font-family: 'Unbounded'; font-size: 18px; letter-spacing: 4px; opacity: 0.6;">miksegram</p>
+            <div class="typewriter-wrap">
+                <div class="typewriter-text" id="typewriterText"></div>
+                <span class="cursor"></span>
+            </div>
         </div>
 
-        <!-- Слайд 2: Общайся свободно -->
+        <!-- Слайд 2: Живой чат -->
         <div class="slide" data-index="1">
-            <svg class="slide-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
-                <circle cx="12" cy="11.5" r="1.5" fill="currentColor"/>
-                <circle cx="8" cy="11.5" r="1.5" fill="currentColor"/>
-                <circle cx="16" cy="11.5" r="1.5" fill="currentColor"/>
-            </svg>
-            <h1 class="slide-title">Общайся свободно</h1>
-            <p class="slide-subtitle">Твой личный космос для общения с друзьями — без лишнего шума и ограничений.</p>
+            <div class="glass-panel">
+                <h1 class="slide-title">Общайся свободно</h1>
+                <p class="slide-subtitle" style="margin-bottom: 30px;">Твой личный космос для общения с друзьями — без лишнего шума.</p>
+                
+                <div class="chat-mockup">
+                    <div class="bubble left b1">Привет! Как дела?</div>
+                    <div class="bubble right b2">Отлично! Смотри что умеет Miksegram 
+                        <svg class="read-ticks" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 7 8 16 3 11"/><polyline points="22 7 13 16 11 14"/></svg>
+                    </div>
+                    <div class="bubble left b3">Вау, это же просто космос! 🚀</div>
+                </div>
+            </div>
         </div>
 
-        <!-- Слайд 3: Мгновенно -->
+        <!-- Слайд 3: Скорость (Диаграмма) -->
         <div class="slide" data-index="2">
-            <svg class="slide-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-            </svg>
-            <h1 class="slide-title">Мгновенно</h1>
-            <p class="slide-subtitle">Сообщения приходят за миллисекунды. Никаких задержек и перезагрузок страницы.</p>
+            <div class="glass-panel">
+                <h1 class="slide-title">Мгновенно</h1>
+                <p class="slide-subtitle">Сообщения приходят за миллисекунды. Никаких задержек.</p>
+                <div class="chart-container">
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                </div>
+            </div>
         </div>
 
-        <!-- Слайд 4: Больше, чем текст -->
+        <!-- Слайд 4: Возможности (Орбита) -->
         <div class="slide" data-index="3">
-            <svg class="slide-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/>
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-            </svg>
-            <h1 class="slide-title">Больше, чем текст</h1>
-            <p class="slide-subtitle">Файлы, фото, реакции и ответы на сообщения. Делись всем, чем хочешь.</p>
+            <div class="glass-panel">
+                <h1 class="slide-title">Больше, чем текст</h1>
+                <p class="slide-subtitle">Файлы, фото, реакции и ответы. Делись всем, чем хочешь.</p>
+                <div class="orbit-system" style="margin-top: 30px;">
+                    <div class="orbit-center">🚀</div>
+                    <div class="orbit-ring">
+                        <div class="orbit-icon">📎</div>
+                        <div class="orbit-icon">❤️</div>
+                        <div class="orbit-icon">📷</div>
+                        <div class="orbit-icon">😂</div>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <!-- Слайд 5: Твой стиль -->
+        <!-- Слайд 5: Стиль (Интерактивная палитра) -->
         <div class="slide" data-index="4">
-            <svg class="slide-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"/>
-                <path d="M12 2a10 10 0 0 0 0 20c1.5 0 2.5-1 2.5-2.5 0-1-.5-2-1.5-2.5 1-.5 1.5-1.5 1.5-2.5 0-1.5-1-2.5-2.5-2.5h-3c-1.5 0-2.5 1-2.5 2.5 0 1 1.5 1.5 1.5 2.5 0 1-1.5 1.5-1.5 2.5 0 1.5-1 2.5-2.5 2.5"/>
-                <circle cx="7" cy="9" r="1" fill="currentColor"/>
-                <circle cx="9" cy="5" r="1" fill="currentColor"/>
-                <circle cx="15" cy="5" r="1" fill="currentColor"/>
-                <circle cx="18" cy="9" r="1" fill="currentColor"/>
-            </svg>
-            <h1 class="slide-title">Твой стиль</h1>
-            <p class="slide-subtitle">Меняй фоны, акценты и эффекты. Ставь рамки на аватарки и неон на имя.</p>
+            <div class="glass-panel">
+                <h1 class="slide-title" id="styleTitle">Твой стиль</h1>
+                <p class="slide-subtitle">Меняй фоны, акценты и эффекты. Нажми на цвет, чтобы попробовать.</p>
+                <div class="palette-row" id="paletteRow">
+                    <div class="palette-color active" style="background: #00d4ff; color: #00d4ff;" data-accent="cyan"></div>
+                    <div class="palette-color" style="background: #a855f7; color: #a855f7;" data-accent="violet"></div>
+                    <div class="palette-color" style="background: #ff4ec7; color: #ff4ec7;" data-accent="pink"></div>
+                    <div class="palette-color" style="background: #00ffa3; color: #00ffa3;" data-accent="emerald"></div>
+                    <div class="palette-color" style="background: #ff7b00; color: #ff7b00;" data-accent="orange"></div>
+                </div>
+            </div>
         </div>
 
-        <!-- Слайд 6: Финал -->
+        <!-- Слайд 6: Финал (Портал) -->
         <div class="slide" data-index="5">
-            <svg class="slide-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M22 12A10 10 0 0 0 12 2a10 10 0 0 0 0 20 10 10 0 0 0 10-10z"/>
-                <path d="M12 6v6l4 2"/>
-            </svg>
-            <h1 class="slide-title">Готов начать?</h1>
-            <p class="slide-subtitle">Твой личный космос уже ждёт.</p>
-            <a href="/" id="finalBtn" class="action-btn">Перейти в чат</a>
+            <div class="glass-panel">
+                <div class="portal-ring">
+                    <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M12 6v6l4 2"/></svg>
+                </div>
+                <h1 class="slide-title">Готов начать?</h1>
+                <a href="/" id="finalBtn" class="action-btn">Перейти в чат</a>
+            </div>
         </div>
 
-        <!-- Точки навигации -->
-        <div class="dots-nav" id="dotsNav">
-            <div class="dot active" data-index="0"></div>
-            <div class="dot" data-index="1"></div>
-            <div class="dot" data-index="2"></div>
-            <div class="dot" data-index="3"></div>
-            <div class="dot" data-index="4"></div>
-            <div class="dot" data-index="5"></div>
-        </div>
-        
-        <!-- Подсказка "Кликните" -->
+        <!-- Подсказка -->
         <div class="click-hint" id="clickHint">
             <span>Кликните, чтобы продолжить</span>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
@@ -323,138 +353,156 @@
         initMagnetics();
 
         const slides = document.querySelectorAll('.slide');
-        const dots = document.querySelectorAll('.dot');
         const hint = document.getElementById('clickHint');
         const wrap = document.getElementById('onboardingWrap');
         const finalBtn = document.getElementById('finalBtn');
-        const greetingTitle = document.getElementById('greetingTitle');
         const closeBtn = document.getElementById('closeBtn');
         
         let currentIdx = 0;
-        let isLoggedIn = false;
-        let userDisplayName = '';
+        let hintTimer = null;
 
-        // 1. Проверяем, залогинен ли пользователь (чтобы поменять текст и кнопку)
+        // 1. Проверка авторизации и настройка текста
         fetch('/api/me')
             .then(r => r.json())
             .then(data => {
+                const name = data.ok ? data.display_name : '';
+                startTypewriter(name ? `Привет, ${name}!` : 'Привет!');
+                
                 if (data.ok) {
-                    isLoggedIn = true;
-                    userDisplayName = data.display_name;
-                    // Меняем приветствие
-                    greetingTitle.textContent = `Привет, ${userDisplayName}!`;
-                    // Меняем кнопку в конце
                     finalBtn.textContent = 'Перейти в чат';
                     finalBtn.href = '/';
-                    // Кнопка "Крестик" ведёт на главную
                     closeBtn.href = '/';
                 } else {
-                    isLoggedIn = false;
                     finalBtn.textContent = 'Войти';
                     finalBtn.href = '/login.html';
                     closeBtn.href = '/login.html';
                 }
             })
             .catch(() => {
-                // Если сеть упала — просто оставляем базовый текст
+                startTypewriter('Привет!');
                 finalBtn.textContent = 'Войти';
                 finalBtn.href = '/login.html';
                 closeBtn.href = '/login.html';
             });
 
-        // 2. Функция переключения слайдов
-        function goToSlide(index) {
-            if (index < 0 || index >= slides.length) return;
-            
-            // Убираем активный класс у всех
-            slides.forEach(s => s.classList.remove('active', 'prev'));
-            dots.forEach(d => d.classList.remove('active'));
-            
-            // Добавляем "prev" класс тем, кто слева (для анимации ухода вверх)
-            slides.forEach((s, i) => {
-                if (i < index) s.classList.add('prev');
-            });
+        // 2. Печатная машинка
+        function startTypewriter(text) {
+            const el = document.getElementById('typewriterText');
+            el.textContent = '';
+            let i = 0;
+            function type() {
+                if (i < text.length) {
+                    el.textContent += text.charAt(i);
+                    i++;
+                    setTimeout(type, 70);
+                }
+            }
+            type();
+        }
 
-            // Активируем нужный
-            slides[index].classList.add('active');
-            dots[index].classList.add('active');
-            
-            currentIdx = index;
-
-            // Скрываем подсказку и точки на последнем слайде
-            if (index === slides.length - 1) {
-                hint.style.opacity = '0';
-                hint.style.pointerEvents = 'none';
-            } else {
-                hint.style.opacity = '1';
-                hint.style.pointerEvents = 'auto';
+        // 3. Таймер подсказки (5 секунд)
+        function resetHintTimer() {
+            hint.classList.remove('visible');
+            clearTimeout(hintTimer);
+            // На последнем слайде не показываем подсказку
+            if (currentIdx < slides.length - 1) {
+                hintTimer = setTimeout(() => {
+                    hint.classList.add('visible');
+                }, 5000);
             }
         }
 
-        // 3. Обработка клика по экрану (но не по кнопкам/точкам)
+        // 4. Переключение слайдов
+        function goToSlide(index, direction = 'next') {
+            if (index < 0 || index >= slides.length) return;
+            
+            const currentSlide = slides[currentIdx];
+            const nextSlide = slides[index];
+            
+            if (currentIdx !== index) {
+                currentSlide.classList.remove('active', 'from-left', 'from-right');
+                currentSlide.classList.add(direction === 'next' ? 'prev-slide' : 'next-slide');
+                
+                nextSlide.classList.remove('prev-slide', 'next-slide', 'from-left', 'from-right');
+                nextSlide.classList.add('active', direction === 'next' ? 'from-right' : 'from-left');
+                
+                // Сброс анимаций внутренних элементов
+                if (index === 1) {
+                    document.querySelectorAll('.bubble').forEach(b => {
+                        b.style.animation = 'none'; b.offsetHeight; b.style.animation = '';
+                    });
+                }
+                if (index === 2) {
+                    document.querySelectorAll('.bar').forEach(b => {
+                        b.style.animation = 'none'; b.offsetHeight; b.style.animation = '';
+                    });
+                }
+            }
+            
+            currentIdx = index;
+            resetHintTimer();
+        }
+
+        // 5. Обработчик клика
         wrap.addEventListener('click', (e) => {
-            // Если кликнули на кнопку "Перейти", "Крестик" или точки — игнорируем
-            if (e.target.closest('a') || e.target.closest('.dot') || e.target.closest('.close-btn')) return;
+            if (e.target.closest('a') || e.target.closest('.palette-color') || e.target.closest('.close-btn')) return;
+            
+            // Если подсказка видна - убираем её при клике
+            hint.classList.remove('visible');
+            clearTimeout(hintTimer);
+
             if (currentIdx < slides.length - 1) {
-                goToSlide(currentIdx + 1);
+                goToSlide(currentIdx + 1, 'next');
             }
         });
 
-        // 4. Обработка клика по точкам
-        dots.forEach(dot => {
-            dot.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const idx = parseInt(dot.dataset.index);
-                goToSlide(idx);
-            });
-        });
-
-        // 5. Обработка клавиатуры (Стрелки и Escape)
+        // 6. Клавиатура
         document.addEventListener('keydown', (e) => {
             if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
-                if (currentIdx < slides.length - 1) goToSlide(currentIdx + 1);
+                if (currentIdx < slides.length - 1) goToSlide(currentIdx + 1, 'next');
             } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-                if (currentIdx > 0) goToSlide(currentIdx - 1);
+                if (currentIdx > 0) goToSlide(currentIdx - 1, 'prev');
             } else if (e.key === 'Escape') {
                 closeBtn.click();
             }
         });
 
-        // 6. Свайпы для телефона (Touch Events)
+        // 7. Свайпы
         let touchStartX = 0;
-        let touchEndX = 0;
-        
-        wrap.addEventListener('touchstart', e => {
-            touchStartX = e.changedTouches[0].screenX;
-        }, { passive: true });
-
+        wrap.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
         wrap.addEventListener('touchend', e => {
-            touchEndX = e.changedTouches[0].screenX;
-            handleSwipe();
+            const touchEndX = e.changedTouches[0].screenX;
+            if (touchEndX < touchStartX - 50) { if (currentIdx < slides.length - 1) goToSlide(currentIdx + 1, 'next'); }
+            if (touchEndX > touchStartX + 50) { if (currentIdx > 0) goToSlide(currentIdx - 1, 'prev'); }
         }, { passive: true });
 
-        function handleSwipe() {
-            const swipeThreshold = 50;
-            if (touchEndX < touchStartX - swipeThreshold) {
-                // Свайп влево -> следующий слайд
-                if (currentIdx < slides.length - 1) goToSlide(currentIdx + 1);
-            }
-            if (touchEndX > touchStartX + swipeThreshold) {
-                // Свайп вправо -> предыдущий слайд
-                if (currentIdx > 0) goToSlide(currentIdx - 1);
-            }
-        }
-
-        // 7. Параллакс фона за курсором (только на ПК)
+        // 8. Параллакс фона
         document.addEventListener('mousemove', (e) => {
-            if (window.innerWidth <= 768) return; // На телефоне не грузим
-            const x = (e.clientX / window.innerWidth - 0.5) * 20;
-            const y = (e.clientY / window.innerHeight - 0.5) * 20;
+            if (window.innerWidth <= 768) return;
+            const x = (e.clientX / window.innerWidth - 0.5) * 30;
+            const y = (e.clientY / window.innerHeight - 0.5) * 30;
             document.querySelectorAll('.blob').forEach((blob, i) => {
                 const speed = (i + 1) * 0.5;
                 blob.style.transform = `translate(${x * speed}px, ${y * speed}px)`;
             });
         });
+
+        // 9. Интерактивная палитра (Слайд 5)
+        document.querySelectorAll('.palette-color').forEach(color => {
+            color.addEventListener('click', (e) => {
+                e.stopPropagation();
+                document.querySelectorAll('.palette-color').forEach(c => c.classList.remove('active'));
+                color.classList.add('active');
+                
+                // Меняем глобальный акцент на лету
+                const accentKey = color.dataset.accent;
+                if (accentKey === 'cyan') delete document.body.dataset.accent;
+                else document.body.dataset.accent = accentKey;
+            });
+        });
+
+        // Старт таймера при загрузке
+        resetHintTimer();
     </script>
 </body>
 </html>
