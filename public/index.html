@@ -12,6 +12,23 @@
         @keyframes chatFadeIn { from { opacity: 0.2; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
         .msg.reaction-pop { animation: reactionPop 0.15s ease; }
         @keyframes reactionPop { 50% { transform: scale(1.03); } }
+
+        /* Стили для логотипа на пустом экране */
+        .empty-logo {
+            width: 140px;
+            height: 140px;
+            margin-bottom: 16px;
+            animation: logoFloat 4s ease-in-out infinite, logoGlow 3s ease-in-out infinite alternate;
+            z-index: 1;
+        }
+        @keyframes logoFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-12px); }
+        }
+        @keyframes logoGlow {
+            from { filter: drop-shadow(0 0 20px var(--accent)); }
+            to { filter: drop-shadow(0 0 60px var(--accent-2)); }
+        }
     </style>
 </head>
 <body>
@@ -69,7 +86,7 @@
         </div>
         <div class="chat-body" id="chatBody">
             <div class="empty-state" id="emptyState">
-                <div class="empty-orb"></div>
+                <img src="/logo.svg" alt="Miksegram" class="empty-logo">
                 <div class="empty-title">Miksegram</div>
                 <div class="empty-text">Найдите друга по @логину или создайте группу</div>
             </div>
