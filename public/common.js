@@ -58,12 +58,42 @@ function requestNotifications() {
 (function applyStoredSettings() {
     document.body.dataset.theme = 'cosmos';
     
+    // Применяем МОЙ акцент
     const accent = localStorage.getItem('accent');
-    if (accent && accent !== 'default') document.body.dataset.accent = accent;
+    if (accent && accent !== 'default' && accent !== 'cyan') {
+        document.body.dataset.accent = accent;
+        // Если это HEX-код (из новой палитры)
+        if (accent.startsWith('#')) {
+            document.documentElement.style.setProperty('--accent', accent);
+            // Делаем второй цвет чуть темнее для градиента
+            document.documentElement.style.setProperty('--accent-2', `color-mix(in srgb, ${accent} 60%, #000)`);
+        }
+    } else if (accent && accent.startsWith('#')) {
+         document.documentElement.style.setProperty('--accent', accent);
+    }
     
+    // Применяем АКЦЕНТ СОБЕДНИКА
+    const otherAccent = localStorage.getItem('interlocutor-accent');
+    if (otherAccent && otherAccent !== 'none') {
+        document.documentElement.style.setProperty('--interlocutor-accent', otherAccent);
+        document.body.setAttribute('data-other-accent', otherAccent);
+    } else {
+        document.body.removeAttribute('data-other-accent');
+        document.documentElement.style.removeProperty('--interlocutor-accent');
+    }
+
+    // Двойной фон
+    if (localStorage.getItem('dual-bg-accent') === 'on') {
+        document.body.classList.add('dual-accent-bg');
+    } else {
+        document.body.classList.remove('dual-accent-bg');
+    }
+
+    // Пресет фона
     const bgPreset = localStorage.getItem('bg-preset') || 'cosmos';
     document.body.dataset.bg = bgPreset;
 
+    // Прозрачность
     const sidebarOpacity = localStorage.getItem('sidebar-opacity') || '0.55';
     const chatOpacity = localStorage.getItem('chat-opacity') || '0.85';
     document.documentElement.style.setProperty('--sidebar-opacity', sidebarOpacity);

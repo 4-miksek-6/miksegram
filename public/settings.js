@@ -6,22 +6,26 @@ const BG_PRESETS = [
     { key: 'ocean', label: 'Океан' }
 ];
 
+// 18 цветов по спектру (от красного к белому)
 const ACCENTS = [
-    { key: 'default', label: 'Аврора', color: '#00d4ff' },
-    { key: 'emerald', label: 'Изумруд', color: '#00ffa3' },
-    { key: 'cyan', label: 'Бирюза', color: '#00d4ff' },
-    { key: 'blue', label: 'Голубой', color: '#4d9fff' },
-    { key: 'violet', label: 'Фиолет', color: '#a855f7' },
-    { key: 'lavender', label: 'Лаванда', color: '#b794f6' },
-    { key: 'pink', label: 'Розовый', color: '#ff4ec7' },
-    { key: 'magenta', label: 'Малина', color: '#ff2d95' },
-    { key: 'red', label: 'Красный', color: '#ff3b3b' },
-    { key: 'orange', label: 'Оранжевый', color: '#ff7b00' },
-    { key: 'amber', label: 'Янтарь', color: '#ffb347' },
-    { key: 'yellow', label: 'Желтый', color: '#facc15' },
-    { key: 'lime', label: 'Лайм', color: '#b8ff00' },
-    { key: 'gold', label: 'Золото', color: '#ffd700' },
-    { key: 'white', label: 'Белый', color: '#ffffff' }
+    { key: '#ff3b3b', label: 'Красный' },
+    { key: '#ff7b7b', label: 'Коралловый' },
+    { key: '#ff7b00', label: 'Оранжевый' },
+    { key: '#ffb347', label: 'Янтарный' },
+    { key: '#facc15', label: 'Желтый' },
+    { key: '#b8ff00', label: 'Лайм' },
+    { key: '#22c55e', label: 'Зеленый' },
+    { key: '#00ffa3', label: 'Изумрудный' },
+    { key: '#20b2aa', label: 'Бирюзовый' },
+    { key: '#00d4ff', label: 'Голубой' },
+    { key: '#4d9fff', label: 'Небесный' },
+    { key: '#3b82f6', label: 'Синий' },
+    { key: '#6366f1', label: 'Индиго' },
+    { key: '#a855f7', label: 'Фиолетовый' },
+    { key: '#c084fc', label: 'Пурпурный' },
+    { key: '#ff4ec7', label: 'Розовый' },
+    { key: '#ff2d95', label: 'Малиновый' },
+    { key: '#ffffff', label: 'Белый' }
 ];
 
 const AVATAR_FRAMES = [
@@ -45,7 +49,6 @@ function buildSettingsUI() {
         <div class="settings-layout" id="settingsLayout">
             <div class="settings-sidebar">
                 
-                <!-- Логотип в настройках -->
                 <div style="display:flex; align-items:center; gap:10px; padding: 8px 16px 16px 16px; border-bottom: 1px solid var(--border); margin-bottom: 12px;">
                     <img src="/logo.svg" alt="Miksegram" style="width: 32px; height: 32px; filter: drop-shadow(0 0 10px var(--accent));">
                     <span style="font-family: 'Unbounded'; font-weight: 700; font-size: 15px; color: var(--text); letter-spacing: 0.5px;">Miksegram</span>
@@ -332,27 +335,41 @@ function buildSettingsUI() {
         if (tabName === 'appearance') {
             layout.classList.add('no-preview');
             const currentBg = localStorage.getItem('bg-preset') || 'cosmos';
-            
             const savedSidebarOpacity = localStorage.getItem('sidebar-opacity') || '0.55';
             const savedChatOpacity = localStorage.getItem('chat-opacity') || '0.85';
+            const currentAccent = localStorage.getItem('accent') || '#00d4ff';
+            const currentOtherAccent = localStorage.getItem('interlocutor-accent') || 'none';
+            const isDualBg = localStorage.getItem('dual-bg-accent') === 'on';
 
             content.innerHTML = `
                 <div class="settings-section">
                     <div class="settings-label" style="margin-bottom: 8px;">Фон приложения</div>
                     <div class="preset-grid" id="presetGrid"></div>
                 </div>
-                <div class="settings-section" style="margin-top:16px;">
-                    <div class="settings-label" style="margin-bottom: 8px;">Цветовой акцент</div>
-                    <div class="accent-grid" id="accentGrid"></div>
+
+                <div class="settings-section" style="margin-top:24px;">
+                    <div class="settings-label" style="margin-bottom: 8px;">МОЙ АКЦЕНТ (Мои сообщения)</div>
+                    <div class="accent-grid" id="accentGridMine"></div>
                 </div>
+
+                <div class="settings-section" style="margin-top:24px;">
+                    <div class="settings-label" style="margin-bottom: 8px;">АКЦЕНТ СОБЕДНИКА (Его сообщения)</div>
+                    <div class="accent-grid" id="accentGridOther"></div>
+                </div>
+
+                <div class="settings-section" style="margin-top:16px;">
+                    <label class="toggle-row">
+                        <span>🎨 Смешивать цвета на фоне</span>
+                        <input type="checkbox" id="toggle-dual-bg" ${isDualBg ? 'checked' : ''}><span class="toggle-switch"></span>
+                    </label>
+                </div>
+
                 <div class="settings-section" style="margin-top:24px;">
                     <div class="settings-label" style="margin-bottom: 8px;">Прозрачность интерфейса</div>
-                    
                     <div class="opacity-control">
                         <span>Левое меню (чаты): <span id="val-sidebar">${Math.round(savedSidebarOpacity * 100)}%</span></span>
                         <input type="range" min="0.1" max="1.0" step="0.05" value="${savedSidebarOpacity}" id="sidebarOpacity" class="opacity-slider">
                     </div>
-                    
                     <div class="opacity-control" style="margin-top:12px;">
                         <span>Область чата: <span id="val-chat">${Math.round(savedChatOpacity * 100)}%</span></span>
                         <input type="range" min="0.1" max="1.0" step="0.05" value="${savedChatOpacity}" id="chatOpacity" class="opacity-slider">
@@ -379,6 +396,18 @@ function buildSettingsUI() {
                 valChat.textContent = Math.round(val * 100) + '%';
             });
 
+            // Переключатель двойного фона
+            document.getElementById('toggle-dual-bg').addEventListener('change', (e) => {
+                if (e.target.checked) {
+                    document.body.classList.add('dual-accent-bg');
+                    localStorage.setItem('dual-bg-accent', 'on');
+                } else {
+                    document.body.classList.remove('dual-accent-bg');
+                    localStorage.setItem('dual-bg-accent', 'off');
+                }
+            });
+
+            // Пресеты фонов
             const presetGrid = document.getElementById('presetGrid');
             BG_PRESETS.forEach(p => {
                 const btn = document.createElement('div');
@@ -390,7 +419,6 @@ function buildSettingsUI() {
                 btn.addEventListener('click', () => {
                     document.body.dataset.bg = p.key;
                     localStorage.setItem('bg-preset', p.key);
-                    
                     document.querySelectorAll('#presetGrid .preset-card').forEach(x => x.classList.remove('active'));
                     btn.classList.add('active');
                     showToast('Фон: ' + p.label);
@@ -398,26 +426,69 @@ function buildSettingsUI() {
                 presetGrid.appendChild(btn);
             });
 
-            const accentGrid = document.getElementById('accentGrid');
+            // Мой акцент
+            const accentGridMine = document.getElementById('accentGridMine');
             ACCENTS.forEach(a => {
                 const btn = document.createElement('button');
-                btn.className = 'color-circle';
-                btn.style.background = a.color;
-                btn.style.color = a.color; 
-                
-                if ((document.body.dataset.accent || 'default') === a.key) btn.classList.add('active');
+                btn.className = 'color-circle' + (currentAccent === a.key ? ' active' : '');
+                btn.style.background = a.key;
+                btn.style.color = a.key;
+                btn.title = a.label;
 
                 btn.addEventListener('click', () => {
-                    if (a.key === 'default') delete document.body.dataset.accent;
-                    else document.body.dataset.accent = a.key;
-                    localStorage.setItem('accent', a.key);
-                    
-                    document.querySelectorAll('#accentGrid .color-circle').forEach(x => x.classList.remove('active'));
+                    document.querySelectorAll('#accentGridMine .color-circle').forEach(x => x.classList.remove('active'));
                     btn.classList.add('active');
-                    showToast('Акцент: ' + a.label);
+                    
+                    localStorage.setItem('accent', a.key);
+                    document.documentElement.style.setProperty('--accent', a.key);
+                    document.documentElement.style.setProperty('--accent-2', `color-mix(in srgb, ${a.key} 60%, #000)`);
+                    
+                    document.body.removeAttribute('data-accent'); // Убираем старые классы
                 });
-                accentGrid.appendChild(btn);
+                accentGridMine.appendChild(btn);
             });
+
+            // Акцент собеседника
+            const accentGridOther = document.getElementById('accentGridOther');
+            
+            // Добавляем кнопку "Без" в конец
+            const noneBtn = document.createElement('button');
+            noneBtn.className = 'color-circle' + (currentOtherAccent === 'none' ? ' active' : '');
+            noneBtn.style.background = '#333'; // Тёмно-серый
+            noneBtn.style.color = '#888';
+            noneBtn.innerHTML = '✕';
+            noneBtn.title = 'Без акцента';
+            
+            noneBtn.addEventListener('click', () => {
+                document.querySelectorAll('#accentGridOther .color-circle').forEach(x => x.classList.remove('active'));
+                noneBtn.classList.add('active');
+                
+                localStorage.setItem('interlocutor-accent', 'none');
+                document.body.removeAttribute('data-other-accent');
+                document.documentElement.style.removeProperty('--interlocutor-accent');
+            });
+            
+            // Сначала рендерим цвета
+            ACCENTS.forEach(a => {
+                const btn = document.createElement('button');
+                btn.className = 'color-circle' + (currentOtherAccent === a.key ? ' active' : '');
+                btn.style.background = a.key;
+                btn.style.color = a.key;
+                btn.title = a.label;
+
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('#accentGridOther .color-circle').forEach(x => x.classList.remove('active'));
+                    btn.classList.add('active');
+                    
+                    localStorage.setItem('interlocutor-accent', a.key);
+                    document.body.setAttribute('data-other-accent', a.key);
+                    document.documentElement.style.setProperty('--interlocutor-accent', a.key);
+                });
+                accentGridOther.appendChild(btn);
+            });
+            
+            // И в конце добавляем "Без"
+            accentGridOther.appendChild(noneBtn);
         }
 
         if (tabName === 'notifications') {

@@ -8,27 +8,36 @@
     --grad-aurora: linear-gradient(135deg, #00ffa3 0%, #00d4ff 25%, #4d9fff 45%, #a855f7 70%, #ff4ec7 100%);
     --grad-cyan: linear-gradient(135deg, #00d4ff, #4d9fff);
     --shadow-soft: 0 8px 32px rgba(0,0,0,0.45); --shadow-glow: 0 0 32px rgba(168,85,247,0.35);
-    --accent: #00d4ff; --accent-2: #a855f7;
-    --custom-glow-color: #00d4ff;
+    
+    --accent: #00d4ff; 
+    --accent-2: #a855f7;
+    --interlocutor-accent: #a855f7; /* Цвет собеседника (по умолчанию фиолетовый для фона) */
     
     --sidebar-opacity: 0.55;
     --chat-opacity: 0.85;
 }
 
-body[data-accent="emerald"] { --accent: #00ffa3; --accent-2: #7dffce; }
-body[data-accent="cyan"] { --accent: #00d4ff; --accent-2: #4d9fff; }
-body[data-accent="blue"] { --accent: #4d9fff; --accent-2: #00d4ff; }
-body[data-accent="violet"] { --accent: #a855f7; --accent-2: #b794f6; }
-body[data-accent="lavender"] { --accent: #b794f6; --accent-2: #4d9fff; }
-body[data-accent="pink"] { --accent: #ff4ec7; --accent-2: #ff2d95; }
-body[data-accent="magenta"] { --accent: #ff2d95; --accent-2: #ff4ec7; }
-body[data-accent="red"] { --accent: #ff3b3b; --accent-2: #ff7b00; }
-body[data-accent="orange"] { --accent: #ff7b00; --accent-2: #facc15; }
-body[data-accent="amber"] { --accent: #ffb347; --accent-2: #ff512f; }
-body[data-accent="yellow"] { --accent: #facc15; --accent-2: #b8ff00; }
-body[data-accent="lime"] { --accent: #b8ff00; --accent-2: #00ffa3; }
-body[data-accent="gold"] { --accent: #ffd700; --accent-2: #ffb347; }
-body[data-accent="white"] { --accent: #ffffff; --accent-2: #a3a3a3; }
+/* Если выбраны 18 цветов, JS будет менять эти переменные. 
+   Для собеседника мы будем использовать атрибут data-other-accent на body */
+body[data-other-accent] .msg:not(.own) {
+    background: color-mix(in srgb, var(--interlocutor-accent) 20%, transparent) !important;
+    border-color: var(--interlocutor-accent) !important;
+}
+body[data-other-accent] .msg:not(.own) .msg-time {
+    color: var(--interlocutor-accent) !important;
+    text-shadow: 0 0 6px color-mix(in srgb, var(--interlocutor-accent) 70%, transparent) !important;
+}
+
+/* Анимация для двойного фона (когда включен тумблер) */
+body.dual-accent-bg .blob-1,
+body.dual-accent-bg .blob-3 { background: radial-gradient(circle, var(--accent), transparent 65%); }
+body.dual-accent-bg .blob-2,
+body.dual-accent-bg .blob-4 { background: radial-gradient(circle, var(--interlocutor-accent), transparent 65%); }
+body.dual-accent-bg .bg-layer {
+    background: radial-gradient(ellipse at 20% 10%, color-mix(in srgb, var(--accent) 20%, transparent), transparent 55%), 
+                radial-gradient(ellipse at 80% 90%, color-mix(in srgb, var(--interlocutor-accent) 18%, transparent), transparent 55%), 
+                linear-gradient(180deg, var(--bg-0), #000);
+}
 
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
@@ -39,7 +48,7 @@ body.no-anim * { animation: none !important; transition: none !important; }
 /* --- ФОНОВЫЕ СЛОИ --- */
 .bg-layer { position: fixed; inset: 0; background: radial-gradient(ellipse at 20% 10%, color-mix(in srgb, var(--accent) 20%, transparent), transparent 55%), radial-gradient(ellipse at 80% 90%, color-mix(in srgb, var(--accent-2) 18%, transparent), transparent 55%), linear-gradient(180deg, var(--bg-0), #000); z-index: -5; transition: background 0.4s; }
 .bg-blobs { position: fixed; inset: 0; overflow: hidden; z-index: -4; filter: blur(60px); opacity: 0.55; transition: opacity 0.4s; }
-.blob { position: absolute; border-radius: 50%; will-change: transform; }
+.blob { position: absolute; border-radius: 50%; will-change: transform; transition: background 0.8s ease; }
 .blob-1 { width: 520px; height: 520px; background: radial-gradient(circle, var(--accent), transparent 65%); top: -100px; left: -80px; animation: float1 22s infinite; }
 .blob-2 { width: 620px; height: 620px; background: radial-gradient(circle, var(--accent-2), transparent 65%); top: 30%; left: 40%; animation: float2 28s infinite; }
 .blob-3 { width: 480px; height: 480px; background: radial-gradient(circle, var(--accent), transparent 65%); bottom: -120px; right: -60px; animation: float3 26s infinite; }
@@ -124,12 +133,12 @@ body[data-bg="ocean"] .bg-blobs { opacity: 0.8; filter: blur(80px) hue-rotate(20
 .empty-text { color: var(--text-dim); font-size: 14px; }
 
 .messages-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
-.msg { max-width: 70%; padding: 10px 14px; border-radius: 16px; background: rgba(255,255,255,0.055); border: 1px solid var(--border); align-self: flex-start; animation: msgIn 0.35s both; word-wrap: break-word; position: relative; cursor: pointer; }
+.msg { max-width: 70%; padding: 10px 14px; border-radius: 16px; background: rgba(255,255,255,0.055); border: 1px solid var(--border); align-self: flex-start; animation: msgIn 0.35s both; word-wrap: break-word; position: relative; cursor: pointer; transition: background 0.3s, border-color 0.3s; }
 @keyframes msgIn { from { opacity: 0; transform: translateY(10px); } }
 .msg.own { align-self: flex-end; background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 25%, transparent), color-mix(in srgb, var(--accent-2) 25%, transparent)); border-color: var(--accent); }
 .msg-from { font-family: 'Unbounded'; font-size: 11px; font-weight: 600; margin-bottom: 3px; }
 .msg-text { font-size: 14px; line-height: 1.45; white-space: pre-wrap; word-break: break-word; }
-.msg-time { font-size: 10px; color: var(--text-mute); margin-top: 4px; text-align: right; display: flex; justify-content: flex-end; align-items: center; gap: 4px; }
+.msg-time { font-size: 10px; margin-top: 4px; text-align: right; display: flex; justify-content: flex-end; align-items: center; gap: 4px; color: var(--accent); text-shadow: 0 0 6px color-mix(in srgb, var(--accent) 70%, transparent); opacity: 0.95; font-weight: 500; }
 
 .read-status { display: inline-flex; align-items: center; justify-content: center; margin-left: 4px; color: var(--text-mute); }
 .read-status.read { color: var(--accent); filter: drop-shadow(0 0 4px var(--accent)); }
@@ -220,11 +229,11 @@ body[data-bg="ocean"] .bg-blobs { opacity: 0.8; filter: blur(80px) hue-rotate(20
 .group-user-row .avatar { width: 40px; height: 40px; font-size: 16px; }
 .group-user-row span { font-size: 14px; color: var(--text); line-height: 1.3; }
 
-.accent-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(50px, 1fr)); gap: 16px; width: 100%; max-width: 600px; }
-.color-circle { width: 46px; height: 46px; border-radius: 50%; border: 3px solid transparent; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; }
+.accent-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); gap: 12px; width: 100%; max-width: 600px; }
+.color-circle { width: 40px; height: 40px; border-radius: 50%; border: 3px solid transparent; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; position: relative; }
 .color-circle:hover { transform: scale(1.1); }
 .color-circle.active { border-color: #fff; box-shadow: 0 0 20px currentColor; transform: scale(1.1); }
-.color-circle::after { content: '✓'; color: #fff; font-weight: bold; font-size: 20px; opacity: 0; text-shadow: 0 1px 4px rgba(0,0,0,0.8); }
+.color-circle::after { content: '✓'; color: #fff; font-weight: bold; font-size: 18px; opacity: 0; text-shadow: 0 1px 4px rgba(0,0,0,0.8); }
 .color-circle.active::after { opacity: 1; }
 
 .toggle-list { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 550px; }
@@ -445,7 +454,6 @@ input[type="color"]::-webkit-color-swatch { border: 2px solid var(--border-hi); 
     .settings-controls-col { padding: 16px; }
     .chat-header { padding: 10px 14px; }
 
-    /* Лайтбокс на мобилке */
     .lightbox { padding: 16px; }
     .lightbox img { border-radius: 8px; max-width: 100%; max-height: 85%; }
     .lightbox-close { top: 12px; right: 12px; width: 40px; height: 40px; }
