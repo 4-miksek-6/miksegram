@@ -14,7 +14,7 @@
 <div class="stars" id="stars"></div>
 <div class="grain"></div>
 
-<div class="profile-page">
+<div class="profile-page" style="max-width: 640px; margin: 0 auto; padding: 20px; height: 100vh; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; position: relative; z-index: 1;">
     <div class="profile-topbar">
         <button class="icon-btn" id="backBtn" title="Назад"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></button>
     </div>
@@ -46,41 +46,50 @@
 
     const userId = window.location.pathname.split('/').pop();
     let userData = null;
+    let myId = null;
 
     if (!userId || isNaN(parseInt(userId))) {
         window.location.href = '/';
     }
 
-    fetch('/api/user/' + userId)
-        .then(r => r.json())
-        .then(data => {
-            if (!data.ok) { 
-                window.location.href = '/'; 
-                return; 
-            }
-            userData = data.user;
-            
-            applyAvatarTo(document.getElementById('profileAvatar'), userData.avatar, userData.display_name, userData.avatar_frame);
-            
-            const nameEl = document.getElementById('profileName');
-            nameEl.textContent = userData.display_name;
-            applyNameEffect(nameEl, userData.name_effect);
-            
-            document.getElementById('profileLogin').textContent = '@' + userData.login;
-            document.getElementById('profileBio').textContent = userData.bio || 'Пока ничего не рассказал(а) о себе';
-            applyBannerTo(document.getElementById('profileBanner'), userData.banner);
-        })
-        .catch(() => {
-            showToast('Ошибка сети. Попробуй обновить страницу.');
-        });
+    Promise.all([
+        fetch('/api/me').then(r => r.json()).catch(() => ({ ok: false })),
+        fetch('/api/user/' + userId).then(r => r.json())
+    ]).then(([meData, userDataRes]) => {
+        if (meData.ok) myId = meData.id;
+
+        if (!userDataRes.ok) { 
+            window.location.href = '/'; 
+            return; 
+        }
+        userData = userDataRes.user;
+        
+        applyAvatarTo(document.getElementById('profileAvatar'), userData.avatar, userData.display_name, userData.avatar_frame);
+        
+        const nameEl = document.getElementById('profileName');
+        nameEl.textContent = userData.display_name;
+        applyNameEffect(nameEl, userData.name_effect);
+        
+        document.getElementById('profileLogin').textContent = '@' + userData.login;
+        document.getElementById('profileBio').textContent = userData.bio || 'Пока ничего не рассказал(а) о себе';
+        applyBannerTo(document.getElementById('profileBanner'), userData.banner);
+
+        // Настройка кнопки
+        const writeBtn = document.getElementById('writeMsgBtn');
+        if (parseInt(userId) === myId) {
+            writeBtn.textContent = 'Перейти в Избранное';
+            writeBtn.onclick = () => { window.location.href = '/'; };
+        } else {
+            writeBtn.textContent = 'Написать сообщение';
+            writeBtn.onclick = () => { window.location.href = '/?write_to=' + userId; };
+        }
+    }).catch(() => {
+        showToast('Ошибка сети. Попробуй обновить страницу.');
+    });
 
     document.getElementById('backBtn').addEventListener('click', () => {
         if (document.referrer && document.referrer.includes(location.host)) history.back();
         else window.location.href = '/';
-    });
-    
-    document.getElementById('writeMsgBtn').addEventListener('click', () => {
-        window.location.href = '/?write_to=' + userId;
     });
 
     document.getElementById('profileLogin').addEventListener('click', () => {

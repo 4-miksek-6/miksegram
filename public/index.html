@@ -525,10 +525,9 @@
             const preview = isOwnLast ? 'Ты: ' + previewText : previewText;
             const unread = c.unread_count > 0;
             
-            // Если это Избранное
             let avatarHtml = `<div class="avatar" id="c-avatar-${c.id}">?</div>`;
             if (c.type === 'saved') {
-                avatarHtml = `<div class="avatar" id="c-avatar-${c.id}" style="background: var(--grad-aurora); display:flex; align-items:center; justify-content:center; color:#06101c; font-size:20px;">💾</div>`;
+                avatarHtml = `<div class="avatar" id="c-avatar-${c.id}" style="background: linear-gradient(135deg, #2a2a35, #0a0a0f); display:flex; align-items:center; justify-content:center; color:#fff; font-size:20px; border: 1px solid rgba(255,255,255,0.1);">💾</div>`;
             }
 
             el.innerHTML = `
@@ -560,13 +559,16 @@
     }
 
     async function startEmptyChat(otherId) {
+        // Если перешли на самого себя — открываем Избранное
         if (otherId === myId) {
-            // Если пытаемся открыть чат с самим собой — открываем Избранное
+            await loadChats(); // Обязательно ждем загрузки чатов
             const savedChat = chatsData.find(c => c.type === 'saved');
             if (savedChat) {
                 openChat(savedChat.id, savedChat.name, savedChat.avatar, 'saved', null, '', null, 'none', 'none', 0);
-                return;
+            } else {
+                showToast('Избранное не найдено. Обновите страницу.');
             }
+            return;
         }
 
         if (activeChatId === null && activeOtherId === otherId) return;
@@ -606,7 +608,6 @@
     function openChat(chatId, name, avatar, type, otherId = null, login = '', last_seen = null, avatar_frame = 'none', name_effect = 'none', other_last_read = 0) {
         if (activeChatId === chatId && activeChat) return;
 
-        // Оптимистично обнуляем счетчик непрочитанных
         const chatData = chatsData.find(x => x.id === chatId);
         if (chatData && chatData.unread_count > 0) {
             chatData.unread_count = 0;
@@ -629,12 +630,13 @@
         chatAvatar.style.display = 'flex';
         if (type === 'saved') {
             chatAvatar.innerHTML = '💾';
-            chatAvatar.style.background = 'var(--grad-aurora)';
+            chatAvatar.style.background = 'linear-gradient(135deg, #2a2a35, #0a0a0f)';
             chatAvatar.style.display = 'flex';
             chatAvatar.style.alignItems = 'center';
             chatAvatar.style.justifyContent = 'center';
             chatAvatar.style.fontSize = '20px';
-            chatAvatar.style.color = '#06101c';
+            chatAvatar.style.color = '#fff';
+            chatAvatar.style.border = '1px solid rgba(255,255,255,0.1)';
         } else {
             applyAvatarTo(chatAvatar, avatar, name, avatar_frame);
         }
@@ -799,7 +801,11 @@
     function renderMessages(animateSwitch = false) {
         messagesListEl.innerHTML = '';
         if (!messages.length) {
-            messagesListEl.innerHTML = '<div class="chat-empty-msg">Сообщений пока нет. Напишите первым!</div>';
+            let emptyText = 'Сообщений пока нет. Напишите первым!';
+            if (activeChat && activeChat.type === 'saved') {
+                emptyText = 'Здесь ваши личные заметки и сохранённые сообщения.';
+            }
+            messagesListEl.innerHTML = `<div class="chat-empty-msg">${emptyText}</div>`;
             return;
         }
 
