@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>О мессенджере — Miksegram</title>
+    <link rel="stylesheet" href="/style.css">
+    <style>
+        /* ===== СПЕЦИАЛЬНЫЕ СТИЛИ ДЛЯ ОНБОРДИНГА ===== */
+        body { overflow: hidden; } /* Запрещаем скролл страницы */
+
+        .onboarding-wrap {
+            position: relative;
+            z-index: 10;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        /* Кнопка закрытия/назад */
+        .close-btn {
+            position: absolute;
+            top: 24px;
+            left: 24px;
+            width: 46px;
+            height: 46px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            z-index: 50;
+            text-decoration: none;
+        }
+        .close-btn:hover {
+            background: rgba(255,255,255,0.12);
+            color: var(--text);
+            transform: scale(1.1) rotate(90deg);
+            box-shadow: 0 0 20px color-mix(in srgb, var(--accent) 40%, transparent);
+        }
+        .close-btn svg { width: 22px; height: 22px; }
+
+        /* Слайды */
+        .slide {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 40px;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(30px) scale(0.95);
+            transition: opacity 0.6s cubic-bezier(0.2, 0.8, 0.2, 1), 
+                        transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1),
+                        visibility 0.6s;
+        }
+        .slide.active {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0) scale(1);
+        }
+        .slide.prev {
+            transform: translateY(-30px) scale(0.95);
+        }
+
+        /* Иконки */
+        .slide-icon {
+            width: 140px;
+            height: 140px;
+            margin-bottom: 40px;
+            color: var(--accent);
+            filter: drop-shadow(0 0 20px color-mix(in srgb, var(--accent) 40%, transparent));
+            transition: all 0.4s cubic-bezier(0.2, 0.9, 0.3, 1.5);
+            animation: floatIcon 4s ease-in-out infinite;
+        }
+        .slide-icon:hover {
+            transform: scale(1.15) rotate(5deg);
+            filter: drop-shadow(0 0 40px color-mix(in srgb, var(--accent) 70%, transparent));
+        }
+        @keyframes floatIcon {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-15px); }
+        }
+
+        /* Текст */
+        .slide-title {
+            font-family: 'Unbounded', sans-serif;
+            font-size: clamp(40px, 8vw, 72px);
+            font-weight: 800;
+            line-height: 1.1;
+            margin: 0 0 16px 0;
+            background: var(--grad-aurora);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            transition: all 0.3s ease;
+            display: inline-block;
+        }
+        .slide-title:hover {
+            transform: translateY(-4px);
+            filter: drop-shadow(0 10px 20px rgba(0,0,0,0.5));
+        }
+        
+        .slide-subtitle {
+            font-family: 'Inter', sans-serif;
+            font-size: clamp(16px, 2vw, 22px);
+            color: var(--text-dim);
+            max-width: 600px;
+            line-height: 1.5;
+            margin: 0;
+            transition: all 0.3s ease;
+        }
+        .slide-subtitle:hover { color: var(--text); }
+
+        /* Подсказка "Кликните" */
+        .click-hint {
+            position: absolute;
+            bottom: 40px;
+            font-size: 14px;
+            color: var(--text-mute);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            animation: pulseHint 2s infinite;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .click-hint svg { width: 20px; height: 20px; }
+        @keyframes pulseHint {
+            0%, 100% { opacity: 0.4; transform: translateY(0); }
+            50% { opacity: 1; transform: translateY(-5px); }
+        }
+
+        /* Финальная кнопка */
+        .action-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 18px 48px;
+            border-radius: 16px;
+            background: var(--grad-aurora);
+            color: #06101c;
+            font-family: 'Unbounded', sans-serif;
+            font-size: 18px;
+            font-weight: 700;
+            text-decoration: none;
+            margin-top: 40px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 10px 30px color-mix(in srgb, var(--accent) 40%, transparent);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            z-index: 20;
+        }
+        .action-btn:hover {
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 15px 40px color-mix(in srgb, var(--accent-2) 60%, transparent);
+        }
+        .action-btn::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(120deg, transparent 20%, rgba(255,255,255,0.6) 50%, transparent 80%);
+            transform: translateX(-150%);
+            transition: transform 0.6s ease;
+        }
+        .action-btn:hover::before {
+            transform: translateX(150%);
+        }
+
+        /* Точки навигации */
+        .dots-nav {
+            position: absolute;
+            bottom: 30px;
+            display: flex;
+            gap: 12px;
+            z-index: 30;
+        }
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .dot:hover {
+            background: rgba(255,255,255,0.5);
+            transform: scale(1.2);
+        }
+        .dot.active {
+            background: var(--accent);
+            box-shadow: 0 0 12px var(--accent);
+            transform: scale(1.3);
+        }
+
+        /* Адаптив */
+        @media (max-width: 768px) {
+            .slide-icon { width: 100px; height: 100px; margin-bottom: 24px; }
+            .close-btn { top: 16px; left: 16px; width: 40px; height: 40px; }
+            .dots-nav { bottom: 20px; }
+            .click-hint { bottom: 60px; }
+            .action-btn { padding: 14px 32px; font-size: 16px; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Фоновые слои (как в остальном приложении) -->
+    <div class="bg-layer"></div>
+    <div class="bg-blobs" id="bgBlobs">
+        <div class="blob blob-1"></div><div class="blob blob-2"></div>
+        <div class="blob blob-3"></div><div class="blob blob-4"></div>
+        <div class="blob blob-5"></div>
+    </div>
+    <div class="bg-grid"></div>
+    <div class="stars" id="stars"></div>
+    <div class="grain"></div>
+
+    <!-- Кнопка закрытия -->
+    <a href="#" id="closeBtn" class="close-btn" title="Закрыть">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </a>
+
+    <!-- Контейнер онбординга -->
+    <div class="onboarding-wrap" id="onboardingWrap">
+        
+        <!-- Слайд 1: Приветствие -->
+        <div class="slide active" data-index="0">
+            <svg class="slide-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+            <h1 class="slide-title" id="greetingTitle">Привет</h1>
+            <p class="slide-subtitle" style="font-family: 'Unbounded'; font-size: 18px; letter-spacing: 4px; opacity: 0.6;">miksegram</p>
+        </div>
+
+        <!-- Слайд 2: Общайся свободно -->
+        <div class="slide" data-index="1">
+            <svg class="slide-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+                <circle cx="12" cy="11.5" r="1.5" fill="currentColor"/>
+                <circle cx="8" cy="11.5" r="1.5" fill="currentColor"/>
+                <circle cx="16" cy="11.5" r="1.5" fill="currentColor"/>
+            </svg>
+            <h1 class="slide-title">Общайся свободно</h1>
+            <p class="slide-subtitle">Твой личный космос для общения с друзьями — без лишнего шума и ограничений.</p>
+        </div>
+
+        <!-- Слайд 3: Мгновенно -->
+        <div class="slide" data-index="2">
+            <svg class="slide-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+            </svg>
+            <h1 class="slide-title">Мгновенно</h1>
+            <p class="slide-subtitle">Сообщения приходят за миллисекунды. Никаких задержек и перезагрузок страницы.</p>
+        </div>
+
+        <!-- Слайд 4: Больше, чем текст -->
+        <div class="slide" data-index="3">
+            <svg class="slide-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/>
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            <h1 class="slide-title">Больше, чем текст</h1>
+            <p class="slide-subtitle">Файлы, фото, реакции и ответы на сообщения. Делись всем, чем хочешь.</p>
+        </div>
+
+        <!-- Слайд 5: Твой стиль -->
+        <div class="slide" data-index="4">
+            <svg class="slide-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M12 2a10 10 0 0 0 0 20c1.5 0 2.5-1 2.5-2.5 0-1-.5-2-1.5-2.5 1-.5 1.5-1.5 1.5-2.5 0-1.5-1-2.5-2.5-2.5h-3c-1.5 0-2.5 1-2.5 2.5 0 1 1.5 1.5 1.5 2.5 0 1-1.5 1.5-1.5 2.5 0 1.5-1 2.5-2.5 2.5"/>
+                <circle cx="7" cy="9" r="1" fill="currentColor"/>
+                <circle cx="9" cy="5" r="1" fill="currentColor"/>
+                <circle cx="15" cy="5" r="1" fill="currentColor"/>
+                <circle cx="18" cy="9" r="1" fill="currentColor"/>
+            </svg>
+            <h1 class="slide-title">Твой стиль</h1>
+            <p class="slide-subtitle">Меняй фоны, акценты и эффекты. Ставь рамки на аватарки и неон на имя.</p>
+        </div>
+
+        <!-- Слайд 6: Финал -->
+        <div class="slide" data-index="5">
+            <svg class="slide-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 12A10 10 0 0 0 12 2a10 10 0 0 0 0 20 10 10 0 0 0 10-10z"/>
+                <path d="M12 6v6l4 2"/>
+            </svg>
+            <h1 class="slide-title">Готов начать?</h1>
+            <p class="slide-subtitle">Твой личный космос уже ждёт.</p>
+            <a href="/" id="finalBtn" class="action-btn">Перейти в чат</a>
+        </div>
+
+        <!-- Точки навигации -->
+        <div class="dots-nav" id="dotsNav">
+            <div class="dot active" data-index="0"></div>
+            <div class="dot" data-index="1"></div>
+            <div class="dot" data-index="2"></div>
+            <div class="dot" data-index="3"></div>
+            <div class="dot" data-index="4"></div>
+            <div class="dot" data-index="5"></div>
+        </div>
+        
+        <!-- Подсказка "Кликните" -->
+        <div class="click-hint" id="clickHint">
+            <span>Кликните, чтобы продолжить</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+    </div>
+
+    <script src="/common.js"></script>
+    <script>
+        initStars();
+        initMagnetics();
+
+        const slides = document.querySelectorAll('.slide');
+        const dots = document.querySelectorAll('.dot');
+        const hint = document.getElementById('clickHint');
+        const wrap = document.getElementById('onboardingWrap');
+        const finalBtn = document.getElementById('finalBtn');
+        const greetingTitle = document.getElementById('greetingTitle');
+        const closeBtn = document.getElementById('closeBtn');
+        
+        let currentIdx = 0;
+        let isLoggedIn = false;
+        let userDisplayName = '';
+
+        // 1. Проверяем, залогинен ли пользователь (чтобы поменять текст и кнопку)
+        fetch('/api/me')
+            .then(r => r.json())
+            .then(data => {
+                if (data.ok) {
+                    isLoggedIn = true;
+                    userDisplayName = data.display_name;
+                    // Меняем приветствие
+                    greetingTitle.textContent = `Привет, ${userDisplayName}!`;
+                    // Меняем кнопку в конце
+                    finalBtn.textContent = 'Перейти в чат';
+                    finalBtn.href = '/';
+                    // Кнопка "Крестик" ведёт на главную
+                    closeBtn.href = '/';
+                } else {
+                    isLoggedIn = false;
+                    finalBtn.textContent = 'Войти';
+                    finalBtn.href = '/login.html';
+                    closeBtn.href = '/login.html';
+                }
+            })
+            .catch(() => {
+                // Если сеть упала — просто оставляем базовый текст
+                finalBtn.textContent = 'Войти';
+                finalBtn.href = '/login.html';
+                closeBtn.href = '/login.html';
+            });
+
+        // 2. Функция переключения слайдов
+        function goToSlide(index) {
+            if (index < 0 || index >= slides.length) return;
+            
+            // Убираем активный класс у всех
+            slides.forEach(s => s.classList.remove('active', 'prev'));
+            dots.forEach(d => d.classList.remove('active'));
+            
+            // Добавляем "prev" класс тем, кто слева (для анимации ухода вверх)
+            slides.forEach((s, i) => {
+                if (i < index) s.classList.add('prev');
+            });
+
+            // Активируем нужный
+            slides[index].classList.add('active');
+            dots[index].classList.add('active');
+            
+            currentIdx = index;
+
+            // Скрываем подсказку и точки на последнем слайде
+            if (index === slides.length - 1) {
+                hint.style.opacity = '0';
+                hint.style.pointerEvents = 'none';
+            } else {
+                hint.style.opacity = '1';
+                hint.style.pointerEvents = 'auto';
+            }
+        }
+
+        // 3. Обработка клика по экрану (но не по кнопкам/точкам)
+        wrap.addEventListener('click', (e) => {
+            // Если кликнули на кнопку "Перейти", "Крестик" или точки — игнорируем
+            if (e.target.closest('a') || e.target.closest('.dot') || e.target.closest('.close-btn')) return;
+            if (currentIdx < slides.length - 1) {
+                goToSlide(currentIdx + 1);
+            }
+        });
+
+        // 4. Обработка клика по точкам
+        dots.forEach(dot => {
+            dot.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const idx = parseInt(dot.dataset.index);
+                goToSlide(idx);
+            });
+        });
+
+        // 5. Обработка клавиатуры (Стрелки и Escape)
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
+                if (currentIdx < slides.length - 1) goToSlide(currentIdx + 1);
+            } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                if (currentIdx > 0) goToSlide(currentIdx - 1);
+            } else if (e.key === 'Escape') {
+                closeBtn.click();
+            }
+        });
+
+        // 6. Свайпы для телефона (Touch Events)
+        let touchStartX = 0;
+        let touchEndX = 0;
+        
+        wrap.addEventListener('touchstart', e => {
+            touchStartX = e.changedTouches[0].screenX;
+        }, { passive: true });
+
+        wrap.addEventListener('touchend', e => {
+            touchEndX = e.changedTouches[0].screenX;
+            handleSwipe();
+        }, { passive: true });
+
+        function handleSwipe() {
+            const swipeThreshold = 50;
+            if (touchEndX < touchStartX - swipeThreshold) {
+                // Свайп влево -> следующий слайд
+                if (currentIdx < slides.length - 1) goToSlide(currentIdx + 1);
+            }
+            if (touchEndX > touchStartX + swipeThreshold) {
+                // Свайп вправо -> предыдущий слайд
+                if (currentIdx > 0) goToSlide(currentIdx - 1);
+            }
+        }
+
+        // 7. Параллакс фона за курсором (только на ПК)
+        document.addEventListener('mousemove', (e) => {
+            if (window.innerWidth <= 768) return; // На телефоне не грузим
+            const x = (e.clientX / window.innerWidth - 0.5) * 20;
+            const y = (e.clientY / window.innerHeight - 0.5) * 20;
+            document.querySelectorAll('.blob').forEach((blob, i) => {
+                const speed = (i + 1) * 0.5;
+                blob.style.transform = `translate(${x * speed}px, ${y * speed}px)`;
+            });
+        });
+    </script>
+</body>
+</html>
