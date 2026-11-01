@@ -7,28 +7,55 @@
     <link rel="icon" type="image/svg+xml" href="/logo.svg">
     <link rel="stylesheet" href="/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
+    <script src="https://unpkg.com/qr-code-styling@1.5.0/lib/qr-code-styling.js"></script>
     <style>
         .messages-list.chat-switch-anim { animation: chatFadeIn 0.25s ease both; }
         @keyframes chatFadeIn { from { opacity: 0.2; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
         .msg.reaction-pop { animation: reactionPop 0.15s ease; }
         @keyframes reactionPop { 50% { transform: scale(1.03); } }
 
-        /* Стили для логотипа на пустом экране */
         .empty-logo {
-            width: 140px;
-            height: 140px;
-            margin-bottom: 16px;
+            width: 140px; height: 140px; margin-bottom: 16px;
             animation: logoFloat 4s ease-in-out infinite, logoGlow 3s ease-in-out infinite alternate;
             z-index: 1;
         }
-        @keyframes logoFloat {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-12px); }
+        @keyframes logoFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
+        @keyframes logoGlow { from { filter: drop-shadow(0 0 20px var(--accent)); } to { filter: drop-shadow(0 0 60px var(--accent-2)); } }
+
+        /* ===== СТИЛИ ДЛЯ QR-КОДА ===== */
+        .qr-dots-bg { position: absolute; inset: 0; overflow: hidden; z-index: 1; pointer-events: none; }
+        .qr-dot {
+            position: absolute; width: 12px; height: 12px; border-radius: 50%;
+            animation: qrDotFloat 4s ease-in-out infinite;
+            box-shadow: 0 0 15px currentColor; opacity: 0.6;
         }
-        @keyframes logoGlow {
-            from { filter: drop-shadow(0 0 20px var(--accent)); }
-            to { filter: drop-shadow(0 0 60px var(--accent-2)); }
+        @keyframes qrDotFloat { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-20px) scale(1.2); } }
+
+        .qr-card {
+            position: relative; z-index: 2;
+            background: #ffffff; border-radius: 32px;
+            padding: 24px; display: flex; flex-direction: column; align-items: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.8), 0 0 40px var(--accent);
+            animation: modalIn 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.2);
         }
+        #qrCodeContainer { width: 260px; height: 260px; margin-bottom: 16px; }
+        .qr-username {
+            font-family: 'Unbounded', sans-serif; font-size: 18px; font-weight: 700;
+            color: #08091a; letter-spacing: 1px; text-transform: uppercase;
+        }
+        .qr-actions { position: relative; z-index: 2; display: flex; gap: 20px; margin-top: 30px; }
+        .qr-action-btn {
+            width: 56px; height: 56px; border-radius: 50%;
+            background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2); color: #fff;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: all 0.3s ease;
+        }
+        .qr-action-btn:hover {
+            background: var(--accent); color: #08091a;
+            transform: scale(1.1) translateY(-3px); box-shadow: 0 10px 20px var(--accent);
+        }
+        .qr-action-btn svg { width: 24px; height: 24px; }
     </style>
 </head>
 <body>
@@ -239,11 +266,37 @@
                 <div style="font-size: 11px; color: var(--text-mute); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">О себе</div>
                 <div id="modalProfileBio" style="font-size: 14px; color: var(--text);">...</div>
             </div>
-            <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 16px; padding: 20px; text-align: center; color: var(--text-mute); font-size: 13px;">
-                Тут будет другая информация в будущем
-            </div>
+
+            <!-- Кнопка "Мой QR-код" -->
+            <button class="secondary-btn" id="modalQrBtn" style="width: 100%; display:none; align-items: center; justify-content: center; gap: 8px;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                Мой QR-код
+            </button>
+
             <button class="primary-btn" id="modalWriteBtn" style="width: 100%; margin-top: 4px;">Написать сообщение</button>
             <button class="secondary-btn" id="modalEditBtn" style="width: 100%; display:none;">Редактировать профиль</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== МОДАЛКА QR-КОДА ===== -->
+<div class="modal-overlay" id="qrModal">
+    <div style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%;">
+        <button class="icon-btn" id="closeQrBtn" style="position: absolute; top: 20px; right: 20px; background: rgba(255,255,255,0.1); border-radius: 50%; z-index: 10;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+        <div class="qr-dots-bg" id="qrDotsBg"></div>
+        <div class="qr-card">
+            <div id="qrCodeContainer"></div>
+            <div class="qr-username" id="qrUsername">@...</div>
+        </div>
+        <div class="qr-actions">
+            <button class="qr-action-btn" id="copyQrBtn" title="Скопировать ссылку">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </button>
+            <button class="qr-action-btn" id="downloadQrBtn" title="Скачать QR">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            </button>
         </div>
     </div>
 </div>
@@ -274,7 +327,8 @@
     let messagesCache = {};
     let messages = [];
     let currentLoadToken = 0;
-    
+    let qrCodeInstance = null; 
+
     const originalTitle = "Miksegram";
     let unreadTitleCount = 0;
     let blinkInterval = null;
@@ -456,7 +510,6 @@
     function openChat(chatId, name, avatar, type, otherId = null, login = '', last_seen = null, avatar_frame = 'none', name_effect = 'none', other_last_read = 0) {
         if (activeChatId === chatId && activeChat) return;
 
-        const prevChatId = activeChatId;
         activeChatId = chatId;
         activeOtherId = otherId;
         activeChat = { type, name, login, last_seen, name_effect, other_last_read };
@@ -1233,17 +1286,26 @@
             
             const writeBtn = document.getElementById('modalWriteBtn');
             const editBtn = document.getElementById('modalEditBtn');
+            const qrBtn = document.getElementById('modalQrBtn');
             
             if (u.id === myId) {
                 writeBtn.style.display = 'none';
                 editBtn.style.display = 'flex';
+                qrBtn.style.display = 'flex';
+                
                 editBtn.onclick = () => {
                     document.getElementById('profileModal').classList.remove('open');
                     openSettings();
                 };
+                qrBtn.onclick = () => {
+                    document.getElementById('profileModal').classList.remove('open');
+                    openQrModal();
+                };
             } else {
                 writeBtn.style.display = 'flex';
                 editBtn.style.display = 'none';
+                qrBtn.style.display = 'none';
+                
                 writeBtn.onclick = () => {
                     document.getElementById('profileModal').classList.remove('open');
                     startEmptyChat(u.id);
@@ -1350,6 +1412,85 @@
 
     let searchTimeout;
     searchInput.addEventListener('input', () => { clearTimeout(searchTimeout); searchTimeout = setTimeout(renderChats, 300); });
+
+    // ================= QR-КОД =================
+    const qrModal = document.getElementById('qrModal');
+
+    function openQrModal() {
+        qrModal.classList.add('open');
+        document.getElementById('qrUsername').textContent = '@' + window.currentUser.login;
+
+        const dotsContainer = document.getElementById('qrDotsBg');
+        dotsContainer.innerHTML = '';
+        const colors = ['#00d4ff', '#a855f7', '#ff4ec7', '#00ffa3', '#ffb347', '#ff512f'];
+        for (let i = 0; i < 30; i++) {
+            const dot = document.createElement('div');
+            dot.className = 'qr-dot';
+            dot.style.left = Math.random() * 100 + '%';
+            dot.style.top = Math.random() * 100 + '%';
+            dot.style.background = colors[Math.floor(Math.random() * colors.length)];
+            dot.style.color = dot.style.background;
+            dot.style.animationDelay = (Math.random() * 4) + 's';
+            dot.style.animationDuration = (3 + Math.random() * 3) + 's';
+            dotsContainer.appendChild(dot);
+        }
+
+        if (!qrCodeInstance) {
+            const profileUrl = window.location.origin + '/user/' + window.currentUser.id;
+            
+            qrCodeInstance = new QRCodeStyling({
+                width: 260,
+                height: 260,
+                data: profileUrl,
+                image: '/logo.svg',
+                dotsOptions: {
+                    type: 'rounded',
+                    gradient: {
+                        type: 'linear',
+                        rotation: Math.PI / 4,
+                        colorStops: [
+                            { offset: 0, color: '#00d4ff' },
+                            { offset: 1, color: '#a855f7' }
+                        ]
+                    }
+                },
+                backgroundOptions: { color: '#ffffff' },
+                imageOptions: {
+                    crossOrigin: 'anonymous',
+                    margin: 4,
+                    imageSize: 0.4,
+                    hideBackgroundDots: true
+                },
+                cornersSquareOptions: {
+                    type: 'extra-rounded',
+                    color: '#a855f7'
+                },
+                cornersDotOptions: {
+                    type: 'dot',
+                    color: '#00d4ff'
+                }
+            });
+            qrCodeInstance.append(document.getElementById('qrCodeContainer'));
+        }
+    }
+
+    document.getElementById('closeQrBtn').addEventListener('click', () => {
+        qrModal.classList.remove('open');
+    });
+    qrModal.addEventListener('click', (e) => {
+        if (e.target === qrModal) qrModal.classList.remove('open');
+    });
+
+    document.getElementById('copyQrBtn').addEventListener('click', () => {
+        const url = window.location.origin + '/user/' + window.currentUser.id;
+        navigator.clipboard.writeText(url).then(() => showToast('Ссылка скопирована!')).catch(() => showToast('Ошибка'));
+    });
+
+    document.getElementById('downloadQrBtn').addEventListener('click', () => {
+        if (qrCodeInstance) {
+            qrCodeInstance.download({ name: 'miksegram-' + window.currentUser.login, extension: 'png' });
+        }
+    });
 </script>
 </body>
 </html>
