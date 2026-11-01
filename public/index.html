@@ -559,9 +559,9 @@
     }
 
     async function startEmptyChat(otherId) {
-        // Если перешли на самого себя — открываем Избранное
+        // 1. Если перешли на самого себя — открываем Избранное
         if (otherId === myId) {
-            await loadChats(); // Обязательно ждем загрузки чатов
+            if (!chatsData.length) await loadChats();
             const savedChat = chatsData.find(c => c.type === 'saved');
             if (savedChat) {
                 openChat(savedChat.id, savedChat.name, savedChat.avatar, 'saved', null, '', null, 'none', 'none', 0);
@@ -571,6 +571,19 @@
             return;
         }
 
+        // 2. Проверяем, есть ли УЖЕ чат с этим человеком
+        if (!chatsData.length) {
+            await loadChats(); // Если список пуст (например, только зашли), ждем загрузки
+        }
+        
+        const existingChat = chatsData.find(c => c.type === 'private' && c.other_id === otherId);
+        if (existingChat) {
+            // Если чат есть — открываем его с историей!
+            openChat(existingChat.id, existingChat.name, existingChat.avatar, 'private', existingChat.other_id, existingChat.login, existingChat.last_seen, existingChat.avatar_frame, existingChat.name_effect, existingChat.other_last_read);
+            return;
+        }
+
+        // 3. Если чата НЕТ — только тогда создаем пустой экран
         if (activeChatId === null && activeOtherId === otherId) return;
         const searchRes = await fetch('/api/user/' + otherId);
         const searchData = await searchRes.json();
