@@ -7,6 +7,19 @@
     <link rel="stylesheet" href="/style.css">
 </head>
 <body>
+  <script>
+  if (sessionStorage.getItem('miksegram_fade_in') === '1') {
+    sessionStorage.removeItem('miksegram_fade_in');
+    document.write('<div id="fade-in-overlay" style="position:fixed;inset:0;background:#000;z-index:99999;opacity:1;transition:opacity 1.2s ease;"></div>');
+    window.addEventListener('DOMContentLoaded', () => {
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        const ov = document.getElementById('fade-in-overlay');
+        if (ov) { ov.style.opacity = '0'; setTimeout(() => ov.remove(), 1300); }
+      }));
+    });
+  }
+</script>
+</script>
 <div class="bg-layer"></div>
 <div class="bg-blobs"><div class="blob blob-1"></div><div class="blob blob-2"></div><div class="blob blob-3"></div><div class="blob blob-4"></div><div class="blob blob-5"></div></div>
 <div class="bg-grid"></div>
