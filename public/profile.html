@@ -6,6 +6,87 @@
     <title>Профиль — Miksegram</title>
     <link rel="icon" type="image/svg+xml" href="/logo.svg">
     <link rel="stylesheet" href="/style.css">
+    <!-- Библиотека для красивых QR-кодов -->
+    <script src="https://unpkg.com/qr-code-styling@1.5.0/lib/qr-code-styling.js"></script>
+    <style>
+        /* Стили для плавающих точек на фоне модалки QR */
+        .qr-dots-bg {
+            position: absolute; inset: 0; overflow: hidden; z-index: 1; pointer-events: none;
+        }
+        .qr-dot {
+            position: absolute; width: 12px; height: 12px; border-radius: 50%;
+            animation: qrDotFloat 4s ease-in-out infinite;
+            box-shadow: 0 0 15px currentColor;
+            opacity: 0.6;
+        }
+        @keyframes qrDotFloat {
+            0%, 100% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-20px) scale(1.2); }
+        }
+
+        /* Белая карточка с QR */
+        .qr-card {
+            position: relative;
+            z-index: 2;
+            background: #ffffff;
+            border-radius: 32px;
+            padding: 24px 24px 20px 24px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.8), 0 0 40px var(--accent);
+            animation: modalIn 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+        }
+
+        /* Контейнер для QR-кода */
+        #qrCodeContainer {
+            width: 260px;
+            height: 260px;
+            margin-bottom: 16px;
+        }
+
+        /* Юзернейм под QR */
+        .qr-username {
+            font-family: 'Unbounded', sans-serif;
+            font-size: 18px;
+            font-weight: 700;
+            color: #08091a;
+            letter-spacing: 1px;
+        }
+
+        /* Кнопки внизу модалки */
+        .qr-actions {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            gap: 16px;
+            margin-top: 30px;
+        }
+        .qr-action-btn {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .qr-action-btn:hover {
+            background: var(--accent);
+            color: #08091a;
+            transform: scale(1.1) translateY(-3px);
+            box-shadow: 0 10px 20px var(--accent);
+        }
+        .qr-action-btn svg {
+            width: 24px;
+            height: 24px;
+        }
+    </style>
 </head>
 <body>
 
@@ -50,7 +131,43 @@
             Тут будет другая информация в будущем
         </div>
 
-        <button class="primary-btn profile-edit-btn" id="editProfileBtn" style="width: 100%; margin-top: 8px;">Редактировать профиль</button>
+        <!-- Кнопка QR-кода -->
+        <button class="secondary-btn" id="openQrBtn" style="width: 100%; margin-top: 8px; padding: 14px; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            Мой QR-код
+        </button>
+
+        <button class="primary-btn profile-edit-btn" id="editProfileBtn" style="width: 100%;">Редактировать профиль</button>
+    </div>
+</div>
+
+<!-- Модалка QR-кода -->
+<div class="modal-overlay" id="qrModal">
+    <div style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%;">
+        
+        <!-- Кнопка закрытия -->
+        <button class="icon-btn" id="closeQrBtn" style="position: absolute; top: 20px; right: 20px; background: rgba(255,255,255,0.1); border-radius: 50%; z-index: 10;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+
+        <!-- Фоновые точки -->
+        <div class="qr-dots-bg" id="qrDotsBg"></div>
+
+        <!-- Белая карточка -->
+        <div class="qr-card">
+            <div id="qrCodeContainer"></div>
+            <div class="qr-username" id="qrUsername">@...</div>
+        </div>
+
+        <!-- Кнопки действий -->
+        <div class="qr-actions">
+            <button class="qr-action-btn" id="copyQrBtn" title="Скопировать ссылку">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </button>
+            <button class="qr-action-btn" id="downloadQrBtn" title="Скачать QR">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            </button>
+        </div>
     </div>
 </div>
 
@@ -70,6 +187,8 @@
     initStars();
     initMagnetics();
 
+    let qrCodeInstance = null;
+
     function renderProfile(u) {
         window.currentUser = u;
         applyAvatarTo(document.getElementById('profileAvatar'), u.avatar, u.display_name, u.avatar_frame);
@@ -79,6 +198,9 @@
         document.getElementById('profileLogin').textContent = '@' + u.login;
         document.getElementById('profileBio').textContent = u.bio || 'Пока ничего не рассказал(а) о себе';
         applyBannerTo(document.getElementById('profileBanner'), u.banner);
+        
+        // Обновляем юзернейм в модалке QR
+        document.getElementById('qrUsername').textContent = '@' + u.login;
     }
 
     fetch('/api/me')
@@ -122,6 +244,100 @@
     document.getElementById('closeSettings').addEventListener('click', closeSettings);
     settingsModal.addEventListener('click', e => { if (e.target === settingsModal) closeSettings(); });
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSettings(); });
+
+    // ================= QR-КОД ЛОГИКА =================
+    const qrModal = document.getElementById('qrModal');
+
+    document.getElementById('openQrBtn').addEventListener('click', () => {
+        if (!window.currentUser) return;
+
+        // Открываем модалку
+        qrModal.classList.add('open');
+
+        // Генерируем точки на фоне (как в онбординге)
+        const dotsContainer = document.getElementById('qrDotsBg');
+        dotsContainer.innerHTML = '';
+        const colors = ['#00d4ff', '#a855f7', '#ff4ec7', '#00ffa3', '#ffb347', '#ff512f'];
+        for (let i = 0; i < 30; i++) {
+            const dot = document.createElement('div');
+            dot.className = 'qr-dot';
+            dot.style.left = Math.random() * 100 + '%';
+            dot.style.top = Math.random() * 100 + '%';
+            dot.style.background = colors[Math.floor(Math.random() * colors.length)];
+            dot.style.color = dot.style.background;
+            dot.style.animationDelay = (Math.random() * 4) + 's';
+            dot.style.animationDuration = (3 + Math.random() * 3) + 's';
+            dotsContainer.appendChild(dot);
+        }
+
+        // Инициализируем QR только один раз
+        if (!qrCodeInstance) {
+            const profileUrl = window.location.origin + '/user/' + window.currentUser.id;
+            
+            qrCodeInstance = new QRCodeStyling({
+                width: 260,
+                height: 260,
+                data: profileUrl,
+                image: '/logo.svg', // Логотип в центре
+                dotsOptions: {
+                    color: '#a855f7', // Fallback цвет
+                    type: 'rounded',
+                    gradient: {
+                        type: 'linear',
+                        rotation: Math.PI / 4, // Диагональ
+                        colorStops: [
+                            { offset: 0, color: '#00d4ff' },
+                            { offset: 1, color: '#a855f7' }
+                        ]
+                    }
+                },
+                backgroundOptions: {
+                    color: '#ffffff' // Белый фон
+                },
+                imageOptions: {
+                    crossOrigin: 'anonymous',
+                    margin: 4,
+                    imageSize: 0.4,
+                    hideBackgroundDots: true // Прячем точки под логотипом
+                },
+                cornersSquareOptions: {
+                    type: 'extra-rounded',
+                    color: '#a855f7' // Цвет рамок
+                },
+                cornersDotOptions: {
+                    type: 'dot',
+                    color: '#00d4ff'
+                }
+            });
+            qrCodeInstance.append(document.getElementById('qrCodeContainer'));
+        }
+    });
+
+    document.getElementById('closeQrBtn').addEventListener('click', () => {
+        qrModal.classList.remove('open');
+    });
+    qrModal.addEventListener('click', (e) => {
+        if (e.target === qrModal) qrModal.classList.remove('open');
+    });
+
+    document.getElementById('copyQrBtn').addEventListener('click', () => {
+        if (!window.currentUser) return;
+        const url = window.location.origin + '/user/' + window.currentUser.id;
+        navigator.clipboard.writeText(url).then(() => {
+            showToast('Ссылка скопирована!');
+        }).catch(() => {
+            showToast('Ошибка копирования');
+        });
+    });
+
+    document.getElementById('downloadQrBtn').addEventListener('click', () => {
+        if (qrCodeInstance) {
+            qrCodeInstance.download({
+                name: 'miksegram-' + window.currentUser.login,
+                extension: 'png'
+            });
+        }
+    });
 </script>
 </body>
 </html>
