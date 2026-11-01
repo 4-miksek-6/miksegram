@@ -4,22 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Регистрация — Miksegram</title>
+    <link rel="icon" type="image/svg+xml" href="/logo.svg">
     <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <script>
-  if (sessionStorage.getItem('miksegram_fade_in') === '1') {
-    sessionStorage.removeItem('miksegram_fade_in');
-    document.write('<div id="fade-in-overlay" style="position:fixed;inset:0;background:#000;z-index:99999;opacity:1;transition:opacity 1.2s ease;"></div>');
-    window.addEventListener('DOMContentLoaded', () => {
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        const ov = document.getElementById('fade-in-overlay');
-        if (ov) { ov.style.opacity = '0'; setTimeout(() => ov.remove(), 1300); }
-      }));
-    });
-  }
-</script>
-</script>
 <div class="bg-layer"></div>
 <div class="bg-blobs"><div class="blob blob-1"></div><div class="blob blob-2"></div><div class="blob blob-3"></div><div class="blob blob-4"></div><div class="blob blob-5"></div></div>
 <div class="bg-grid"></div>
@@ -28,6 +16,8 @@
 
 <div class="auth-wrap" style="flex-direction:column;">
     <div class="auth-card">
+        <img src="/logo.svg" width="60" height="60" alt="Miksegram" style="display: block; margin: 0 auto 16px auto; filter: drop-shadow(0 0 15px var(--accent));">
+        
         <h1>Привет!</h1>
         <p style="text-align:center; color:var(--text-dim); font-size:13px; margin-bottom:20px;">Создай свой аккаунт в Miksegram</p>
         
@@ -42,7 +32,6 @@
         
         <button type="button" id="btn">Создать аккаунт</button>
         
-        <!-- Блок для вывода ошибок -->
         <div id="error" class="auth-error" style="font-weight:600; color: #ff4ec7;"></div>
         
         <div class="auth-link" style="margin-bottom:24px;">Уже есть аккаунт? <a href="/login.html">Войти</a></div>
@@ -59,11 +48,10 @@
     initStars();
     initMagnetics();
 
-    // Если уже залогинен — сразу на главную
     fetch('/api/me')
         .then(r => r.json())
         .then(d => { if (d.ok) window.location.href = '/'; })
-        .catch(() => { /* сеть недоступна — остаёмся на форме */ });
+        .catch(() => { });
 
     async function doRegister() {
         const login = document.getElementById('login').value.trim();
@@ -72,7 +60,7 @@
         const err = document.getElementById('error');
         const btn = document.getElementById('btn');
         
-        if (btn.disabled) return; // защита от двойного клика
+        if (btn.disabled) return; 
         err.textContent = '';
         
         if (!login || !display_name || !password) {
@@ -91,7 +79,6 @@
             const data = await res.json();
             
             if (data.ok) {
-                // Редирект на онбординг с параметром welcome=1 (хотя можно и без него, имя подтянется)
                 window.location.href = '/about.html?welcome=1';
             } else {
                 err.textContent = data.error || 'Ошибка регистрации';
@@ -106,12 +93,10 @@
 
     document.getElementById('btn').addEventListener('click', doRegister);
     
-    // Enter переключает поля / отправляет форму
     document.getElementById('login').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('display_name').focus(); });
     document.getElementById('display_name').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('password').focus(); });
     document.getElementById('password').addEventListener('keydown', e => { if (e.key === 'Enter') doRegister(); });
 
-    // Сброс ошибки при вводе
     ['login', 'display_name', 'password'].forEach(id => {
         document.getElementById(id).addEventListener('input', () => document.getElementById('error').textContent = '');
     });

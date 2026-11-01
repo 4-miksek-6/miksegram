@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Miksegram</title>
+    <link rel="icon" type="image/svg+xml" href="/logo.svg">
     <link rel="stylesheet" href="/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
     <style>
@@ -253,10 +254,9 @@
     let currentGroupInfo = null;
     window.currentUser = null;
 
-    // ===== КЭШ И ТОКЕН ЗАГРУЗКИ =====
-    let messagesCache = {};      // chatId -> массив сообщений
-    let messages = [];           // ссылка на кэш активного чата
-    let currentLoadToken = 0;    // защита от гонки при быстром переключении
+    let messagesCache = {};
+    let messages = [];
+    let currentLoadToken = 0;
     
     const originalTitle = "Miksegram";
     let unreadTitleCount = 0;
@@ -437,7 +437,6 @@
     }
 
     function openChat(chatId, name, avatar, type, otherId = null, login = '', last_seen = null, avatar_frame = 'none', name_effect = 'none', other_last_read = 0) {
-        // Не перезагружаем, если чат уже открыт
         if (activeChatId === chatId && activeChat) return;
 
         const prevChatId = activeChatId;
@@ -445,7 +444,6 @@
         activeOtherId = otherId;
         activeChat = { type, name, login, last_seen, name_effect, other_last_read };
         
-        // Инкремент токена: всё, что было загружено раньше, будет проигнорировано
         const myToken = ++currentLoadToken;
 
         document.getElementById('emptyState').style.display = 'none';
@@ -469,7 +467,6 @@
         
         document.getElementById('typingText').style.display = 'none';
 
-        // Если в кэше уже есть — показываем моментально, без "Загрузка..."
         if (messagesCache[chatId]) {
             messages = messagesCache[chatId];
             renderMessages(true);
@@ -477,7 +474,6 @@
             messagesListEl.innerHTML = '<div style="color:var(--text-mute);text-align:center;padding:20px">Загрузка...</div>';
         }
 
-        // Анимация переключения
         messagesListEl.classList.remove('chat-switch-anim');
         void messagesListEl.offsetWidth;
         messagesListEl.classList.add('chat-switch-anim');
@@ -497,8 +493,6 @@
         try {
             const r = await fetch('/api/messages/' + chatId);
             const data = await r.json();
-
-            // Если за это время пользователь переключился на другой чат — игнорируем ответ
             if (token !== currentLoadToken) return;
 
             if (data.ok) {
@@ -507,20 +501,17 @@
                 if (!messagesCache[chatId]) {
                     messagesCache[chatId] = fetchedMessages;
                 } else {
-                    // Мерджим: если во время загрузки пришли новые сообщения через сокет, мы их не теряем
                     const existingIds = new Set(messagesCache[chatId].map(x => x.id));
                     fetchedMessages.forEach(m => {
                         if (!existingIds.has(m.id)) {
                             messagesCache[chatId].push(m);
                         } else {
-                            // Если уже есть, обновляем данные (например, реакции)
                             const idx = messagesCache[chatId].findIndex(x => x.id === m.id);
                             if (idx !== -1) {
                                 messagesCache[chatId][idx] = { ...messagesCache[chatId][idx], ...m };
                             }
                         }
                     });
-                    // Сортируем по id, чтобы порядок был правильным
                     messagesCache[chatId].sort((a, b) => a.id - b.id);
                 }
                 
@@ -927,7 +918,6 @@
                 messages = messagesCache[m.chat_id];
             }
             if (m.sender_id !== myId) {
-                // Просто вызываем. Дубликаты addMessageToDOM отсеет сам по data-id
                 addMessageToDOM(m, true);
                 socket.emit('mark_read', m.chat_id);
                 document.getElementById('typingText').style.display = 'none';

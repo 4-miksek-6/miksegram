@@ -44,6 +44,13 @@ function buildSettingsUI() {
     body.innerHTML = `
         <div class="settings-layout" id="settingsLayout">
             <div class="settings-sidebar">
+                
+                <!-- Логотип в настройках -->
+                <div style="display:flex; align-items:center; gap:10px; padding: 8px 16px 16px 16px; border-bottom: 1px solid var(--border); margin-bottom: 12px;">
+                    <img src="/logo.svg" alt="Miksegram" style="width: 32px; height: 32px; filter: drop-shadow(0 0 10px var(--accent));">
+                    <span style="font-family: 'Unbounded'; font-weight: 700; font-size: 15px; color: var(--text); letter-spacing: 0.5px;">Miksegram</span>
+                </div>
+
                 <div class="settings-tab active" data-tab="profile">Профиль</div>
                 <div class="settings-tab" data-tab="appearance">Оформление</div>
                 <div class="settings-tab" data-tab="notifications">Уведомления</div>
@@ -681,7 +688,6 @@ function buildSettingsUI() {
         fetch('/api/logout', { method: 'POST' }).then(() => window.location.href = '/login.html');
     });
     
-    // === НОВАЯ КНОПКА "О МЕССЕНДЖЕРЕ" ===
     document.getElementById('aboutBtn').addEventListener('click', () => {
         window.location.href = '/about.html';
     });
