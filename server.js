@@ -666,6 +666,7 @@ app.post('/api/upload-avatar', (req, res) => {
       const fileExt = path.extname(req.file.originalname) || '.jpg';
       const fileName = Date.now() + '-' + Math.round(Math.random() * 1E9) + fileExt;
 
+      
       await s3.send(new PutObjectCommand({
         Bucket: BUCKET_NAME,
         Key: fileName,
