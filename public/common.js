@@ -55,7 +55,9 @@ function requestNotifications() {
     }
 }
 
-(function applyStoredSettings() {
+function applyStoredSettings() {
+    if (!document.body) return;
+
     document.body.dataset.theme = 'cosmos';
     
     const accent = localStorage.getItem('accent');
@@ -93,7 +95,13 @@ function requestNotifications() {
     document.documentElement.style.setProperty('--chat-opacity', chatOpacity);
 
     if (localStorage.getItem('anim') === 'off') document.body.classList.add('no-anim');
-})();
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', applyStoredSettings);
+} else {
+    applyStoredSettings();
+}
 
 let toastTimer;
 function showToast(text) {
@@ -108,7 +116,9 @@ function showToast(text) {
 // ===== БЕЙДЖИ (SVG + ТУЛТИПЫ) =====
 
 (function injectBadgeStyles() {
+    if (document.getElementById('badge-styles-injected')) return;
     const style = document.createElement('style');
+    style.id = 'badge-styles-injected';
     style.textContent = `
         .custom-badge { 
             position: relative; 
