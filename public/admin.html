@@ -246,16 +246,16 @@
                 <div class="toggle-row">
                     <div>
                         <div style="font-weight: 600; margin-bottom: 6px;">Режим «Техработы»</div>
-                        <div style="color: var(--text-dim); font-size: 13px;">Блокирует вход и отправку сообщений для всех, кроме вас.</div>
+                        <div style="color: var(--text-dim); font-size: 13px;">Блокирует вход и регистрацию. Всех залогиненных выкидывает.</div>
                     </div>
                     <div class="toggle-switch" id="toggle-maintenance" onclick="toggleMaintenance()"></div>
                 </div>
                 <div class="toggle-row">
                     <div>
                         <div style="font-weight: 600; margin-bottom: 6px;">Отключить регистрацию</div>
-                        <div style="color: var(--text-dim); font-size: 13px;">Функция в разработке.</div>
+                        <div style="color: var(--text-dim); font-size: 13px;">Запрещает создавать новые аккаунты (вход работает).</div>
                     </div>
-                    <div class="toggle-switch" onclick="showToast('Функция в разработке')"></div>
+                    <div class="toggle-switch" id="toggle-registration" onclick="toggleRegistration()"></div>
                 </div>
             </div>
 
@@ -281,9 +281,9 @@
                 <div class="toggle-row">
                     <div>
                         <div style="font-weight: 600; margin-bottom: 6px;">Запустить конфетти</div>
-                        <div style="color: var(--text-dim); font-size: 13px;">У всех пользователей на экране взорвется салют.</div>
+                        <div style="color: var(--text-dim); font-size: 13px;">У всех пользователей онлайн на экране взорвется салют.</div>
                     </div>
-                    <button class="btn-primary" style="padding: 10px 20px;" onclick="showToast('Конфетти в разработке')">🎉 Запустить</button>
+                    <button class="btn-primary" style="padding: 10px 20px;" onclick="triggerConfetti()">🎉 Запустить</button>
                 </div>
             </div>
         </div>
@@ -609,6 +609,11 @@
                 const maintToggle = document.getElementById('toggle-maintenance');
                 if (data.maintenance === '1') maintToggle.classList.add('active');
                 else maintToggle.classList.remove('active');
+                
+                const regToggle = document.getElementById('toggle-registration');
+                if (data.register_disabled === '1') regToggle.classList.add('active');
+                else regToggle.classList.remove('active');
+
                 document.getElementById('globalBannerInput').value = data.banner || '';
             }
         } catch (e) { console.error(e); }
@@ -622,8 +627,22 @@
             const res = await fetch('/api/admin/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ maintenance: newVal }) });
             const data = await res.json();
             if (data.ok) {
-                if (newVal === '1') { toggle.classList.add('active'); showToast('Техработы ВКЛ'); }
+                if (newVal === '1') { toggle.classList.add('active'); showToast('Техработы ВКЛ. Пользователи выкинуты.'); }
                 else { toggle.classList.remove('active'); showToast('Техработы ВЫКЛ'); }
+            } else showToast('Ошибка: ' + data.error);
+        } catch (e) { showToast('Ошибка сети'); }
+    }
+
+    async function toggleRegistration() {
+        const toggle = document.getElementById('toggle-registration');
+        const isActive = toggle.classList.contains('active');
+        const newVal = isActive ? '0' : '1';
+        try {
+            const res = await fetch('/api/admin/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ register_disabled: newVal }) });
+            const data = await res.json();
+            if (data.ok) {
+                if (newVal === '1') { toggle.classList.add('active'); showToast('Регистрация ОТКЛЮЧЕНА'); }
+                else { toggle.classList.remove('active'); showToast('Регистрация ВКЛЮЧЕНА'); }
             } else showToast('Ошибка: ' + data.error);
         } catch (e) { showToast('Ошибка сети'); }
     }
@@ -633,7 +652,7 @@
         try {
             const res = await fetch('/api/admin/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ banner }) });
             const data = await res.json();
-            if (data.ok) showToast('Баннер сохранен');
+            if (data.ok) showToast(banner ? 'Баннер сохранен' : 'Баннер скрыт');
             else showToast('Ошибка: ' + data.error);
         } catch (e) { showToast('Ошибка сети'); }
     }
@@ -651,11 +670,25 @@
         } catch (e) { showToast('Ошибка сети'); }
     }
 
+    async function triggerConfetti() {
+        try {
+            const res = await fetch('/api/admin/confetti', { method: 'POST' });
+            const data = await res.json();
+            if (data.ok) {
+                showToast(`🎉 Салют запущен у ${data.count} пользователей онлайн`);
+            } else showToast('Ошибка: ' + data.error);
+        } catch (e) { showToast('Ошибка сети'); }
+    }
+
     loadDashboard();
     
     const socket = io();
-    socket.on('force_logout', () => {
-        alert('❌ Ваш аккаунт был заблокирован администратором.');
+    socket.on('force_logout', (data) => {
+        if (data && data.reason === 'maintenance') {
+            alert('🛠 На сервере идут технические работы. Зайдите позже.');
+        } else {
+            alert('❌ Ваш аккаунт был заблокирован администратором.');
+        }
         window.location.href = '/login.html';
     });
 </script>

@@ -1270,18 +1270,77 @@
 
     socket.on('global_banner_update', (data) => {
         const banner = document.getElementById('globalBanner');
-        if (data.banner) {
-            banner.textContent = data.banner;
+        const txt = (data.banner || '').trim();
+        if (txt) {
+            banner.textContent = txt;
             banner.classList.remove('hidden');
         } else {
             banner.classList.add('hidden');
         }
     });
 
-    socket.on('force_logout', () => {
-        alert('❌ Ваш аккаунт был заблокирован администратором.');
+    socket.on('force_logout', (data) => {
+        if (data && data.reason === 'maintenance') {
+            alert('🛠 На сервере идут технические работы. Зайдите позже.');
+        } else {
+            alert('❌ Ваш аккаунт был заблокирован администратором.');
+        }
         window.location.href = '/login.html';
     });
+
+    // ==== КОНФЕТТИ (PASХАЛКА) ====
+    socket.on('confetti', () => {
+        launchConfetti();
+    });
+
+    function launchConfetti() {
+        const canvas = document.createElement('canvas');
+        canvas.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:99999;';
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        document.body.appendChild(canvas);
+        const ctx = canvas.getContext('2d');
+        const colors = ['#00d4ff', '#a855f7', '#ff4ec7', '#00ffa3', '#ffb347', '#ff512f', '#ffffff'];
+        const particles = [];
+        const count = 200;
+        for (let i = 0; i < count; i++) {
+            particles.push({
+                x: Math.random() * canvas.width,
+                y: -20 - Math.random() * canvas.height * 0.5,
+                w: 6 + Math.random() * 8,
+                h: 6 + Math.random() * 8,
+                vx: (Math.random() - 0.5) * 4,
+                vy: 2 + Math.random() * 4,
+                rot: Math.random() * Math.PI * 2,
+                vrot: (Math.random() - 0.5) * 0.3,
+                color: colors[Math.floor(Math.random() * colors.length)]
+            });
+        }
+        let frame = 0;
+        const maxFrames = 300; // ~5 секунд при 60fps
+        function tick() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach(p => {
+                p.vy += 0.08;
+                p.x += p.vx;
+                p.y += p.vy;
+                p.rot += p.vrot;
+                ctx.save();
+                ctx.translate(p.x, p.y);
+                ctx.rotate(p.rot);
+                ctx.fillStyle = p.color;
+                ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+                ctx.restore();
+            });
+            frame++;
+            if (frame < maxFrames) {
+                requestAnimationFrame(tick);
+            } else {
+                canvas.remove();
+            }
+        }
+        tick();
+    }
 
     socket.on('update_chats', loadChats);
     socket.on('online_list', (ids) => { onlineUsersSet = new Set(ids); renderChats(); updateChatStatus(); });
@@ -1611,11 +1670,14 @@
         applyNameEffect(document.getElementById('myDisplayName'), data.name_effect);
         document.getElementById('myLogin').textContent = '@' + data.login;
         
-        // Баннер
-        if (data.global_banner) {
+        // Баннер (жёсткая проверка на пустоту)
+        const bTxt = (data.global_banner || '').trim();
+        if (bTxt) {
             const banner = document.getElementById('globalBanner');
-            banner.textContent = data.global_banner;
+            banner.textContent = bTxt;
             banner.classList.remove('hidden');
+        } else {
+            document.getElementById('globalBanner').classList.add('hidden');
         }
         
         // Техработы

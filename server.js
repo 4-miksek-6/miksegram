@@ -55,6 +55,7 @@ async function initDb(attempt = 1) {
 
     await db.execute(`INSERT OR IGNORE INTO settings (key, value) VALUES ('maintenance', '0');`);
     await db.execute(`INSERT OR IGNORE INTO settings (key, value) VALUES ('banner', '');`);
+    await db.execute(`INSERT OR IGNORE INTO settings (key, value) VALUES ('register_disabled', '0');`);
 
     await db.execute(`CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON messages(chat_id);`);
     await db.execute(`CREATE INDEX IF NOT EXISTS idx_chat_members_user_id ON chat_members(user_id);`);
@@ -120,6 +121,9 @@ app.post('/api/register', async (req, res) => {
   try {
     const isMaint = await getSetting('maintenance');
     if (isMaint === '1') return res.json({ ok: false, error: 'Сейчас идут техработы. Регистрация недоступна.' });
+
+    const isRegDisabled = await getSetting('register_disabled');
+    if (isRegDisabled === '1') return res.json({ ok: false, error: '🛑 Регистрация временно закрыта администратором' });
 
     let { login, display_name, password } = req.body;
     if (!login || !display_name || !password) return res.json({ ok: false, error: 'Заполни все поля' });
@@ -198,7 +202,6 @@ app.get('/api/admin/stats', isAdmin, async (req, res) => {
   } catch (e) { res.json({ ok: false, error: e.message }); }
 });
 
-// НОВОЕ: реальный размер хранилища Supabase (с пагинацией)
 app.get('/api/admin/storage-usage', isAdmin, async (req, res) => {
   try {
     let totalSize = 0;
@@ -220,7 +223,6 @@ app.get('/api/admin/storage-usage', isAdmin, async (req, res) => {
   } catch (e) { res.json({ ok: false, error: e.message }); }
 });
 
-// НОВОЕ: активность по часам за 24 часа
 app.get('/api/admin/activity-24h', isAdmin, async (req, res) => {
   try {
     const now = new Date();
@@ -259,7 +261,7 @@ app.post('/api/admin/ban', isAdmin, async (req, res) => {
     const target = await db.execute({ sql: 'SELECT login FROM users WHERE id = ?', args: [userId] });
     if (target.rows.length === 0 || target.rows[0].login === 'admin') return res.json({ ok: false, error: 'Нельзя забанить админа' });
     await db.execute({ sql: 'UPDATE users SET is_banned = 1 WHERE id = ?', args: [userId] });
-    io.to('user_' + userId).emit('force_logout');
+    io.to('user_' + userId).emit('force_logout', { reason: 'ban' });
     res.json({ ok: true });
   } catch (e) { res.json({ ok: false, error: e.message }); }
 });
@@ -304,7 +306,6 @@ app.post('/api/admin/clear-avatars', isAdmin, async (req, res) => {
   } catch (e) { res.json({ ok: false, error: e.message }); }
 });
 
-// НОВОЕ: отдельная очистка баннеров
 app.post('/api/admin/clear-banners', isAdmin, async (req, res) => {
   try {
     await db.execute(`UPDATE users SET banner = 'ban-aurora' WHERE banner LIKE 'https://%'`);
@@ -347,7 +348,6 @@ app.post('/api/admin/clear-storage', isAdmin, async (req, res) => {
   } catch (e) { res.json({ ok: false, error: e.message }); }
 });
 
-// ДОПОЛНИТЕЛЬНЫЕ АДМИН ФУНКЦИИ
 app.get('/api/admin/groups', isAdmin, async (req, res) => {
   try {
     const gRes = await db.execute('SELECT * FROM chats WHERE type = "group" ORDER BY id DESC');
@@ -386,16 +386,38 @@ app.get('/api/admin/settings', isAdmin, async (req, res) => {
   try {
     const maint = await getSetting('maintenance');
     const banner = await getSetting('banner');
-    res.json({ ok: true, maintenance: maint, banner: banner });
+    const regDisabled = await getSetting('register_disabled');
+    res.json({ ok: true, maintenance: maint, banner: banner, register_disabled: regDisabled });
   } catch (e) { res.json({ ok: false, error: e.message }); }
 });
 
 app.post('/api/admin/settings', isAdmin, async (req, res) => {
   try {
-    const { maintenance, banner } = req.body;
-    if (maintenance !== undefined) await db.execute({ sql: 'UPDATE settings SET value = ? WHERE key = "maintenance"', args: [maintenance] });
-    if (banner !== undefined) await db.execute({ sql: 'UPDATE settings SET value = ? WHERE key = "banner"', args: [banner] });
-    io.emit('global_banner_update', { banner: banner });
+    const { maintenance, banner, register_disabled } = req.body;
+    
+    if (maintenance !== undefined) {
+      await db.execute({ sql: 'UPDATE settings SET value = ? WHERE key = "maintenance"', args: [maintenance] });
+      if (maintenance === '1') {
+        const adminRes = await db.execute('SELECT id FROM users WHERE login = "admin"');
+        const adminId = adminRes.rows[0]?.id;
+        for (const userId of onlineUsers.keys()) {
+          if (userId !== adminId) {
+            io.to('user_' + userId).emit('force_logout', { reason: 'maintenance' });
+          }
+        }
+      }
+    }
+
+    if (register_disabled !== undefined) {
+      await db.execute({ sql: 'UPDATE settings SET value = ? WHERE key = "register_disabled"', args: [register_disabled] });
+    }
+
+    if (banner !== undefined) {
+      const cleanBanner = String(banner).trim();
+      await db.execute({ sql: 'UPDATE settings SET value = ? WHERE key = "banner"', args: [cleanBanner] });
+      io.emit('global_banner_update', { banner: cleanBanner });
+    }
+    
     res.json({ ok: true });
   } catch (e) { res.json({ ok: false, error: e.message }); }
 });
@@ -424,6 +446,14 @@ app.post('/api/admin/broadcast', isAdmin, async (req, res) => {
       }
     }
     res.json({ ok: true });
+  } catch (e) { res.json({ ok: false, error: e.message }); }
+});
+
+// НОВОЕ: Конфетти
+app.post('/api/admin/confetti', isAdmin, async (req, res) => {
+  try {
+    io.emit('confetti', { duration: 5000 });
+    res.json({ ok: true, count: onlineUsers.size });
   } catch (e) { res.json({ ok: false, error: e.message }); }
 });
 
@@ -732,7 +762,7 @@ io.on('connection', async (socket) => {
   
   try {
     const uRes = await db.execute({ sql: 'SELECT is_banned FROM users WHERE id = ?', args: [myId] });
-    if (uRes.rows[0]?.is_banned) { socket.emit('force_logout'); socket.disconnect(); return; }
+    if (uRes.rows[0]?.is_banned) { socket.emit('force_logout', { reason: 'ban' }); socket.disconnect(); return; }
   } catch (e) {}
   
   socket.join('user_' + myId);
@@ -752,7 +782,7 @@ io.on('connection', async (socket) => {
   socket.on('send_message', async (data, callback) => {
     try {
       const bRes = await db.execute({ sql: 'SELECT is_banned FROM users WHERE id = ?', args: [myId] });
-      if (bRes.rows[0]?.is_banned) { if (callback) callback({ error: 'Вы забанены' }); socket.emit('force_logout'); return; }
+      if (bRes.rows[0]?.is_banned) { if (callback) callback({ error: 'Вы забанены' }); socket.emit('force_logout', { reason: 'ban' }); return; }
     } catch(e) {}
 
     let { chat_id, text, other_id, file_url, file_type, file_name, reply_to_id, temp_id } = data;
