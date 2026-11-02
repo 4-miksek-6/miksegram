@@ -87,6 +87,19 @@
         .activity-labels { display: flex; justify-content: space-between; margin-top: 8px; padding: 0 4px; }
         .activity-labels span { font-size: 10px; color: var(--text-mute); }
         .activity-empty { text-align: center; color: var(--text-mute); padding: 40px 0; font-size: 13px; }
+
+        /* Модалка управления группами */
+        .admin-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; z-index: 5000; padding: 20px; }
+        .admin-modal.open { display: flex; }
+        .admin-modal-content { background: var(--panel-strong); border: 1px solid var(--border-hi); border-radius: 24px; width: 100%; max-width: 600px; padding: 32px; box-shadow: 0 20px 60px rgba(0,0,0,0.8); position: relative; max-height: 90vh; overflow-y: auto; }
+        .admin-modal-close { position: absolute; top: 20px; right: 20px; background: rgba(255,255,255,0.1); border: none; color: var(--text); width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
+        .admin-modal-close:hover { background: var(--accent); color: #000; }
+        .group-members-list { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; max-height: 300px; overflow-y: auto; padding-right: 10px; }
+        .group-member-item { display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.03); padding: 10px 16px; border-radius: 12px; border: 1px solid var(--border); }
+
+        /* Предпросмотр баннера */
+        .banner-preview-container { margin-top: 16px; margin-bottom: 24px; padding: 20px; background: rgba(0,0,0,0.3); border: 1px dashed var(--border); border-radius: 16px; display: flex; justify-content: center; }
+        .banner-preview { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #06101c; text-align: center; padding: 10px 20px; font-weight: 700; font-size: 13px; border-radius: 12px; max-width: 600px; width: 100%; box-shadow: 0 8px 30px color-mix(in srgb, var(--accent) 50%, transparent); border: 1px solid rgba(255,255,255,0.3); display: none; }
     </style>
 </head>
 <body>
@@ -164,7 +177,7 @@
 
         <div id="tab-users" class="tab-content hidden">
             <h1>Управление пользователями</h1>
-            <p class="subtitle">Баны, сброс паролей и выдача VIP-статусов.</p>
+            <p class="subtitle">Баны, сброс паролей, выдача VIP-статусов и полное удаление.</p>
 
             <div class="admin-section">
                 <input type="text" class="admin-input" id="userSearchInput" placeholder="Поиск по логину или имени..." oninput="filterUsers()">
@@ -261,7 +274,12 @@
 
             <div class="admin-section">
                 <h2>Глобальный баннер</h2>
-                <input type="text" id="globalBannerInput" class="admin-input" placeholder="Например: Внимание! Сегодня перезагрузка в 20:00">
+                <input type="text" id="globalBannerInput" class="admin-input" placeholder="Например: Внимание! Сегодня перезагрузка в 20:00" oninput="updateBannerPreview(this.value)">
+                
+                <div class="banner-preview-container">
+                    <div class="banner-preview" id="bannerPreviewEl">Текст баннера</div>
+                </div>
+
                 <button class="btn-primary" onclick="saveBanner()">Сохранить баннер</button>
             </div>
         </div>
@@ -292,6 +310,22 @@
 </div>
 
 <div id="admin-toast">Уведомление</div>
+
+<!-- Модалка управления группой -->
+<div class="admin-modal" id="groupManageModal">
+    <div class="admin-modal-content">
+        <button class="admin-modal-close" onclick="document.getElementById('groupManageModal').classList.remove('open')">✕</button>
+        <h2 style="font-family:'Unbounded'; font-size:20px; margin:0 0 20px 0;">Управление группой</h2>
+        
+        <label style="font-size:12px; color:var(--text-dim);">Название группы</label>
+        <input type="text" id="manageGroupName" class="admin-input" style="margin-top: 6px;">
+        
+        <button class="btn-primary" style="width: 100%; margin-bottom: 24px;" onclick="saveGroupRename()">Сохранить название</button>
+        
+        <label style="font-size:12px; color:var(--text-dim);">Участники (<span id="manageGroupMembersCount">0</span>)</label>
+        <div class="group-members-list" id="manageGroupMembersList"></div>
+    </div>
+</div>
 
 <script>
     let toastTimer;
@@ -485,6 +519,7 @@
                         ? `<button class="action-btn" onclick="unbanUser(${u.id})" style="color:#00ff88; border-color:rgba(0,255,136,0.3);">Разбанить</button>`
                         : `<button class="action-btn btn-danger" onclick="banUser(${u.id})">Бан</button>`
                     ) : ''}
+                    ${!isAdmin ? `<button class="action-btn btn-danger" onclick="deleteUser(${u.id})" title="Удалить аккаунт навсегда">🗑 Удалить</button>` : ''}
                 </div>
             </div>
             `;
@@ -529,6 +564,17 @@
         } catch (e) { showToast('Ошибка сети'); }
     }
 
+    async function deleteUser(userId) {
+        if (!confirm('ВНИМАНИЕ! Вы собираетесь ПОЛНОСТЬЮ удалить пользователя. Все его сообщения исчезнут у собеседников, а файлы удалятся из хранилища. Продолжить?')) return;
+        if (!confirm('Точно удалить? Это действие необратимо!')) return;
+        try {
+            const res = await fetch('/api/admin/delete-user', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId }) });
+            const data = await res.json();
+            if (data.ok) { showToast('Пользователь полностью удален'); loadUsers(); loadStats(); }
+            else showToast('Ошибка: ' + data.error);
+        } catch (e) { showToast('Ошибка сети'); }
+    }
+
     // ===== ЯДЕРНАЯ ОЧИСТКА =====
     async function wipeData(action, successMessage) {
         if (!confirm('Вы уверены? Это действие необратимо!')) return;
@@ -540,7 +586,9 @@
         } catch (e) { showToast('Ошибка сети'); }
     }
 
-    // ===== КОНТЕНТ =====
+    // ===== КОНТЕНТ И ГРУППЫ =====
+    let currentManageGroupId = null;
+
     async function loadGroups() {
         try {
             const res = await fetch('/api/admin/groups');
@@ -559,11 +607,56 @@
                                 <div class="user-login">Создатель ID: ${g.creator_id} • Группа ID: ${g.id}</div>
                             </div>
                         </div>
-                        <button class="action-btn btn-danger" onclick="deleteGroup(${g.id})">Удалить</button>
+                        <div style="display:flex; gap:8px;">
+                            <button class="action-btn" onclick="manageGroup(${g.id})" style="border-color:var(--accent);">⚙️ Управлять</button>
+                            <button class="action-btn btn-danger" onclick="deleteGroup(${g.id})">Удалить</button>
+                        </div>
                     </div>
                 `).join('');
             }
         } catch (e) { console.error(e); }
+    }
+
+    async function manageGroup(groupId) {
+        try {
+            const res = await fetch('/api/admin/group/' + groupId);
+            const data = await res.json();
+            if (!data.ok) return showToast('Ошибка загрузки группы');
+            
+            currentManageGroupId = groupId;
+            document.getElementById('manageGroupName').value = data.group.name;
+            document.getElementById('manageGroupMembersCount').textContent = data.members.length;
+            
+            const list = document.getElementById('manageGroupMembersList');
+            list.innerHTML = data.members.map(m => `
+                <div class="group-member-item">
+                    <div class="user-avatar" style="width:32px; height:32px; font-size:14px; background:var(--grad-cyan);">${m.display_name.charAt(0).toUpperCase()}</div>
+                    <div>
+                        <div style="font-weight:600; font-size:13px;">${m.display_name}</div>
+                        <div style="color:var(--text-dim); font-size:11px;">@${m.login}</div>
+                    </div>
+                </div>
+            `).join('');
+            
+            document.getElementById('groupManageModal').classList.add('open');
+        } catch (e) { showToast('Ошибка сети'); }
+    }
+
+    async function saveGroupRename() {
+        const name = document.getElementById('manageGroupName').value.trim();
+        if (!name) return showToast('Введите название');
+        try {
+            const res = await fetch('/api/admin/rename-group', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ groupId: currentManageGroupId, name })
+            });
+            const data = await res.json();
+            if (data.ok) {
+                showToast('Название группы обновлено');
+                document.getElementById('groupManageModal').classList.remove('open');
+                loadGroups();
+            } else showToast('Ошибка: ' + data.error);
+        } catch (e) { showToast('Ошибка сети'); }
     }
 
     async function deleteGroup(groupId) {
@@ -615,8 +708,20 @@
                 else regToggle.classList.remove('active');
 
                 document.getElementById('globalBannerInput').value = data.banner || '';
+                updateBannerPreview(data.banner || '');
             }
         } catch (e) { console.error(e); }
+    }
+
+    function updateBannerPreview(text) {
+        const el = document.getElementById('bannerPreviewEl');
+        const clean = (text || '').trim();
+        if (clean) {
+            el.textContent = clean;
+            el.style.display = 'block';
+        } else {
+            el.style.display = 'none';
+        }
     }
 
     async function toggleMaintenance() {

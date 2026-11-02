@@ -298,6 +298,53 @@ app.post('/api/admin/reset-password', isAdmin, async (req, res) => {
   } catch (e) { res.json({ ok: false, error: e.message }); }
 });
 
+// НОВОЕ: Полное удаление пользователя
+app.post('/api/admin/delete-user', isAdmin, async (req, res) => {
+  try {
+    const { userId } = req.body;
+    const target = await db.execute({ sql: 'SELECT login, avatar, banner FROM users WHERE id = ?', args: [userId] });
+    if (target.rows.length === 0 || target.rows[0].login === 'admin') return res.json({ ok: false, error: 'Нельзя удалить админа' });
+
+    // 1. Собираем файлы для удаления из Supabase
+    const filesToRemove = [];
+    const u = target.rows[0];
+    if (u.avatar && u.avatar.includes('supabase.co')) filesToRemove.push(u.avatar.split('/').pop());
+    if (u.banner && u.banner.includes('supabase.co')) filesToRemove.push(u.banner.split('/').pop());
+
+    const msgs = await db.execute({ sql: 'SELECT file_url FROM messages WHERE sender_id = ? AND file_url IS NOT NULL', args: [userId] });
+    msgs.rows.forEach(m => {
+      if (m.file_url.includes('supabase.co')) filesToRemove.push(m.file_url.split('/').pop());
+    });
+
+    if (filesToRemove.length > 0) {
+      await supabase.storage.from('uploads').remove(filesToRemove).catch(e => console.error('Ошибка удаления файлов:', e));
+    }
+
+    // 2. Удаляем данные из БД
+    await db.execute({ sql: 'DELETE FROM reactions WHERE user_id = ?', args: [userId] });
+    await db.execute({ sql: 'DELETE FROM read_status WHERE user_id = ?', args: [userId] });
+    await db.execute({ sql: 'DELETE FROM messages WHERE sender_id = ?', args: [userId] });
+    
+    // Удаляем пустые приватные чаты, где он был
+    const userChats = await db.execute({ sql: 'SELECT chat_id FROM chat_members WHERE user_id = ?', args: [userId] });
+    for (const row of userChats.rows) {
+       const chatId = row.chat_id;
+       const otherMembers = await db.execute({ sql: 'SELECT user_id FROM chat_members WHERE chat_id = ? AND user_id != ?', args: [chatId, userId] });
+       if (otherMembers.rows.length === 0) {
+          await db.execute({ sql: 'DELETE FROM chats WHERE id = ?', args: [chatId] });
+       }
+    }
+
+    await db.execute({ sql: 'DELETE FROM chat_members WHERE user_id = ?', args: [userId] });
+    await db.execute({ sql: 'DELETE FROM users WHERE id = ?', args: [userId] });
+
+    io.emit('update_chats');
+    io.to('user_' + userId).emit('force_logout', { reason: 'ban' }); // kick if online
+    
+    res.json({ ok: true });
+  } catch (e) { res.json({ ok: false, error: e.message }); }
+});
+
 app.post('/api/admin/clear-avatars', isAdmin, async (req, res) => {
   try {
     await db.execute(`UPDATE users SET avatar = 'grad-emerald' WHERE avatar LIKE 'https://%'`);
@@ -352,6 +399,28 @@ app.get('/api/admin/groups', isAdmin, async (req, res) => {
   try {
     const gRes = await db.execute("SELECT * FROM chats WHERE type = 'group' ORDER BY id DESC");
     res.json({ ok: true, groups: gRes.rows });
+  } catch (e) { res.json({ ok: false, error: e.message }); }
+});
+
+// НОВОЕ: Инфо о группе для админки
+app.get('/api/admin/group/:id', isAdmin, async (req, res) => {
+  try {
+    const chatId = req.params.id;
+    const chatRes = await db.execute({ sql: 'SELECT * FROM chats WHERE id = ?', args: [chatId] });
+    if (chatRes.rows.length === 0) return res.json({ ok: false });
+    const members = await db.execute({ sql: 'SELECT u.id, u.login, u.display_name, u.avatar, u.badge FROM users u JOIN chat_members cm ON u.id = cm.user_id WHERE cm.chat_id = ?', args: [chatId] });
+    res.json({ ok: true, group: chatRes.rows[0], members: members.rows });
+  } catch (e) { res.json({ ok: false, error: e.message }); }
+});
+
+// НОВОЕ: Переименование группы из админки
+app.post('/api/admin/rename-group', isAdmin, async (req, res) => {
+  try {
+    const { groupId, name } = req.body;
+    if (!groupId || !name) return res.json({ ok: false, error: 'Не хватает параметров' });
+    await db.execute({ sql: 'UPDATE chats SET name = ? WHERE id = ?', args: [name, groupId] });
+    io.emit('update_chats');
+    res.json({ ok: true });
   } catch (e) { res.json({ ok: false, error: e.message }); }
 });
 
@@ -855,4 +924,4 @@ io.on('connection', async (socket) => {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => { LOG('SERVER', `🚀 Miksegram запущен на порту ${PORT}`); });
 process.on('SIGTERM', () => { server.close(() => process.exit(0)); });
-process.on('SIGINT', () => { server.close(() => process.exit(0)); });
+process.on('SIGINT', () => { server.close(() => process.exit(0)); })
