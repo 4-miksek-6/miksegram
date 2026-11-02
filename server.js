@@ -198,6 +198,53 @@ app.get('/api/admin/stats', isAdmin, async (req, res) => {
   } catch (e) { res.json({ ok: false, error: e.message }); }
 });
 
+// НОВОЕ: реальный размер хранилища Supabase (с пагинацией)
+app.get('/api/admin/storage-usage', isAdmin, async (req, res) => {
+  try {
+    let totalSize = 0;
+    let totalCount = 0;
+    let offset = 0;
+    const limit = 1000;
+    while (true) {
+      const { data: files, error } = await supabase.storage.from('uploads').list('', { limit, offset });
+      if (error) throw error;
+      if (!files || files.length === 0) break;
+      files.forEach(f => {
+        totalCount++;
+        if (f.metadata && typeof f.metadata.size === 'number') totalSize += f.metadata.size;
+      });
+      if (files.length < limit) break;
+      offset += limit;
+    }
+    res.json({ ok: true, bytes: totalSize, files: totalCount, limit: 1024 * 1024 * 1024 });
+  } catch (e) { res.json({ ok: false, error: e.message }); }
+});
+
+// НОВОЕ: активность по часам за 24 часа
+app.get('/api/admin/activity-24h', isAdmin, async (req, res) => {
+  try {
+    const now = new Date();
+    const since = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+    const result = await db.execute({
+      sql: `SELECT strftime('%H', created_at) as hour, COUNT(*) as count FROM messages WHERE created_at >= ? GROUP BY hour`,
+      args: [since]
+    });
+    const hours = new Array(24).fill(0);
+    result.rows.forEach(r => {
+      const h = parseInt(r.hour);
+      if (!isNaN(h) && h >= 0 && h < 24) hours[h] = Number(r.count) || 0;
+    });
+    const nowHour = now.getUTCHours();
+    const ordered = [];
+    for (let i = 23; i >= 0; i--) {
+      const h = (nowHour - i + 24) % 24;
+      ordered.push({ hour: h, count: hours[h] });
+    }
+    const max = Math.max(1, ...ordered.map(o => o.count));
+    res.json({ ok: true, hours: ordered, max });
+  } catch (e) { res.json({ ok: false, error: e.message }); }
+});
+
 app.get('/api/admin/users', isAdmin, async (req, res) => {
   try {
     const uRes = await db.execute('SELECT id, login, display_name, avatar, badge, is_banned FROM users ORDER BY id ASC');
@@ -251,7 +298,16 @@ app.post('/api/admin/reset-password', isAdmin, async (req, res) => {
 
 app.post('/api/admin/clear-avatars', isAdmin, async (req, res) => {
   try {
-    await db.execute(`UPDATE users SET avatar = 'grad-emerald', banner = 'ban-aurora' WHERE avatar LIKE 'https://%' OR banner LIKE 'https://%'`);
+    await db.execute(`UPDATE users SET avatar = 'grad-emerald' WHERE avatar LIKE 'https://%'`);
+    io.emit('update_chats');
+    res.json({ ok: true });
+  } catch (e) { res.json({ ok: false, error: e.message }); }
+});
+
+// НОВОЕ: отдельная очистка баннеров
+app.post('/api/admin/clear-banners', isAdmin, async (req, res) => {
+  try {
+    await db.execute(`UPDATE users SET banner = 'ban-aurora' WHERE banner LIKE 'https://%'`);
     io.emit('update_chats');
     res.json({ ok: true });
   } catch (e) { res.json({ ok: false, error: e.message }); }

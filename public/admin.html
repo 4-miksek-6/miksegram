@@ -30,6 +30,7 @@
         .stat-card:hover { transform: translateY(-4px); border-color: var(--accent); }
         .stat-value { font-family: 'Unbounded', sans-serif; font-size: 32px; font-weight: 700; color: var(--accent); text-shadow: 0 0 20px color-mix(in srgb, var(--accent) 40%, transparent); }
         .stat-label { color: var(--text-mute); font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
+        .stat-sub { color: var(--text-mute); font-size: 11px; margin-top: 4px; }
         .admin-section { background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 24px; padding: 40px; margin-bottom: 32px; }
         .admin-section h2 { font-family: 'Unbounded', sans-serif; font-size: 18px; margin: 0 0 24px 0; color: var(--text); }
         .user-row { display: flex; align-items: center; justify-content: space-between; padding: 24px 0; border-bottom: 1px solid var(--border); }
@@ -67,6 +68,25 @@
         .result-box { max-height: 300px; overflow-y: auto; border: 1px solid var(--border); border-radius: 12px; padding: 16px; background: rgba(0,0,0,0.2); margin-top: 16px; font-size: 13px; }
         .result-item { padding: 8px 0; border-bottom: 1px solid var(--border); }
         .result-item:last-child { border-bottom: none; }
+
+        /* Дашборд: заголовок с кнопкой Обновить */
+        .dashboard-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; }
+        .dashboard-header h1 { margin: 0; }
+        .dashboard-header p.subtitle { margin: 8px 0 0 0; }
+        .refresh-btn { padding: 10px 20px; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 12px; color: var(--text); font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s; }
+        .refresh-btn:hover { background: rgba(255,255,255,0.12); border-color: var(--accent); }
+        .refresh-btn.spinning svg { animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Активность за 24 часа — реальные бары */
+        .activity-bars-wrap { height: 180px; display: flex; align-items: flex-end; justify-content: space-between; gap: 4px; padding: 16px 4px 0 4px; }
+        .activity-bar { flex: 1; min-width: 4px; background: var(--accent); border-radius: 4px 4px 0 0; min-height: 4px; position: relative; transition: height 0.4s cubic-bezier(0.2, 0.9, 0.3, 1.2), background 0.2s; cursor: default; }
+        .activity-bar:hover { background: var(--accent-2); box-shadow: 0 0 12px var(--accent); }
+        .activity-bar::after { content: attr(data-tooltip); position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%) translateY(-6px); background: var(--panel-strong); border: 1px solid var(--accent); color: var(--text); padding: 4px 8px; border-radius: 6px; font-size: 11px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 10; }
+        .activity-bar:hover::after { opacity: 1; }
+        .activity-labels { display: flex; justify-content: space-between; margin-top: 8px; padding: 0 4px; }
+        .activity-labels span { font-size: 10px; color: var(--text-mute); }
+        .activity-empty { text-align: center; color: var(--text-mute); padding: 40px 0; font-size: 13px; }
     </style>
 </head>
 <body>
@@ -92,8 +112,16 @@
     <main class="admin-content">
         
         <div id="tab-dashboard" class="tab-content">
-            <h1>Обзор системы</h1>
-            <p class="subtitle">Статистика вашего мессенджера в реальном времени.</p>
+            <div class="dashboard-header">
+                <div>
+                    <h1>Обзор системы</h1>
+                    <p class="subtitle" style="margin-bottom: 0;">Статистика вашего мессенджера в реальном времени.</p>
+                </div>
+                <button class="refresh-btn" id="refreshDashboardBtn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                    Обновить
+                </button>
+            </div>
             
             <div class="stats-grid">
                 <div class="stat-card">
@@ -109,21 +137,16 @@
                     <div class="stat-label">Сообщений</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value" style="color: #a855f7;">-</div>
+                    <div class="stat-value" id="stat-storage" style="color: #a855f7;">...</div>
                     <div class="stat-label">Занято в Supabase</div>
+                    <div class="stat-sub" id="stat-storage-sub"></div>
                 </div>
             </div>
 
             <div class="admin-section">
                 <h2>Активность за 24 часа</h2>
-                <div style="height: 150px; background: rgba(0,0,0,0.2); border-radius: 12px; display: flex; align-items: flex-end; justify-content: space-around; padding: 10px; gap: 10px;">
-                    <div style="width: 30px; height: 40%; background: var(--accent); border-radius: 4px 4px 0 0;"></div>
-                    <div style="width: 30px; height: 60%; background: var(--accent); border-radius: 4px 4px 0 0;"></div>
-                    <div style="width: 30px; height: 30%; background: var(--accent); border-radius: 4px 4px 0 0;"></div>
-                    <div style="width: 30px; height: 80%; background: var(--accent); border-radius: 4px 4px 0 0;"></div>
-                    <div style="width: 30px; height: 100%; background: var(--accent-2); border-radius: 4px 4px 0 0; box-shadow: 0 0 20px var(--accent-2);"></div>
-                    <div style="width: 30px; height: 70%; background: var(--accent); border-radius: 4px 4px 0 0;"></div>
-                    <div style="width: 30px; height: 50%; background: var(--accent); border-radius: 4px 4px 0 0;"></div>
+                <div id="activityChartContainer">
+                    <div class="activity-empty">Загрузка...</div>
                 </div>
             </div>
 
@@ -144,7 +167,7 @@
             <p class="subtitle">Баны, сброс паролей и выдача VIP-статусов.</p>
 
             <div class="admin-section">
-                <input type="text" class="admin-input" id="userSearchInput" placeholder="Поиск по логину или имени...">
+                <input type="text" class="admin-input" id="userSearchInput" placeholder="Поиск по логину или имени..." oninput="filterUsers()">
                 <div id="usersListContainer">
                     <div style="text-align:center; padding:20px; color:var(--text-mute);">Загрузка...</div>
                 </div>
@@ -189,7 +212,7 @@
                         <div style="font-weight: 600; margin-bottom: 6px;">Удалить все баннеры</div>
                         <div style="color: var(--text-dim); font-size: 13px;">Удалит фоны профилей у всех пользователей.</div>
                     </div>
-                    <button class="action-btn btn-danger" onclick="wipeData('clear-avatars', 'Баннеры сброшены')">Очистить</button>
+                    <button class="action-btn btn-danger" onclick="wipeData('clear-banners', 'Баннеры сброшены')">Очистить</button>
                 </div>
                 <div class="toggle-row">
                     <div>
@@ -297,13 +320,14 @@
             targetContent.offsetHeight;
             targetContent.style.animation = null; 
 
-            if (tab.dataset.tab === 'dashboard') loadStats();
+            if (tab.dataset.tab === 'dashboard') loadDashboard();
             if (tab.dataset.tab === 'users') loadUsers();
             if (tab.dataset.tab === 'content') loadGroups();
             if (tab.dataset.tab === 'settings') loadAdminSettings();
         });
     });
 
+    // ===== ДАШБОРД =====
     async function loadStats() {
         try {
             const res = await fetch('/api/admin/stats');
@@ -317,6 +341,78 @@
         } catch (e) { console.error('Ошибка статистики:', e); }
     }
 
+    async function loadStorageUsage() {
+        try {
+            const res = await fetch('/api/admin/storage-usage');
+            if (res.status === 403 || res.status === 401) return;
+            const data = await res.json();
+            if (data.ok) {
+                const mb = (data.bytes / (1024 * 1024)).toFixed(1);
+                const limitMb = (data.limit / (1024 * 1024)).toFixed(0);
+                document.getElementById('stat-storage').textContent = mb + ' МБ';
+                document.getElementById('stat-storage-sub').textContent = `из ${limitMb} МБ · ${data.files} файл(ов)`;
+            } else {
+                document.getElementById('stat-storage').textContent = '—';
+                document.getElementById('stat-storage-sub').textContent = 'ошибка';
+            }
+        } catch (e) {
+            document.getElementById('stat-storage').textContent = '—';
+            document.getElementById('stat-storage-sub').textContent = 'ошибка';
+        }
+    }
+
+    async function loadActivity() {
+        const container = document.getElementById('activityChartContainer');
+        try {
+            const res = await fetch('/api/admin/activity-24h');
+            if (res.status === 403 || res.status === 401) return;
+            const data = await res.json();
+            if (!data.ok) {
+                container.innerHTML = '<div class="activity-empty">Ошибка загрузки</div>';
+                return;
+            }
+            const total = data.hours.reduce((s, h) => s + h.count, 0);
+            if (total === 0) {
+                container.innerHTML = '<div class="activity-empty">За последние 24 часа сообщений не было</div>';
+                return;
+            }
+            const barsHtml = data.hours.map(h => {
+                const pct = data.max > 0 ? Math.max(2, (h.count / data.max) * 100) : 2;
+                const tooltip = `${String(h.hour).padStart(2, '0')}:00 — ${h.count} сообщ.`;
+                return `<div class="activity-bar" style="height: ${pct}%;" data-tooltip="${tooltip}"></div>`;
+            }).join('');
+            container.innerHTML = `
+                <div class="activity-bars-wrap">${barsHtml}</div>
+                <div class="activity-labels">
+                    <span>${String(data.hours[0].hour).padStart(2, '0')}:00</span>
+                    <span>${String(data.hours[11].hour).padStart(2, '0')}:00</span>
+                    <span>сейчас</span>
+                </div>
+                <div style="text-align: center; margin-top: 12px; color: var(--text-dim); font-size: 12px;">Всего за сутки: <b style="color: var(--accent);">${total}</b> сообщений</div>
+            `;
+        } catch (e) {
+            container.innerHTML = '<div class="activity-empty">Ошибка загрузки</div>';
+        }
+    }
+
+    async function loadDashboard() {
+        await Promise.all([loadStats(), loadStorageUsage(), loadActivity()]);
+    }
+
+    document.getElementById('refreshDashboardBtn').addEventListener('click', async function() {
+        this.classList.add('spinning');
+        this.disabled = true;
+        await loadDashboard();
+        setTimeout(() => {
+            this.classList.remove('spinning');
+            this.disabled = false;
+            showToast('Дашборд обновлён');
+        }, 400);
+    });
+
+    // ===== ПОЛЬЗОВАТЕЛИ =====
+    let allUsersCache = [];
+
     async function loadUsers() {
         try {
             const res = await fetch('/api/admin/users');
@@ -324,53 +420,75 @@
             const data = await res.json();
             
             if (data.ok) {
-                const container = document.getElementById('usersListContainer');
-                if (data.users.length === 0) {
-                    container.innerHTML = '<div style="color:var(--text-mute); text-align:center;">Пользователей пока нет</div>';
-                    return;
-                }
-                
-                container.innerHTML = data.users.map(u => {
-                    const isAdmin = u.login === 'admin';
-                    const isBanned = u.is_banned === 1;
-                    const displayName = u.display_name || u.login;
-                    const initial = displayName.charAt(0).toUpperCase();
-                    
-                    const badges = { 'crown': '👑', 'check': '✅', 'star': '⭐', 'smile': '😎' };
-                    const badgeEmoji = badges[u.badge] || '';
-                    
-                    return `
-                    <div class="user-row" style="${isBanned ? 'opacity: 0.6;' : ''}">
-                        <div class="user-info">
-                            <div class="user-avatar" style="background: var(--grad-cyan);">${initial}</div>
-                            <div>
-                                <div class="user-name">
-                                    ${displayName} ${badgeEmoji}
-                                    ${isAdmin ? '<span style="color:var(--accent); font-size:10px;">(Создатель)</span>' : ''}
-                                    ${isBanned ? '<span style="color:#ff5c7c; font-size:10px; margin-left:6px;">(ЗАБАНЕН)</span>' : ''}
-                                </div>
-                                <div class="user-login">@${u.login} • ID: ${u.id}</div>
-                            </div>
-                        </div>
-                        <div style="display: flex; gap: 12px; align-items: center;">
-                            <select class="badge-select" onchange="setBadge(${u.id}, this.value)" ${isAdmin ? 'disabled' : ''}>
-                                <option value="none" ${u.badge === 'none' ? 'selected' : ''}>Без бейджа</option>
-                                <option value="crown" ${u.badge === 'crown' ? 'selected' : ''}>👑 Корона</option>
-                                <option value="check" ${u.badge === 'check' ? 'selected' : ''}>✅ Галочка</option>
-                                <option value="star" ${u.badge === 'star' ? 'selected' : ''}>⭐ Звезда</option>
-                                <option value="smile" ${u.badge === 'smile' ? 'selected' : ''}>😎 Смайл</option>
-                            </select>
-                            ${!isAdmin ? `<button class="action-btn" onclick="resetPassword(${u.id})">Сброс пароля</button>` : ''}
-                            ${!isAdmin ? (isBanned 
-                                ? `<button class="action-btn" onclick="unbanUser(${u.id})" style="color:#00ff88; border-color:rgba(0,255,136,0.3);">Разбанить</button>`
-                                : `<button class="action-btn btn-danger" onclick="banUser(${u.id})">Бан</button>`
-                            ) : ''}
-                        </div>
-                    </div>
-                    `;
-                }).join('');
+                allUsersCache = data.users;
+                renderUsersList();
             }
         } catch (e) { console.error('Ошибка пользователей:', e); }
+    }
+
+    function filterUsers() {
+        renderUsersList();
+    }
+
+    function renderUsersList() {
+        const container = document.getElementById('usersListContainer');
+        const query = (document.getElementById('userSearchInput').value || '').trim().toLowerCase();
+        
+        let users = allUsersCache;
+        if (query) {
+            users = allUsersCache.filter(u => {
+                const login = (u.login || '').toLowerCase();
+                const name = (u.display_name || '').toLowerCase();
+                return login.includes(query) || name.includes(query);
+            });
+        }
+
+        if (users.length === 0) {
+            container.innerHTML = query 
+                ? '<div style="color:var(--text-mute); text-align:center;">Никого не найдено</div>'
+                : '<div style="color:var(--text-mute); text-align:center;">Пользователей пока нет</div>';
+            return;
+        }
+
+        container.innerHTML = users.map(u => {
+            const isAdmin = u.login === 'admin';
+            const isBanned = u.is_banned === 1;
+            const displayName = u.display_name || u.login;
+            const initial = displayName.charAt(0).toUpperCase();
+            
+            const badges = { 'crown': '👑', 'check': '✅', 'star': '⭐', 'smile': '😎' };
+            const badgeEmoji = badges[u.badge] || '';
+            
+            return `
+            <div class="user-row" style="${isBanned ? 'opacity: 0.6;' : ''}">
+                <div class="user-info">
+                    <div class="user-avatar" style="background: var(--grad-cyan);">${initial}</div>
+                    <div>
+                        <div class="user-name">
+                            ${displayName} ${badgeEmoji}
+                            ${isAdmin ? '<span style="color:var(--accent); font-size:10px;">(Создатель)</span>' : ''}
+                            ${isBanned ? '<span style="color:#ff5c7c; font-size:10px; margin-left:6px;">(ЗАБАНЕН)</span>' : ''}
+                        </div>
+                        <div class="user-login">@${u.login} • ID: ${u.id}</div>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 12px; align-items: center;">
+                    <select class="badge-select" onchange="setBadge(${u.id}, this.value)" ${isAdmin ? 'disabled' : ''}>
+                        <option value="none" ${u.badge === 'none' ? 'selected' : ''}>Без бейджа</option>
+                        <option value="crown" ${u.badge === 'crown' ? 'selected' : ''}>👑 Корона</option>
+                        <option value="check" ${u.badge === 'check' ? 'selected' : ''}>✅ Галочка</option>
+                        <option value="star" ${u.badge === 'star' ? 'selected' : ''}>⭐ Звезда</option>
+                        <option value="smile" ${u.badge === 'smile' ? 'selected' : ''}>😎 Смайл</option>
+                    </select>
+                    ${!isAdmin ? `<button class="action-btn" onclick="resetPassword(${u.id})">Сброс пароля</button>` : ''}
+                    ${!isAdmin ? (isBanned 
+                        ? `<button class="action-btn" onclick="unbanUser(${u.id})" style="color:#00ff88; border-color:rgba(0,255,136,0.3);">Разбанить</button>`
+                        : `<button class="action-btn btn-danger" onclick="banUser(${u.id})">Бан</button>`
+                    ) : ''}
+                </div>
+            </div>
+            `;
+        }).join('');
     }
 
     async function banUser(userId) {
@@ -411,6 +529,7 @@
         } catch (e) { showToast('Ошибка сети'); }
     }
 
+    // ===== ЯДЕРНАЯ ОЧИСТКА =====
     async function wipeData(action, successMessage) {
         if (!confirm('Вы уверены? Это действие необратимо!')) return;
         try {
@@ -421,6 +540,7 @@
         } catch (e) { showToast('Ошибка сети'); }
     }
 
+    // ===== КОНТЕНТ =====
     async function loadGroups() {
         try {
             const res = await fetch('/api/admin/groups');
@@ -480,6 +600,7 @@
         } catch (e) { showToast('Ошибка сети'); }
     }
 
+    // ===== УПРАВЛЕНИЕ =====
     async function loadAdminSettings() {
         try {
             const res = await fetch('/api/admin/settings');
@@ -517,6 +638,7 @@
         } catch (e) { showToast('Ошибка сети'); }
     }
 
+    // ===== РАССЫЛКА =====
     async function sendBroadcast() {
         const text = document.getElementById('broadcastText').value.trim();
         if (!text) return showToast('Введите текст');
@@ -529,7 +651,7 @@
         } catch (e) { showToast('Ошибка сети'); }
     }
 
-    loadStats();
+    loadDashboard();
     
     const socket = io();
     socket.on('force_logout', () => {
