@@ -583,6 +583,49 @@ app.get('/api/user/:id', async (req, res) => {
   } catch (e) { res.json({ ok: false }); }
 });
 
+// ==================== ПРОФИЛЬ И ЮЗЕРЫ ====================
+app.post('/api/update-profile', async (req, res) => {
+  if (!req.session.userId) return res.json({ ok: false, error: 'Не авторизован' });
+  try {
+    const updates = [];
+    const args = [];
+    const allowed = ['display_name', 'bio', 'avatar', 'banner', 'avatar_frame', 'name_effect'];
+    
+    for (const key of allowed) {
+      if (req.body[key] !== undefined) {
+        if (key === 'display_name') {
+          const val = String(req.body[key]).trim();
+          if (val.length < 1 || val.length > 40) return res.json({ ok: false, error: 'Имя: от 1 до 40 символов' });
+          updates.push(`${key} = ?`);
+          args.push(val);
+        } else {
+          updates.push(`${key} = ?`);
+          args.push(req.body[key]);
+        }
+      }
+    }
+    
+    if (updates.length > 0) {
+      args.push(req.session.userId);
+      await db.execute({ sql: `UPDATE users SET ${updates.join(', ')} WHERE id = ?`, args });
+    }
+    
+    const uRes = await db.execute({ sql: 'SELECT id, login, display_name, bio, avatar, banner, avatar_frame, name_effect, badge, is_banned FROM users WHERE id = ?', args: [req.session.userId] });
+    res.json({ ok: true, user: uRes.rows[0] });
+  } catch (e) {
+    res.json({ ok: false, error: e.message });
+  }
+});
+
+app.get('/api/all-users', async (req, res) => {
+  if (!req.session.userId) return res.json({ ok: false });
+  try {
+    const uRes = await db.execute({ sql: "SELECT id, login, display_name, avatar, avatar_frame, name_effect, badge FROM users WHERE id != ? AND login != 'system' ORDER BY display_name ASC", args: [req.session.userId] });
+    res.json({ ok: true, users: uRes.rows });
+  } catch (e) { res.json({ ok: false, users: [] }); }
+});
+
+
 // ==================== ГРУППЫ ====================
 app.post('/api/create-group', async (req, res) => {
   if (!req.session.userId) return res.json({ ok: false });
