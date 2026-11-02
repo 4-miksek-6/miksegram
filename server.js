@@ -10,7 +10,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { createClient } = require('@libsql/client');
-const { S3Client, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const { createClient: createSupabase } = require('@supabase/supabase-js');
 
 // --- ЛОГИРОВАНИЕ ---
 const LOG = (tag, ...args) => console.log(`[${new Date().toISOString()}] [${tag}]`, ...args);
@@ -30,17 +30,8 @@ const db = createClient({
   authToken: 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3OTMzODMzODUsImlkIjoiMDFhMThkZGQtYjcwMS03YTg5LWIxMGEtMjk1MTkxNWVmY2Q2Iiwia2lkIjoiMDY0M3BHaVkteXR5X0t2OC1HbVY5Y2Nlb0RyTVYyVUlnZVRtU2Y5MXQtcyIsInJpZCI6IjgzM2JlNTQyLWViZjEtNGVhZC05MTQ3LTFkY2VhNDYzYmZjNCJ9.GSH-xuW9awXLGLOjssUuqDoXuoouiydQgBL7oc2BkEwRJVpABbEO-2jHW9JFLHDJ5Of_nXGtBApz7uY19k7BDQ'
 });
 
-// --- НАСТРОЙКА CLOUD.RU (S3) ---
-const s3 = new S3Client({
-  region: 'ru-central-1',
-  endpoint: 'https://s3.cloud.ru',
-  forcePathStyle: true,
-  credentials: {
-    accessKeyId: process.env.CLOUDRU_ACCESS_KEY || 'твой_tenant_id:твой_key_id',
-    secretAccessKey: process.env.CLOUDRU_SECRET_KEY || 'твой_secret_key',
-  },
-});
-const BUCKET_NAME = process.env.CLOUDRU_BUCKET_NAME || 'miksegram-files';
+// --- ПОДКЛЮЧЕНИЕ К SUPABASE ---
+const supabase = createSupabase('https://tvmypcjwrlwiorpmugpb.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2bXlwY2p3cmx3aW9ycG11Z3BiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MzQwODQwOSwiZXhwIjoyMTA4OTg0NDA5fQ.1ChmymKXpkweU7PImFwAfFYY4ufSx525Fotjn4FRtSw');
 
 // --- ИНИЦИАЛИЗАЦИЯ БД С ПОВТОРАМИ ---
 async function initDb(attempt = 1) {
@@ -615,9 +606,9 @@ app.get('/api/messages/:chatId', async (req, res) => {
   }
 });
 
-// ==================== ФАЙЛЫ (CLOUD.RU S3) ====================
+// ==================== ФАЙЛЫ (SUPABASE) ====================
 const storage = multer.memoryStorage();
-const upload = multer({ storage, limits: { fileSize: 15 * 1024 * 1024 } }); // 15 MB
+const upload = multer({ storage, limits: { fileSize: 15 * 1024 * 1024 } }); // Лимит 15 МБ
 
 app.post('/api/upload', (req, res) => {
   if (!req.session.userId) return res.json({ ok: false });
@@ -632,22 +623,19 @@ app.post('/api/upload', (req, res) => {
       const fileExt = path.extname(req.file.originalname);
       const fileName = Date.now() + '-' + Math.round(Math.random() * 1E9) + fileExt;
       
-      await s3.send(new PutObjectCommand({
-        Bucket: BUCKET_NAME,
-        Key: fileName,
-        Body: req.file.buffer,
-        ContentType: req.file.mimetype,
-        ACL: 'public-read' // Делаем файл публичным
-      }));
-
-      const fileUrl = `https://${BUCKET_NAME}.s3.cloud.ru/${fileName}`;
+      const { data, error } = await supabase.storage.from('uploads').upload(fileName, req.file.buffer, { contentType: req.file.mimetype, upsert: false });
+      if (error) throw error;
+      
+      const { data: publicUrlData } = supabase.storage.from('uploads').getPublicUrl(fileName);
+      const fileUrl = publicUrlData.publicUrl;
+      
       const isImage = req.file.mimetype.startsWith('image/');
       const isAudio = req.file.mimetype.startsWith('audio/');
       const type = isImage ? 'image' : (isAudio ? 'audio' : 'file');
       
       res.json({ ok: true, file_url: fileUrl, file_type: type, file_name: req.file.originalname });
     } catch (error) {
-      ERR('UPLOAD', 'Ошибка загрузки файла в Cloud.ru:', error.message);
+      ERR('UPLOAD', 'Ошибка загрузки файла в Supabase:', error.message);
       res.json({ ok: false, error: 'Ошибка сервера при загрузке файла' });
     }
   });
@@ -665,20 +653,14 @@ app.post('/api/upload-avatar', (req, res) => {
     try {
       const fileExt = path.extname(req.file.originalname) || '.jpg';
       const fileName = Date.now() + '-' + Math.round(Math.random() * 1E9) + fileExt;
-
       
-      await s3.send(new PutObjectCommand({
-        Bucket: BUCKET_NAME,
-        Key: fileName,
-        Body: req.file.buffer,
-        ContentType: req.file.mimetype,
-        ACL: 'public-read'
-      }));
-
-      const fileUrl = `https://${BUCKET_NAME}.s3.cloud.ru/${fileName}`;
-      res.json({ ok: true, url: fileUrl });
+      const { data, error } = await supabase.storage.from('uploads').upload(fileName, req.file.buffer, { contentType: req.file.mimetype, upsert: false });
+      if (error) throw error;
+      
+      const { data: publicUrlData } = supabase.storage.from('uploads').getPublicUrl(fileName);
+      res.json({ ok: true, url: publicUrlData.publicUrl });
     } catch (error) {
-      ERR('UPLOAD', 'Ошибка загрузки аватара в Cloud.ru:', error.message);
+      ERR('UPLOAD', 'Ошибка загрузки аватара в Supabase:', error.message);
       res.json({ ok: false, error: 'Ошибка сервера' });
     }
   });
@@ -693,16 +675,11 @@ app.post('/api/messages/:id/delete', async (req, res) => {
     if (msgRes.rows.length === 0 || msgRes.rows[0].sender_id !== myId) return res.json({ ok: false });
     const msg = msgRes.rows[0];
     
-    if (msg.file_url && msg.file_url.includes('s3.cloud.ru')) {
+    if (msg.file_url && msg.file_url.includes('supabase.co')) {
       try {
         const fileName = msg.file_url.split('/').pop();
-        await s3.send(new DeleteObjectCommand({
-          Bucket: BUCKET_NAME,
-          Key: fileName
-        }));
-      } catch (e) { 
-        ERR('API', 'Не удалось удалить файл из Cloud.ru:', e.message); 
-      }
+        await supabase.storage.from('uploads').remove([fileName]);
+      } catch (e) { }
     }
     
     await db.execute({ sql: 'DELETE FROM reactions WHERE message_id = ?', args: [msgId] });
