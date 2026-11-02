@@ -7,7 +7,6 @@
     <link rel="icon" type="image/svg+xml" href="/logo.svg">
     <link rel="stylesheet" href="/style.css">
     <style>
-        /* Стили для Админки */
         body { overflow: hidden; background: var(--bg-0); }
         
         .admin-layout {
@@ -17,7 +16,6 @@
             width: 100vw;
         }
 
-        /* Левый сайдбар */
         .admin-sidebar {
             background: var(--panel-strong);
             border-right: 1px solid var(--border);
@@ -27,304 +25,107 @@
             gap: 8px;
         }
         .admin-logo {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 32px;
-            font-family: 'Unbounded', sans-serif;
-            font-size: 18px;
-            font-weight: 700;
-            color: var(--text);
+            display: flex; align-items: center; gap: 12px; margin-bottom: 32px;
+            font-family: 'Unbounded', sans-serif; font-size: 18px; font-weight: 700; color: var(--text);
         }
-        .admin-logo img {
-            width: 32px;
-            height: 32px;
-            filter: drop-shadow(0 0 10px var(--accent));
-        }
+        .admin-logo img { width: 32px; height: 32px; filter: drop-shadow(0 0 10px var(--accent)); }
         .admin-tab {
-            padding: 14px 16px;
-            border-radius: 12px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            color: var(--text-dim);
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            transition: all 0.25s ease;
+            padding: 14px 16px; border-radius: 12px; cursor: pointer; font-size: 14px; font-weight: 500;
+            color: var(--text-dim); display: flex; align-items: center; gap: 12px; transition: all 0.25s ease;
         }
-        .admin-tab:hover {
-            background: rgba(255,255,255,0.05);
-            color: var(--text);
-            transform: translateX(4px);
-        }
+        .admin-tab:hover { background: rgba(255,255,255,0.05); color: var(--text); transform: translateX(4px); }
         .admin-tab.active {
-            background: rgba(255,255,255,0.1);
-            color: var(--accent);
-            font-weight: 600;
-            box-shadow: inset 3px 0 0 var(--accent);
-            transform: translateX(4px);
+            background: rgba(255,255,255,0.1); color: var(--accent); font-weight: 600;
+            box-shadow: inset 3px 0 0 var(--accent); transform: translateX(4px);
         }
         .back-btn {
-            margin-top: auto;
-            padding: 14px;
-            border-radius: 12px;
-            background: rgba(255,255,255,0.05);
-            border: 1px solid var(--border);
-            color: var(--text);
-            text-decoration: none;
-            text-align: center;
-            font-size: 14px;
-            font-weight: 600;
-            transition: all 0.2s;
+            margin-top: auto; padding: 14px; border-radius: 12px; background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border); color: var(--text); text-decoration: none;
+            text-align: center; font-size: 14px; font-weight: 600; transition: all 0.2s;
         }
-        .back-btn:hover {
-            background: rgba(255,255,255,0.1);
-            border-color: var(--accent);
-            box-shadow: 0 0 15px color-mix(in srgb, var(--accent) 30%, transparent);
-        }
+        .back-btn:hover { background: rgba(255,255,255,0.1); border-color: var(--accent); box-shadow: 0 0 15px color-mix(in srgb, var(--accent) 30%, transparent); }
 
-        /* Правая часть контента */
-        .admin-content {
-            padding: 40px 60px;
-            overflow-y: auto;
-            position: relative;
-        }
+        .admin-content { padding: 40px 60px; overflow-y: auto; position: relative; }
         
-        .tab-content {
-            animation: fadeSlideUp 0.4s cubic-bezier(0.2, 0.9, 0.3, 1) forwards;
-        }
-        @keyframes fadeSlideUp {
-            from { opacity: 0; transform: translateY(15px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+        .tab-content { animation: fadeSlideUp 0.4s cubic-bezier(0.2, 0.9, 0.3, 1) forwards; }
+        @keyframes fadeSlideUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
 
         .admin-content h1 {
-            font-family: 'Unbounded', sans-serif;
-            font-size: 28px;
-            font-weight: 700;
-            margin: 0 0 12px 0;
-            background: var(--grad-aurora);
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
+            font-family: 'Unbounded', sans-serif; font-size: 28px; font-weight: 700; margin: 0 0 12px 0;
+            background: var(--grad-aurora); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
         }
-        .admin-content p.subtitle {
-            color: var(--text-dim);
-            font-size: 14px;
-            margin-bottom: 40px;
-        }
+        .admin-content p.subtitle { color: var(--text-dim); font-size: 14px; margin-bottom: 40px; }
 
-        /* Карточки Дашборда */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 24px;
-            margin-bottom: 40px;
-        }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 24px; margin-bottom: 40px; }
         .stat-card {
-            background: rgba(255,255,255,0.03);
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            padding: 28px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            transition: transform 0.2s, border-color 0.2s;
+            background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 20px;
+            padding: 28px; display: flex; flex-direction: column; gap: 8px; transition: transform 0.2s, border-color 0.2s;
         }
-        .stat-card:hover {
-            transform: translateY(-4px);
-            border-color: var(--accent);
-        }
-        .stat-value {
-            font-family: 'Unbounded', sans-serif;
-            font-size: 32px;
-            font-weight: 700;
-            color: var(--accent);
-            text-shadow: 0 0 20px color-mix(in srgb, var(--accent) 40%, transparent);
-        }
-        .stat-label {
-            color: var(--text-mute);
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
+        .stat-card:hover { transform: translateY(-4px); border-color: var(--accent); }
+        .stat-value { font-family: 'Unbounded', sans-serif; font-size: 32px; font-weight: 700; color: var(--accent); text-shadow: 0 0 20px color-mix(in srgb, var(--accent) 40%, transparent); }
+        .stat-label { color: var(--text-mute); font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
 
-        /* Общие блоки */
-        .admin-section {
-            background: rgba(255,255,255,0.02);
-            border: 1px solid var(--border);
-            border-radius: 24px;
-            padding: 40px; /* Увеличили внутренний отступ */
-            margin-bottom: 32px;
-        }
-        .admin-section h2 {
-            font-family: 'Unbounded', sans-serif;
-            font-size: 18px;
-            margin: 0 0 24px 0;
-            color: var(--text);
-        }
+        .admin-section { background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 24px; padding: 40px; margin-bottom: 32px; }
+        .admin-section h2 { font-family: 'Unbounded', sans-serif; font-size: 18px; margin: 0 0 24px 0; color: var(--text); }
 
-        /* Список пользователей */
-        .user-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 24px 0; /* Больше воздуха по вертикали */
-            border-bottom: 1px solid var(--border);
-        }
+        .user-row { display: flex; align-items: center; justify-content: space-between; padding: 24px 0; border-bottom: 1px solid var(--border); }
         .user-row:last-child { border-bottom: none; padding-bottom: 0; }
         .user-info { display: flex; align-items: center; gap: 20px; }
-        .user-avatar { width: 46px; height: 46px; border-radius: 50%; background: #333; }
+        .user-avatar { width: 46px; height: 46px; border-radius: 50%; background: #333; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #fff; }
         .user-name { font-weight: 600; font-size: 15px; display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
         .user-login { color: var(--text-dim); font-size: 13px; }
         
-        /* Кнопки действий */
-        .action-btn {
-            padding: 10px 16px;
-            border-radius: 10px;
-            border: 1px solid var(--border);
-            background: rgba(0,0,0,0.2);
-            color: var(--text);
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: 500;
-            transition: all 0.2s;
-        }
+        .action-btn { padding: 10px 16px; border-radius: 10px; border: 1px solid var(--border); background: rgba(0,0,0,0.2); color: var(--text); cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s; }
         .action-btn:hover { background: rgba(255,255,255,0.1); border-color: var(--accent); }
+        .action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .btn-danger { color: #ff5c7c; border-color: rgba(255,92,124,0.3); }
         .btn-danger:hover { background: rgba(255,92,124,0.1); border-color: #ff5c7c; box-shadow: 0 0 15px rgba(255,92,124,0.2); }
 
-        /* КРАСИВЫЙ ВЫПАДАЮЩИЙ СПИСОК (Select) */
         .badge-select {
-            appearance: none;
-            -webkit-appearance: none;
-            -moz-appearance: none;
-            background: rgba(0,0,0,0.4);
-            border: 1px solid var(--border);
-            color: var(--text);
-            padding: 10px 40px 10px 16px; /* Место справа для стрелочки */
-            border-radius: 10px;
-            font-size: 13px;
-            font-weight: 600;
-            outline: none;
-            cursor: pointer;
-            transition: all 0.2s;
-            
-            /* Рисуем свою стрелочку через SVG */
+            appearance: none; -webkit-appearance: none; -moz-appearance: none;
+            background: rgba(0,0,0,0.4); border: 1px solid var(--border); color: var(--text);
+            padding: 10px 40px 10px 16px; border-radius: 10px; font-size: 13px; font-weight: 600; outline: none; cursor: pointer; transition: all 0.2s;
             background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a855f7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-            background-repeat: no-repeat;
-            background-position: right 12px center;
-            background-size: 16px;
+            background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;
         }
         .badge-select:hover { border-color: var(--accent); }
-        .badge-select:focus { border-color: var(--accent); box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 20%, transparent); }
-        
-        /* Стилизация самих пунктов списка (работает в большинстве браузеров) */
-        .badge-select option {
-            background: var(--bg-0);
-            color: var(--text);
-            padding: 10px;
-            font-size: 14px;
-        }
+        .badge-select option { background: var(--bg-0); color: var(--text); padding: 10px; }
 
-        /* Формы */
-        .admin-input {
-            width: 100%;
-            padding: 16px;
-            background: rgba(0,0,0,0.3);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            color: var(--text);
-            font-family: inherit;
-            font-size: 14px;
-            margin-bottom: 20px;
-            outline: none;
-            transition: all 0.2s;
-            box-sizing: border-box;
-        }
+        .admin-input { width: 100%; padding: 16px; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 12px; color: var(--text); font-family: inherit; font-size: 14px; margin-bottom: 20px; outline: none; transition: all 0.2s; box-sizing: border-box; }
         .admin-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent); }
 
-        .btn-primary {
-            padding: 14px 28px;
-            background: var(--grad-aurora);
-            color: #06101c;
-            border: none;
-            border-radius: 12px;
-            font-family: 'Unbounded', sans-serif;
-            font-weight: 600;
-            font-size: 14px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
+        .btn-primary { padding: 14px 28px; background: var(--grad-aurora); color: #06101c; border: none; border-radius: 12px; font-family: 'Unbounded', sans-serif; font-weight: 600; font-size: 14px; cursor: pointer; transition: all 0.2s; }
         .btn-primary:hover { box-shadow: 0 0 25px var(--accent); transform: translateY(-2px); }
 
-        /* Переключатели */
-        .toggle-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 24px 0; /* Больше воздуха между строками */
-            border-bottom: 1px solid var(--border);
-        }
+        .toggle-row { display: flex; justify-content: space-between; align-items: center; padding: 24px 0; border-bottom: 1px solid var(--border); }
         .toggle-row:last-child { border-bottom: none; padding-bottom: 0; }
         .toggle-row > div:first-child { padding-right: 40px; }
-        .toggle-switch {
-            width: 52px; height: 28px; /* Чуть больше */
-            background: rgba(255,255,255,0.1);
-            border-radius: 20px;
-            position: relative;
-            cursor: pointer;
-            transition: background 0.3s;
-            flex-shrink: 0;
-        }
-        .toggle-switch::after {
-            content: ''; position: absolute;
-            top: 3px; left: 3px;
-            width: 22px; height: 22px;
-            background: #fff; border-radius: 50%;
-            transition: transform 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.2);
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        }
+        .toggle-switch { width: 52px; height: 28px; background: rgba(255,255,255,0.1); border-radius: 20px; position: relative; cursor: pointer; transition: background 0.3s; flex-shrink: 0; }
+        .toggle-switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; background: #fff; border-radius: 50%; transition: transform 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.2); box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
         .toggle-switch.active { background: var(--accent); box-shadow: 0 0 15px var(--accent); }
         .toggle-switch.active::after { transform: translateX(24px); }
 
-        /* Блок ссылок на сервисы */
-        .links-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-            gap: 16px;
-            margin-top: 20px;
-        }
-        .service-link {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 18px 20px;
-            background: rgba(255,255,255,0.03);
-            border: 1px solid var(--border);
-            border-radius: 14px;
-            color: var(--text);
-            text-decoration: none;
-            font-size: 14px;
-            font-weight: 500;
-            transition: all 0.2s;
-        }
-        .service-link:hover {
-            background: rgba(255,255,255,0.08);
-            border-color: var(--accent);
-            transform: translateY(-3px);
-            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
-        }
+        .links-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; margin-top: 20px; }
+        .service-link { display: flex; align-items: center; gap: 12px; padding: 18px 20px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 14px; color: var(--text); text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.2s; }
+        .service-link:hover { background: rgba(255,255,255,0.08); border-color: var(--accent); transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
         .service-icon { font-size: 20px; }
 
         .hidden { display: none !important; }
+
+        /* Тост для уведомлений */
+        #admin-toast {
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(20px);
+            background: var(--panel-strong); border: 1px solid var(--accent); padding: 12px 24px;
+            border-radius: 12px; color: var(--text); font-size: 14px; font-weight: 500;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 0 20px color-mix(in srgb, var(--accent) 30%, transparent);
+            opacity: 0; pointer-events: none; transition: all 0.3s ease; z-index: 9999;
+        }
+        #admin-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
     </style>
 </head>
 <body>
 
 <div class="admin-layout">
-    <!-- ЛЕВОЕ МЕНЮ -->
     <aside class="admin-sidebar">
         <div class="admin-logo">
             <img src="/logo.svg" alt="Logo">
@@ -342,7 +143,6 @@
         <a href="/" class="back-btn">← Вернуться в чат</a>
     </aside>
 
-    <!-- ПРАВАЯ ЧАСТЬ (КОНТЕНТ) -->
     <main class="admin-content">
         
         <!-- ВКЛАДКА 1: ДАШБОРД -->
@@ -352,19 +152,19 @@
             
             <div class="stats-grid">
                 <div class="stat-card">
-                    <div class="stat-value">124</div>
+                    <div class="stat-value" id="stat-users">...</div>
                     <div class="stat-label">Всего юзеров</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value" style="color: #00ff88;">3</div>
+                    <div class="stat-value" id="stat-online" style="color: #00ff88;">...</div>
                     <div class="stat-label">Онлайн сейчас</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value">14,208</div>
+                    <div class="stat-value" id="stat-messages">...</div>
                     <div class="stat-label">Сообщений</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value" style="color: #a855f7;">45 MB</div>
+                    <div class="stat-value" style="color: #a855f7;">-</div>
                     <div class="stat-label">Занято в Supabase</div>
                 </div>
             </div>
@@ -382,23 +182,14 @@
                 </div>
             </div>
 
-            <!-- ИНФРАСТРУКТУРА -->
             <div class="admin-section" style="margin-bottom: 0;">
                 <h2>Инфраструктура проекта</h2>
                 <p style="color: var(--text-dim); font-size: 13px; margin-bottom: 20px;">Быстрые ссылки на панели управления сервисами, которые использует Miksegram.</p>
                 <div class="links-grid">
-                    <a href="https://turso.tech" target="_blank" class="service-link">
-                        <span class="service-icon">🗄</span> Turso (База данных)
-                    </a>
-                    <a href="https://enzonic.com" target="_blank" class="service-link">
-                        <span class="service-icon">🚀</span> Enzonic (Хостинг)
-                    </a>
-                    <a href="https://supabase.com" target="_blank" class="service-link">
-                        <span class="service-icon">📦</span> Supabase (Файлы)
-                    </a>
-                    <a href="https://github.com/4-miksek-6/miksegram" target="_blank" class="service-link">
-                        <span class="service-icon">🐙</span> GitHub (Код)
-                    </a>
+                    <a href="https://turso.tech" target="_blank" class="service-link"><span class="service-icon">🗄</span> Turso (База)</a>
+                    <a href="https://enzonic.com" target="_blank" class="service-link"><span class="service-icon">🚀</span> Enzonic (Хостинг)</a>
+                    <a href="https://supabase.com" target="_blank" class="service-link"><span class="service-icon">📦</span> Supabase (Файлы)</a>
+                    <a href="https://github.com/4-miksek-6/miksegram" target="_blank" class="service-link"><span class="service-icon">🐙</span> GitHub (Код)</a>
                 </div>
             </div>
         </div>
@@ -409,56 +200,9 @@
             <p class="subtitle">Баны, сброс паролей и выдача VIP-статусов.</p>
 
             <div class="admin-section">
-                <input type="text" class="admin-input" placeholder="Поиск по логину или имени...">
-                
-                <div class="user-row">
-                    <div class="user-info">
-                        <div class="user-avatar" style="background: var(--grad-aurora);"></div>
-                        <div>
-                            <div class="user-name">
-                                Саша (Админ) 
-                                <span style="background: rgba(255, 215, 0, 0.2); color: #ffd700; border: 1px solid #ffd700; padding: 2px 8px; border-radius: 10px; font-size: 10px; box-shadow: 0 0 10px rgba(255,215,0,0.5);">👑 VIP</span>
-                            </div>
-                            <div class="user-login">@admin • ID: 1</div>
-                        </div>
-                    </div>
-                    <div style="display: flex; gap: 12px; align-items: center;">
-                        <select class="badge-select">
-                            <option value="none">Без бейджа</option>
-                            <option value="crown" selected>👑 Корона</option>
-                            <option value="check">✅ Галочка</option>
-                            <option value="star">⭐ Звезда</option>
-                            <option value="smile">😎 Смайл</option>
-                        </select>
-                        <button class="action-btn">Сброс пароля</button>
-                        <button class="action-btn btn-danger">Бан</button>
-                        <button class="action-btn btn-danger">Удалить</button>
-                    </div>
-                </div>
-
-                <div class="user-row">
-                    <div class="user-info">
-                        <div class="user-avatar" style="background: var(--grad-cyan);"></div>
-                        <div>
-                            <div class="user-name">
-                                Миша
-                                <span style="background: rgba(0, 212, 255, 0.2); color: #00d4ff; border: 1px solid #00d4ff; padding: 2px 8px; border-radius: 10px; font-size: 10px; box-shadow: 0 0 10px rgba(0,212,255,0.5);">✅ PRO</span>
-                            </div>
-                            <div class="user-login">@misha • ID: 2</div>
-                        </div>
-                    </div>
-                    <div style="display: flex; gap: 12px; align-items: center;">
-                        <select class="badge-select">
-                            <option value="none">Без бейджа</option>
-                            <option value="crown">👑 Корона</option>
-                            <option value="check" selected>✅ Галочка</option>
-                            <option value="star">⭐ Звезда</option>
-                            <option value="smile">😎 Смайл</option>
-                        </select>
-                        <button class="action-btn">Сброс пароля</button>
-                        <button class="action-btn btn-danger">Бан</button>
-                        <button class="action-btn btn-danger">Удалить</button>
-                    </div>
+                <input type="text" class="admin-input" id="userSearchInput" placeholder="Поиск по логину или имени...">
+                <div id="usersListContainer">
+                    <div style="text-align:center; padding:20px; color:var(--text-mute);">Загрузка...</div>
                 </div>
             </div>
         </div>
@@ -472,7 +216,7 @@
                 <h2>Глобальный поиск по сообщениям</h2>
                 <div style="display: flex; gap: 12px;">
                     <input type="text" class="admin-input" placeholder="Введите текст для поиска..." style="margin: 0;">
-                    <button class="btn-primary" style="padding: 0 32px;">Найти</button>
+                    <button class="btn-primary" style="padding: 0 32px;" onclick="showToast('Поиск по сообщениям в разработке')">Найти</button>
                 </div>
             </div>
 
@@ -481,13 +225,9 @@
                 <div class="user-row">
                     <div class="user-info">
                         <div>
-                            <div class="user-name">Друзья 🍻</div>
-                            <div class="user-login">Создатель: @admin • 5 участников</div>
+                            <div class="user-name">Управление группами в разработке</div>
+                            <div class="user-login">В следующем обновлении</div>
                         </div>
-                    </div>
-                    <div style="display: flex; gap: 12px;">
-                        <button class="action-btn">Очистить историю</button>
-                        <button class="action-btn btn-danger">Удалить группу</button>
                     </div>
                 </div>
             </div>
@@ -504,35 +244,35 @@
                         <div style="font-weight: 600; margin-bottom: 6px;">Удалить все аватарки</div>
                         <div style="color: var(--text-dim); font-size: 13px;">Сбросит фото профилей на стандартные градиенты.</div>
                     </div>
-                    <button class="action-btn btn-danger">Очистить</button>
+                    <button class="action-btn btn-danger" onclick="wipeData('clear-avatars', 'Аватарки сброшены')">Очистить</button>
                 </div>
                 <div class="toggle-row">
                     <div>
                         <div style="font-weight: 600; margin-bottom: 6px;">Удалить все баннеры</div>
                         <div style="color: var(--text-dim); font-size: 13px;">Удалит фоны профилей у всех пользователей.</div>
                     </div>
-                    <button class="action-btn btn-danger">Очистить</button>
+                    <button class="action-btn btn-danger" onclick="wipeData('clear-avatars', 'Баннеры сброшены')">Очистить</button>
                 </div>
                 <div class="toggle-row">
                     <div>
                         <div style="font-weight: 600; margin-bottom: 6px;">Очистить все сообщения</div>
                         <div style="color: var(--text-dim); font-size: 13px;">Удалит всю переписку, оставив аккаунты и чаты.</div>
                     </div>
-                    <button class="action-btn btn-danger">Очистить</button>
+                    <button class="action-btn btn-danger" onclick="wipeData('clear-messages', 'Все сообщения удалены')">Очистить</button>
                 </div>
                 <div class="toggle-row">
                     <div>
                         <div style="font-weight: 600; margin-bottom: 6px;">Очистить хранилище</div>
                         <div style="color: var(--text-dim); font-size: 13px;">Удалит все файлы из Supabase (картинки, архивы).</div>
                     </div>
-                    <button class="action-btn btn-danger">Очистить</button>
+                    <button class="action-btn btn-danger" onclick="wipeData('clear-storage', 'Хранилище очищено')">Очистить</button>
                 </div>
                 <div class="toggle-row" style="border: none; margin-top: 20px; padding-bottom: 0;">
                     <div>
                         <div style="font-weight: 700; color: #ff5c7c; font-size: 16px; margin-bottom: 6px;">Полный сброс (Factory Reset)</div>
-                        <div style="color: #ff5c7c; font-size: 13px;">Удалит ВСЁ, кроме вашего аккаунта @admin.</div>
+                        <div style="color: #ff5c7c; font-size: 13px;">Удалит ВСЁ (чаты, сообщения), кроме вашего аккаунта @admin.</div>
                     </div>
-                    <button class="action-btn btn-danger" style="background: #ff5c7c; color: #fff;">СБРОСИТЬ ВСЁ</button>
+                    <button class="action-btn btn-danger" style="background: #ff5c7c; color: #fff;" onclick="wipeData('clear-chats', 'Полный сброс выполнен!')">СБРОСИТЬ ВСЁ</button>
                 </div>
             </div>
         </div>
@@ -548,21 +288,21 @@
                         <div style="font-weight: 600; margin-bottom: 6px;">Режим «Техработы»</div>
                         <div style="color: var(--text-dim); font-size: 13px;">Блокирует вход и отправку сообщений для всех, кроме вас.</div>
                     </div>
-                    <div class="toggle-switch"></div>
+                    <div class="toggle-switch" onclick="showToast('Функция в разработке')"></div>
                 </div>
                 <div class="toggle-row">
                     <div>
                         <div style="font-weight: 600; margin-bottom: 6px;">Отключить регистрацию</div>
                         <div style="color: var(--text-dim); font-size: 13px;">Новые пользователи не смогут создать аккаунт.</div>
                     </div>
-                    <div class="toggle-switch"></div>
+                    <div class="toggle-switch" onclick="showToast('Функция в разработке')"></div>
                 </div>
             </div>
 
             <div class="admin-section">
                 <h2>Глобальный баннер</h2>
                 <input type="text" class="admin-input" placeholder="Например: Внимание! Сегодня перезагрузка в 20:00">
-                <button class="btn-primary">Показать баннер всем</button>
+                <button class="btn-primary" onclick="showToast('Функция в разработке')">Показать баннер всем</button>
             </div>
         </div>
 
@@ -574,7 +314,7 @@
             <div class="admin-section">
                 <h2>Отправить сообщение всем</h2>
                 <textarea class="admin-input" rows="4" placeholder="Текст сообщения..." style="resize: vertical;"></textarea>
-                <button class="btn-primary">Отправить во все чаты</button>
+                <button class="btn-primary" onclick="showToast('Рассылка в разработке')">Отправить во все чаты</button>
             </div>
 
             <div class="admin-section">
@@ -584,7 +324,7 @@
                         <div style="font-weight: 600; margin-bottom: 6px;">Запустить конфетти</div>
                         <div style="color: var(--text-dim); font-size: 13px;">У всех пользователей на экране взорвется салют.</div>
                     </div>
-                    <button class="btn-primary" style="padding: 10px 20px;">🎉 Запустить</button>
+                    <button class="btn-primary" style="padding: 10px 20px;" onclick="showToast('Конфетти в разработке')">🎉 Запустить</button>
                 </div>
             </div>
         </div>
@@ -592,8 +332,20 @@
     </main>
 </div>
 
+<div id="admin-toast">Уведомление</div>
+
 <script>
-    // Логика переключения вкладок
+    // Показ уведомлений
+    let toastTimer;
+    function showToast(text) {
+        const toast = document.getElementById('admin-toast');
+        toast.textContent = text;
+        toast.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+
+    // Переключение вкладок
     const tabs = document.querySelectorAll('.admin-tab');
     const contents = document.querySelectorAll('.tab-content');
 
@@ -601,7 +353,6 @@
         tab.addEventListener('click', () => {
             tabs.forEach(t => t.classList.remove('active'));
             tab.classList.add('active');
-
             contents.forEach(c => c.classList.add('hidden'));
             
             const targetId = 'tab-' + tab.dataset.tab;
@@ -610,17 +361,97 @@
             
             // Перезапуск анимации
             targetContent.style.animation = 'none';
-            targetContent.offsetHeight; /* trigger reflow */
+            targetContent.offsetHeight;
             targetContent.style.animation = null; 
+
+            // Подгрузка данных при переходе на вкладку
+            if (tab.dataset.tab === 'dashboard') loadStats();
+            if (tab.dataset.tab === 'users') loadUsers();
         });
     });
 
-    // Логика для визуальных переключателей
-    document.querySelectorAll('.toggle-switch').forEach(t => {
-        t.addEventListener('click', () => {
-            t.classList.toggle('active');
-        });
-    });
+    // ================= ЗАГРУЗКА СТАТИСТИКИ =================
+    async function loadStats() {
+        try {
+            const res = await fetch('/api/admin/stats');
+            if (res.status === 403 || res.status === 401) { window.location.href = '/'; return; }
+            const data = await res.json();
+            if (data.ok) {
+                document.getElementById('stat-users').textContent = data.users;
+                document.getElementById('stat-messages').textContent = data.messages;
+                document.getElementById('stat-online').textContent = data.online;
+            }
+        } catch (e) { console.error('Ошибка статистики:', e); }
+    }
+
+    // ================= ЗАГРУЗКА ПОЛЬЗОВАТЕЛЕЙ =================
+    async function loadUsers() {
+        try {
+            const res = await fetch('/api/admin/users');
+            if (res.status === 403 || res.status === 401) { window.location.href = '/'; return; }
+            const data = await res.json();
+            
+            if (data.ok) {
+                const container = document.getElementById('usersListContainer');
+                if (data.users.length === 0) {
+                    container.innerHTML = '<div style="color:var(--text-mute); text-align:center;">Пользователей пока нет</div>';
+                    return;
+                }
+                
+                container.innerHTML = data.users.map(u => {
+                    const isAdmin = u.login === 'admin';
+                    const displayName = u.display_name || u.login;
+                    const initial = displayName.charAt(0).toUpperCase();
+                    
+                    return `
+                    <div class="user-row">
+                        <div class="user-info">
+                            <div class="user-avatar" style="background: var(--grad-cyan);">${initial}</div>
+                            <div>
+                                <div class="user-name">
+                                    ${displayName} ${isAdmin ? '<span style="color:var(--accent); font-size:10px;">(Создатель)</span>' : ''}
+                                </div>
+                                <div class="user-login">@${u.login} • ID: ${u.id}</div>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 12px; align-items: center;">
+                            <select class="badge-select" onchange="showToast('Бейджи в разработке')">
+                                <option value="none">Без бейджа</option>
+                                <option value="crown">👑 Корона</option>
+                                <option value="check">✅ Галочка</option>
+                                <option value="star">⭐ Звезда</option>
+                            </select>
+                            <button class="action-btn" onclick="showToast('Сброс пароля в разработке')">Сброс пароля</button>
+                            <button class="action-btn btn-danger" onclick="showToast('Бан в разработке')">Бан</button>
+                        </div>
+                    </div>
+                    `;
+                }).join('');
+            }
+        } catch (e) { console.error('Ошибка пользователей:', e); }
+    }
+
+    // ================= ОЧИСТКА ДАННЫХ =================
+    async function wipeData(action, successMessage) {
+        if (!confirm('Вы уверены? Это действие необратимо!')) return;
+        
+        try {
+            const res = await fetch(`/api/admin/${action}`, { method: 'POST' });
+            const data = await res.json();
+            
+            if (data.ok) {
+                showToast(successMessage);
+                loadStats(); // Обновляем цифры на дашборде
+            } else {
+                showToast('Ошибка: ' + data.error);
+            }
+        } catch (e) {
+            showToast('Ошибка сети');
+        }
+    }
+
+    // Первичная загрузка
+    loadStats();
 </script>
 </body>
 </html>
