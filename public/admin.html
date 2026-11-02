@@ -507,7 +507,7 @@
                     </div>
                 </div>
                 <div style="display: flex; gap: 12px; align-items: center;">
-                    <select class="badge-select" onchange="setBadge(${u.id}, this.value)" ${isAdmin ? 'disabled' : ''}>
+                    <select class="badge-select" onchange="setBadge(${u.id}, this.value)">
                         <option value="none" ${u.badge === 'none' ? 'selected' : ''}>Без бейджа</option>
                         <option value="crown" ${u.badge === 'crown' ? 'selected' : ''}>👑 Корона</option>
                         <option value="check" ${u.badge === 'check' ? 'selected' : ''}>✅ Галочка</option>
