@@ -12,9 +12,6 @@ const fs = require('fs');
 const { createClient } = require('@libsql/client');
 const { createClient: createSupabase } = require('@supabase/supabase-js');
 
-// --- ВЕРСИЯ ПРИЛОЖЕНИЯ (Меняй при каждом деплое!) ---
-const APP_VERSION = '1.1.2';
-
 const LOG = (tag, ...args) => console.log(`[${new Date().toISOString()}] [${tag}]`, ...args);
 const ERR = (tag, ...args) => console.error(`[${new Date().toISOString()}] [${tag}]`, ...args);
 
@@ -28,7 +25,6 @@ const db = createClient({
 
 const supabase = createSupabase('https://tvmypcjwrlwiorpmugpb.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2bXlwY2p3cmx3aW9ycG11Z3BiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MzQwODQwOSwiZXhwIjoyMTA4OTg0NDA5fQ.1ChmymKXpkweU7PImFwAfFYY4ufSx525Fotjn4FRtSw');
 
-// --- КАСТОМНОЕ ХРАНИЛИЩЕ СЕССИЙ В TURSO ---
 class TursoStore extends session.Store {
   constructor(options) {
     super(options);
@@ -44,10 +40,7 @@ class TursoStore extends session.Store {
   async set(sid, session, callback) {
     try {
       const sessStr = JSON.stringify(session);
-      await this.db.execute({ 
-        sql: 'INSERT INTO sessions (sid, sess) VALUES (?, ?) ON CONFLICT(sid) DO UPDATE SET sess = excluded.sess', 
-        args: [sid, sessStr] 
-      });
+      await this.db.execute({ sql: 'INSERT INTO sessions (sid, sess) VALUES (?, ?) ON CONFLICT(sid) DO UPDATE SET sess = excluded.sess', args: [sid, sessStr] });
       callback(null);
     } catch (e) { callback(e); }
   }
@@ -59,11 +52,9 @@ class TursoStore extends session.Store {
   }
 }
 
-// --- ИНИЦИАЛИЗАЦИЯ БД С ПОВТОРАМИ И ИНДЕКСАМИ ---
 async function initDb(attempt = 1) {
   try {
     LOG('DB', `Инициализация БД (попытка ${attempt})...`);
-    
     await db.execute(`CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, login TEXT UNIQUE NOT NULL, display_name TEXT NOT NULL, password TEXT NOT NULL, bio TEXT DEFAULT '', avatar TEXT DEFAULT 'grad-emerald', banner TEXT DEFAULT 'ban-aurora', avatar_frame TEXT DEFAULT 'none', name_effect TEXT DEFAULT 'none', last_seen TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')), created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')));`);
     await db.execute(`CREATE TABLE IF NOT EXISTS chats (id INTEGER PRIMARY KEY AUTOINCREMENT, type TEXT NOT NULL, name TEXT, avatar TEXT DEFAULT 'grad-aurora', creator_id INTEGER, created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')));`);
     await db.execute(`CREATE TABLE IF NOT EXISTS chat_members (chat_id INTEGER NOT NULL, user_id INTEGER NOT NULL, hidden INTEGER DEFAULT 0, last_read_msg_id INTEGER DEFAULT 0, PRIMARY KEY (chat_id, user_id));`);
@@ -72,7 +63,6 @@ async function initDb(attempt = 1) {
     await db.execute(`CREATE TABLE IF NOT EXISTS reactions (message_id INTEGER NOT NULL, user_id INTEGER NOT NULL, emoji TEXT NOT NULL, PRIMARY KEY (message_id, user_id));`);
     await db.execute(`CREATE TABLE IF NOT EXISTS sessions (sid TEXT PRIMARY KEY, sess TEXT NOT NULL);`);
     
-    // --- ИНДЕКСЫ ДЛЯ УСКОРЕНИЯ БАЗЫ ---
     await db.execute(`CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON messages(chat_id);`);
     await db.execute(`CREATE INDEX IF NOT EXISTS idx_chat_members_user_id ON chat_members(user_id);`);
     await db.execute(`CREATE INDEX IF NOT EXISTS idx_chat_members_chat_id ON chat_members(chat_id);`);
@@ -80,22 +70,13 @@ async function initDb(attempt = 1) {
     await db.execute(`CREATE INDEX IF NOT EXISTS idx_reactions_message_id ON reactions(message_id);`);
     
     LOG('DB', '✅ База данных и индексы готовы!');
-    
-    const test = await db.execute('SELECT COUNT(*) as cnt FROM users');
-    LOG('DB', `Пользователей в базе: ${test.rows[0].cnt}`);
   } catch (err) {
     ERR('DB', `❌ Ошибка инициализации (попытка ${attempt}):`, err.message);
-    if (attempt < 3) {
-      LOG('DB', `Повтор через 3 секунды...`);
-      setTimeout(() => initDb(attempt + 1), 3000);
-    } else {
-      ERR('DB', '❌ Все попытки исчерпаны.');
-    }
+    if (attempt < 3) setTimeout(() => initDb(attempt + 1), 3000);
   }
 }
 initDb();
 
-// --- MIDDLEWARE СЕССИЙ ---
 app.use(express.json({ limit: '8mb' }));
 app.use(express.urlencoded({ extended: true, limit: '8mb' }));
 
@@ -109,7 +90,6 @@ const sessionMiddleware = session({
 app.use(sessionMiddleware);
 io.engine.use(sessionMiddleware);
 
-// --- ХЕЛПЕР: ГАРАНТИРОВАТЬ ЧАТ "ИЗБРАННОЕ" ---
 async function ensureSavedChat(userId) {
   try {
     const existing = await db.execute({ sql: `SELECT c.id FROM chats c JOIN chat_members cm ON c.id = cm.chat_id WHERE cm.user_id = ? AND c.type = 'saved' LIMIT 1`, args: [userId] });
@@ -126,11 +106,21 @@ async function isChatMember(chatId, userId) {
     return res.rows.length > 0;
 }
 
-// ==================== АВТОРИЗАЦИЯ ====================
-app.get('/api/version', (req, res) => {
-  res.json({ version: APP_VERSION });
-});
+// ==================== ПРОВЕРКА НА АДМИНА ====================
+async function isAdmin(req, res, next) {
+    if (!req.session.userId) return res.status(401).json({ ok: false, error: 'Не авторизован' });
+    try {
+        const uRes = await db.execute({ sql: 'SELECT login FROM users WHERE id = ?', args: [req.session.userId] });
+        if (uRes.rows.length === 0 || uRes.rows[0].login !== 'admin') {
+            return res.status(403).json({ ok: false, error: 'Доступ запрещен' });
+        }
+        next();
+    } catch (e) {
+        res.status(500).json({ ok: false, error: e.message });
+    }
+}
 
+// ==================== АВТОРИЗАЦИЯ ====================
 app.post('/api/register', async (req, res) => {
   try {
     let { login, display_name, password } = req.body;
@@ -270,6 +260,64 @@ app.get('/api/all-users', async (req, res) => {
   } catch (e) { res.json({ ok: false, users: [] }); }
 });
 
+// ==================== АДМИН API ====================
+app.get('/api/admin/stats', isAdmin, async (req, res) => {
+  try {
+    const uCount = await db.execute('SELECT COUNT(*) as c FROM users');
+    const mCount = await db.execute('SELECT COUNT(*) as c FROM messages');
+    res.json({ ok: true, users: uCount.rows[0].c, messages: mCount.rows[0].c, online: onlineUsers.size });
+  } catch (e) { res.json({ ok: false, error: e.message }); }
+});
+
+app.get('/api/admin/users', isAdmin, async (req, res) => {
+  try {
+    const uRes = await db.execute('SELECT id, login, display_name, avatar FROM users ORDER BY id ASC');
+    res.json({ ok: true, users: uRes.rows });
+  } catch (e) { res.json({ ok: false, error: e.message }); }
+});
+
+app.post('/api/admin/clear-avatars', isAdmin, async (req, res) => {
+  try {
+    await db.execute(`UPDATE users SET avatar = 'grad-emerald', banner = 'ban-aurora' WHERE avatar LIKE 'https://%' OR banner LIKE 'https://%'`);
+    io.emit('update_chats');
+    res.json({ ok: true });
+  } catch (e) { res.json({ ok: false, error: e.message }); }
+});
+
+app.post('/api/admin/clear-messages', isAdmin, async (req, res) => {
+  try {
+    await db.execute('DELETE FROM messages');
+    await db.execute('DELETE FROM reactions');
+    await db.execute('DELETE FROM read_status');
+    io.emit('update_chats');
+    res.json({ ok: true });
+  } catch (e) { res.json({ ok: false, error: e.message }); }
+});
+
+app.post('/api/admin/clear-chats', isAdmin, async (req, res) => {
+  try {
+    await db.execute('DELETE FROM messages');
+    await db.execute('DELETE FROM reactions');
+    await db.execute('DELETE FROM read_status');
+    await db.execute('DELETE FROM chat_members');
+    await db.execute('DELETE FROM chats');
+    io.emit('update_chats');
+    res.json({ ok: true });
+  } catch (e) { res.json({ ok: false, error: e.message }); }
+});
+
+app.post('/api/admin/clear-storage', isAdmin, async (req, res) => {
+  try {
+    const { data: files, error } = await supabase.storage.from('uploads').list();
+    if (error) throw error;
+    if (files && files.length > 0) {
+      const fileNames = files.map(f => f.name);
+      await supabase.storage.from('uploads').remove(fileNames);
+    }
+    res.json({ ok: true, count: files ? files.length : 0 });
+  } catch (e) { res.json({ ok: false, error: e.message }); }
+});
+
 // ==================== ЧАТЫ ====================
 app.get('/api/chats', async (req, res) => {
   if (!req.session.userId) return res.json({ ok: false });
@@ -312,9 +360,7 @@ app.get('/api/chats', async (req, res) => {
       result.push(c);
     }
     res.json({ ok: true, chats: result });
-  } catch (error) {
-    res.json({ ok: false, chats: [] });
-  }
+  } catch (error) { res.json({ ok: false, chats: [] }); }
 });
 
 app.get('/api/search-user', async (req, res) => {
@@ -488,7 +534,7 @@ app.get('/api/messages/:chatId', async (req, res) => {
   } catch (error) { res.json({ ok: false, messages: [] }); }
 });
 
-// ==================== ФАЙЛЫ (SUPABASE) ====================
+// ==================== ФАЙЛЫ ====================
 const storage = multer.memoryStorage();
 const upload = multer({ storage, limits: { fileSize: 15 * 1024 * 1024 } });
 
@@ -546,29 +592,14 @@ app.post('/api/messages/:id/delete', async (req, res) => {
   } catch (e) { res.json({ ok: false }); }
 });
 
-// ==================== СТАТИКА ====================
-// Отключаем кэширование для HTML-файлов
-app.use((req, res, next) => {
-  if (req.path.endsWith('.html') || req.path === '/') {
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-  }
-  next();
-});
+// ==================== СТАТИКА И АДМИНКА ====================
+app.get('/admin', isAdmin, (req, res) => res.sendFile(__dirname + '/public/admin.html'));
+app.get('/admin.html', isAdmin, (req, res) => res.sendFile(__dirname + '/public/admin.html'));
 
-app.get('/', (req, res) => {
-  if (!req.session.userId) return res.redirect('/login.html');
-  res.sendFile(__dirname + '/public/index.html');
-});
-app.get('/profile', (req, res) => {
-  if (!req.session.userId) return res.redirect('/login.html');
-  res.sendFile(__dirname + '/public/profile.html');
-});
-app.get('/user/:id', (req, res) => {
-  if (!req.session.userId) return res.redirect('/login.html');
-  res.sendFile(__dirname + '/public/user.html');
-});
+app.get('/', (req, res) => { if (!req.session.userId) return res.redirect('/login.html'); res.sendFile(__dirname + '/public/index.html'); });
+app.get('/profile', (req, res) => { if (!req.session.userId) return res.redirect('/login.html'); res.sendFile(__dirname + '/public/profile.html'); });
+app.get('/user/:id', (req, res) => { if (!req.session.userId) return res.redirect('/login.html'); res.sendFile(__dirname + '/public/user.html'); });
+app.use((req, res, next) => { if ((req.path === '/index.html' || req.path === '/profile.html' || req.path.startsWith('/user/')) && !req.session.userId) return res.redirect('/login.html'); next(); });
 app.use(express.static('public'));
 
 // ==================== SOCKET.IO ====================
@@ -660,8 +691,7 @@ io.on('connection', (socket) => {
   });
 });
 
-// ==================== ЗАПУСК ====================
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => { LOG('SERVER', `🚀 Miksegram v${APP_VERSION} запущен на порту ${PORT}`); });
+server.listen(PORT, () => { LOG('SERVER', `🚀 Miksegram запущен на порту ${PORT}`); });
 process.on('SIGTERM', () => { server.close(() => process.exit(0)); });
 process.on('SIGINT', () => { server.close(() => process.exit(0)); });

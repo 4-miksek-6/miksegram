@@ -6,7 +6,6 @@ const BG_PRESETS = [
     { key: 'ocean', label: 'Океан' }
 ];
 
-// 18 цветов по спектру (от красного к белому)
 const ACCENTS = [
     { key: '#ff3b3b', label: 'Красный' },
     { key: '#ff7b7b', label: 'Коралловый' },
@@ -60,6 +59,7 @@ function buildSettingsUI() {
                 <div class="settings-tab" data-tab="account">Аккаунт</div>
                 <button class="danger-btn" id="logoutBtn" style="margin-top:auto; padding:10px;">Выйти</button>
                 <button class="secondary-btn" id="aboutBtn" style="margin-top: 8px; padding:10px;">ℹ️ О мессенджере</button>
+                <button class="secondary-btn" id="adminPanelBtn" style="display:none; margin-top: 8px; padding:10px; border-color: #ff5c7c; color: #ff5c7c;">👑 Админ-панель</button>
             </div>
             
             <div class="settings-preview-col" id="settingsPreviewCol">
@@ -80,6 +80,13 @@ function buildSettingsUI() {
             <div class="settings-controls-col" id="settingsContent"></div>
         </div>
     `;
+
+    // Показываем кнопку админа, если логин 'admin'
+    if (u.login === 'admin') {
+        const adminBtn = document.getElementById('adminPanelBtn');
+        adminBtn.style.display = 'block';
+        adminBtn.addEventListener('click', () => window.location.href = '/admin');
+    }
 
     document.querySelectorAll('.settings-tab').forEach(tab => {
         tab.addEventListener('click', () => {
@@ -204,11 +211,7 @@ function buildSettingsUI() {
                 if (currentFrame === 'glow' || currentFrame === 'dashed') {
                     let patchValue = currentFrame === 'glow' ? `frame_glow:${frameColor}` : `frame_dashed:${frameColor}`;
                     const data = await saveProfilePatch({ avatar_frame: patchValue });
-                    if (data.ok) { 
-                        Object.assign(u, data.user);
-                        updatePreview(); 
-                        renderTab('profile'); 
-                    }
+                    if (data.ok) { Object.assign(u, data.user); updatePreview(); renderTab('profile'); }
                 }
             });
 
@@ -233,11 +236,7 @@ function buildSettingsUI() {
                     if (e.key === 'duo') patchValue = `name_color:${nameColor}`;
 
                     const data = await saveProfilePatch({ name_effect: patchValue });
-                    if (data.ok) { 
-                        Object.assign(u, data.user); 
-                        updatePreview(); 
-                        renderTab('profile');
-                    }
+                    if (data.ok) { Object.assign(u, data.user); updatePreview(); renderTab('profile'); }
                 });
                 effectPicker.appendChild(d);
             });
@@ -247,11 +246,7 @@ function buildSettingsUI() {
                 if (currentEffect === 'glow' || currentEffect === 'duo') {
                     let patchValue = currentEffect === 'glow' ? `name_glow:${nameColor}` : `name_color:${nameColor}`;
                     const data = await saveProfilePatch({ name_effect: patchValue });
-                    if (data.ok) { 
-                        Object.assign(u, data.user);
-                        updatePreview(); 
-                        renderTab('profile');
-                    }
+                    if (data.ok) { Object.assign(u, data.user); updatePreview(); renderTab('profile'); }
                 }
             });
 
@@ -353,7 +348,7 @@ function buildSettingsUI() {
                 </div>
 
                 <div class="settings-section" style="margin-top:24px;">
-                    <div class="settings-label" style="margin-bottom: 8px;">АКЦЕНТ СОБЕДНИКА (Его сообщения)</div>
+                    <div class="settings-label" style="margin-bottom: 8px;">АКЦЕНТ СОБЕСЕДНИКА (Его сообщения)</div>
                     <div class="accent-grid" id="accentGridOther"></div>
                 </div>
 
@@ -396,7 +391,6 @@ function buildSettingsUI() {
                 valChat.textContent = Math.round(val * 100) + '%';
             });
 
-            // Переключатель двойного фона
             document.getElementById('toggle-dual-bg').addEventListener('change', (e) => {
                 if (e.target.checked) {
                     document.body.classList.add('dual-accent-bg');
@@ -407,15 +401,11 @@ function buildSettingsUI() {
                 }
             });
 
-            // Пресеты фонов
             const presetGrid = document.getElementById('presetGrid');
             BG_PRESETS.forEach(p => {
                 const btn = document.createElement('div');
                 btn.className = 'preset-card' + (currentBg === p.key ? ' active' : '');
-                btn.innerHTML = `
-                    <div class="preset-preview" data-bg="${p.key}"></div>
-                    <span class="preset-name">${p.label}</span>
-                `;
+                btn.innerHTML = `<div class="preset-preview" data-bg="${p.key}"></div><span class="preset-name">${p.label}</span>`;
                 btn.addEventListener('click', () => {
                     document.body.dataset.bg = p.key;
                     localStorage.setItem('bg-preset', p.key);
@@ -426,7 +416,6 @@ function buildSettingsUI() {
                 presetGrid.appendChild(btn);
             });
 
-            // Мой акцент
             const accentGridMine = document.getElementById('accentGridMine');
             ACCENTS.forEach(a => {
                 const btn = document.createElement('button');
@@ -434,52 +423,27 @@ function buildSettingsUI() {
                 btn.style.background = a.key;
                 btn.style.color = a.key;
                 btn.title = a.label;
-
                 btn.addEventListener('click', () => {
                     document.querySelectorAll('#accentGridMine .color-circle').forEach(x => x.classList.remove('active'));
                     btn.classList.add('active');
-                    
                     localStorage.setItem('accent', a.key);
                     document.documentElement.style.setProperty('--accent', a.key);
                     document.documentElement.style.setProperty('--accent-2', `color-mix(in srgb, ${a.key} 60%, #000)`);
-                    
-                    document.body.removeAttribute('data-accent'); // Убираем старые классы
+                    document.body.removeAttribute('data-accent');
                 });
                 accentGridMine.appendChild(btn);
             });
 
-            // Акцент собеседника
             const accentGridOther = document.getElementById('accentGridOther');
-            
-            // Добавляем кнопку "Без" в конец
-            const noneBtn = document.createElement('button');
-            noneBtn.className = 'color-circle' + (currentOtherAccent === 'none' ? ' active' : '');
-            noneBtn.style.background = '#333'; // Тёмно-серый
-            noneBtn.style.color = '#888';
-            noneBtn.innerHTML = '✕';
-            noneBtn.title = 'Без акцента';
-            
-            noneBtn.addEventListener('click', () => {
-                document.querySelectorAll('#accentGridOther .color-circle').forEach(x => x.classList.remove('active'));
-                noneBtn.classList.add('active');
-                
-                localStorage.setItem('interlocutor-accent', 'none');
-                document.body.removeAttribute('data-other-accent');
-                document.documentElement.style.removeProperty('--interlocutor-accent');
-            });
-            
-            // Сначала рендерим цвета
             ACCENTS.forEach(a => {
                 const btn = document.createElement('button');
                 btn.className = 'color-circle' + (currentOtherAccent === a.key ? ' active' : '');
                 btn.style.background = a.key;
                 btn.style.color = a.key;
                 btn.title = a.label;
-
                 btn.addEventListener('click', () => {
                     document.querySelectorAll('#accentGridOther .color-circle').forEach(x => x.classList.remove('active'));
                     btn.classList.add('active');
-                    
                     localStorage.setItem('interlocutor-accent', a.key);
                     document.body.setAttribute('data-other-accent', a.key);
                     document.documentElement.style.setProperty('--interlocutor-accent', a.key);
@@ -487,50 +451,43 @@ function buildSettingsUI() {
                 accentGridOther.appendChild(btn);
             });
             
-            // И в конце добавляем "Без"
+            const noneBtn = document.createElement('button');
+            noneBtn.className = 'color-circle' + (currentOtherAccent === 'none' ? ' active' : '');
+            noneBtn.style.background = '#333';
+            noneBtn.style.color = '#888';
+            noneBtn.innerHTML = '✕';
+            noneBtn.title = 'Без акцента';
+            noneBtn.addEventListener('click', () => {
+                document.querySelectorAll('#accentGridOther .color-circle').forEach(x => x.classList.remove('active'));
+                noneBtn.classList.add('active');
+                localStorage.setItem('interlocutor-accent', 'none');
+                document.body.removeAttribute('data-other-accent');
+                document.documentElement.style.removeProperty('--interlocutor-accent');
+            });
             accentGridOther.appendChild(noneBtn);
         }
 
         if (tabName === 'notifications') {
             layout.classList.add('no-preview');
-
             content.innerHTML = `
                 <div class="settings-section">
                     <div class="settings-label" style="margin-bottom: 8px;">Основные</div>
                     <div class="toggle-list">
-                        <label class="toggle-row">
-                            <span>🔔 Push-уведомления</span>
-                            <input type="checkbox" id="toggle-push"><span class="toggle-switch"></span>
-                        </label>
-                        <label class="toggle-row">
-                            <span>🙈 Скрывать текст в Push</span>
-                            <input type="checkbox" id="toggle-hide-text"><span class="toggle-switch"></span>
-                        </label>
-                        <label class="toggle-row">
-                            <span>📳 Вибрация (на телефоне)</span>
-                            <input type="checkbox" id="toggle-vibrate"><span class="toggle-switch"></span>
-                        </label>
-                        <label class="toggle-row">
-                            <span>✨ Мигание заголовка вкладки</span>
-                            <input type="checkbox" id="toggle-blink"><span class="toggle-switch"></span>
-                        </label>
+                        <label class="toggle-row"><span>🔔 Push-уведомления</span><input type="checkbox" id="toggle-push"><span class="toggle-switch"></span></label>
+                        <label class="toggle-row"><span>🙈 Скрывать текст в Push</span><input type="checkbox" id="toggle-hide-text"><span class="toggle-switch"></span></label>
+                        <label class="toggle-row"><span>📳 Вибрация (на телефоне)</span><input type="checkbox" id="toggle-vibrate"><span class="toggle-switch"></span></label>
+                        <label class="toggle-row"><span>✨ Мигание заголовка вкладки</span><input type="checkbox" id="toggle-blink"><span class="toggle-switch"></span></label>
                     </div>
                 </div>
-
                 <div class="settings-section" style="margin-top:24px;">
                     <div class="settings-label" style="margin-bottom: 8px;">Звуки</div>
                     <div class="toggle-list" style="margin-bottom: 12px;">
-                        <label class="toggle-row">
-                            <span>🔊 Звуки сообщений</span>
-                            <input type="checkbox" id="toggle-sound"><span class="toggle-switch"></span>
-                        </label>
+                        <label class="toggle-row"><span>🔊 Звуки сообщений</span><input type="checkbox" id="toggle-sound"><span class="toggle-switch"></span></label>
                     </div>
-                    
                     <div class="opacity-control" id="volume-control">
                         <span>Громкость: <span id="val-volume">50%</span></span>
                         <input type="range" min="0" max="1" step="0.05" value="0.5" id="slider-volume" class="opacity-slider">
                     </div>
-                    
                     <button class="secondary-btn" id="test-sound-btn" style="margin-top: 12px; width: fit-content;">🔉 Проверить звук</button>
                 </div>
             `;
@@ -598,7 +555,6 @@ function buildSettingsUI() {
             content.innerHTML = `
                 <div class="account-block">
                     <div class="settings-label">Смена пароля</div>
-                    
                     <div class="settings-field">
                         <span class="settings-field-label">Текущий пароль</span>
                         <div class="password-input-wrap">
@@ -606,7 +562,6 @@ function buildSettingsUI() {
                             <button type="button" class="password-toggle" id="toggleOld">👁️</button>
                         </div>
                     </div>
-                    
                     <div class="settings-field">
                         <span class="settings-field-label">Новый пароль</span>
                         <div class="password-input-wrap">
@@ -614,19 +569,15 @@ function buildSettingsUI() {
                             <button type="button" class="password-toggle" id="toggleNew">👁️</button>
                         </div>
                     </div>
-
                     <div class="strength-meter"><div class="strength-bar" id="strengthBar"></div></div>
                     <div class="strength-text" id="strengthText"></div>
-                    
                     <button class="primary-btn" id="changePassBtn">Сменить пароль</button>
                 </div>
-
                 <div class="account-block" style="margin-top: 16px;">
                     <div class="settings-label">Выход</div>
                     <p style="font-size:13px; color:var(--text-dim); margin:0;">Вы можете выйти из аккаунта на этом устройстве.</p>
                     <button class="secondary-btn" id="logoutBtn2">Выйти из аккаунта</button>
                 </div>
-
                 <div class="account-block danger-zone" style="margin-top: 16px;">
                     <div class="settings-label" style="color:#ff5c7c;">Удаление аккаунта</div>
                     <p style="font-size:13px; color:var(--text-dim); margin:0;">Это действие необратимо. Все ваши сообщения, чаты и файлы будут удалены навсегда.</p>
@@ -637,13 +588,8 @@ function buildSettingsUI() {
             function setupToggle(btnId, inputId) {
                 document.getElementById(btnId).addEventListener('click', () => {
                     const input = document.getElementById(inputId);
-                    if (input.type === 'password') {
-                        input.type = 'text';
-                        document.getElementById(btnId).textContent = '🙈';
-                    } else {
-                        input.type = 'password';
-                        document.getElementById(btnId).textContent = '👁️';
-                    }
+                    if (input.type === 'password') { input.type = 'text'; document.getElementById(btnId).textContent = '🙈'; }
+                    else { input.type = 'password'; document.getElementById(btnId).textContent = '👁️'; }
                 });
             }
             setupToggle('toggleOld', 'oldPassword');
@@ -653,19 +599,9 @@ function buildSettingsUI() {
                 const old_password = document.getElementById('oldPassword').value;
                 const new_password = document.getElementById('newPassword').value;
                 if (!old_password || !new_password) return showToast('Заполни оба поля');
-                
-                const res = await fetch('/api/change-password', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ old_password, new_password })
-                });
+                const res = await fetch('/api/change-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ old_password, new_password }) });
                 const data = await res.json();
-                if (data.ok) { 
-                    showToast('Пароль успешно изменен'); 
-                    document.getElementById('oldPassword').value = ''; 
-                    document.getElementById('newPassword').value = ''; 
-                    document.getElementById('strengthBar').style.width = '0%';
-                    document.getElementById('strengthText').textContent = '';
-                }
+                if (data.ok) { showToast('Пароль успешно изменен'); document.getElementById('oldPassword').value = ''; document.getElementById('newPassword').value = ''; document.getElementById('strengthBar').style.width = '0%'; document.getElementById('strengthText').textContent = ''; }
                 else showToast(data.error);
             });
 
@@ -681,9 +617,7 @@ function buildSettingsUI() {
                     <div class="modal" style="max-width: 400px; padding: 24px; background: var(--bg-0);">
                         <h2 class="modal-title" style="color: #ff5c7c; margin-bottom: 12px;">Вы уверены?</h2>
                         <p style="color: var(--text); margin-bottom: 16px; font-size: 14px;">Это действие навсегда удалит ваш аккаунт и все данные. Для подтверждения введите ваш пароль.</p>
-                        <div class="password-input-wrap">
-                            <input type="password" id="deleteConfirmPass" placeholder="Введите пароль">
-                        </div>
+                        <div class="password-input-wrap"><input type="password" id="deleteConfirmPass" placeholder="Введите пароль"></div>
                         <div style="display:flex; gap:10px; margin-top: 16px;">
                             <button class="danger-btn" id="confirmDeleteBtn" style="flex:1;">Удалить</button>
                             <button class="secondary-btn" id="cancelDeleteBtn" style="flex:1;">Отмена</button>
@@ -691,30 +625,16 @@ function buildSettingsUI() {
                     </div>
                 `;
                 document.body.appendChild(modal);
-
                 modal.querySelector('#cancelDeleteBtn').onclick = () => modal.remove();
-                
                 modal.querySelector('#confirmDeleteBtn').onclick = async () => {
                     const password = modal.querySelector('#deleteConfirmPass').value;
                     if (!password) return showToast('Введите пароль');
-                    
                     const btn = modal.querySelector('#confirmDeleteBtn');
-                    btn.textContent = 'Удаление...';
-                    btn.disabled = true;
-
-                    const res = await fetch('/api/delete-account', {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ password })
-                    });
+                    btn.textContent = 'Удаление...'; btn.disabled = true;
+                    const res = await fetch('/api/delete-account', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }) });
                     const data = await res.json();
-                    
-                    if (data.ok) {
-                        window.location.href = '/login.html';
-                    } else {
-                        showToast(data.error);
-                        btn.textContent = 'Удалить';
-                        btn.disabled = false;
-                    }
+                    if (data.ok) { window.location.href = '/login.html'; }
+                    else { showToast(data.error); btn.textContent = 'Удалить'; btn.disabled = false; }
                 };
             });
         }
@@ -724,33 +644,18 @@ function buildSettingsUI() {
         const bar = document.getElementById('strengthBar');
         const text = document.getElementById('strengthText');
         if (!bar || !text) return;
-        
         let strength = 0;
         if (val.length >= 4) strength++;
         if (val.length >= 8) strength++;
         if (/[A-Z]/.test(val)) strength++;
         if (/[0-9]/.test(val)) strength++;
         if (/[^A-Za-z0-9]/.test(val)) strength++;
-
         const percent = (strength / 5) * 100;
         bar.style.width = percent + '%';
-
-        if (val.length === 0) {
-            bar.style.width = '0%';
-            text.textContent = '';
-        } else if (strength <= 2) {
-            bar.style.background = '#ff3b3b';
-            text.textContent = 'Слабый пароль';
-            text.style.color = '#ff3b3b';
-        } else if (strength <= 4) {
-            bar.style.background = '#ffb347';
-            text.textContent = 'Средний пароль';
-            text.style.color = '#ffb347';
-        } else {
-            bar.style.background = '#00ffa3';
-            text.textContent = 'Надежный пароль';
-            text.style.color = '#00ffa3';
-        }
+        if (val.length === 0) { bar.style.width = '0%'; text.textContent = ''; }
+        else if (strength <= 2) { bar.style.background = '#ff3b3b'; text.textContent = 'Слабый пароль'; text.style.color = '#ff3b3b'; }
+        else if (strength <= 4) { bar.style.background = '#ffb347'; text.textContent = 'Средний пароль'; text.style.color = '#ffb347'; }
+        else { bar.style.background = '#00ffa3'; text.textContent = 'Надежный пароль'; text.style.color = '#00ffa3'; }
     };
 
     renderTab('profile');
