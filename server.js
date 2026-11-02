@@ -265,39 +265,6 @@ app.get('/api/all-users', async (req, res) => {
   }
 });
 
-// ВРЕМЕННЫЙ МАРШРУТ ДЛЯ ПОЛНОЙ ОЧИСТКИ (потом удалим)
-app.get('/api/secret-wipe-everything', async (req, res) => {
-    try {
-        // 1. Пытаемся получить список ВСЕХ файлов в хранилище (папка uploads)
-        let filesDeleted = 0;
-        const { data: files, error: storageError } = await supabase.storage.from('uploads').list();
-        
-        if (!storageError && files && files.length > 0) {
-            // Собираем имена всех файлов
-            const fileNames = files.map(f => f.name);
-            // Удаляем их пачкой
-            const { error: removeError } = await supabase.storage.from('uploads').remove(fileNames);
-            if (!removeError) filesDeleted = fileNames.length;
-        }
-
-        // 2. Полностью очищаем таблицы базы данных (кроме users!)
-        await db.execute('DELETE FROM reactions');
-        await db.execute('DELETE FROM read_status');
-        await db.execute('DELETE FROM messages');
-        await db.execute('DELETE FROM chat_members');
-        await db.execute('DELETE FROM chats');
-        
-        res.json({ 
-            ok: true, 
-            message: '✅ Полная очистка успешна!',
-            files_deleted_from_storage: filesDeleted,
-            accounts_saved: 'Все аккаунты в безопасности'
-        });
-    } catch (e) {
-        res.json({ ok: false, error: e.message });
-    }
-});
-
 
 // ==================== ЧАТЫ ====================
 app.get('/api/chats', async (req, res) => {
