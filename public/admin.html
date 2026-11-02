@@ -64,6 +64,9 @@
         .hidden { display: none !important; }
         #admin-toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--panel-strong); border: 1px solid var(--accent); padding: 12px 24px; border-radius: 12px; color: var(--text); font-size: 14px; font-weight: 500; box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 0 20px color-mix(in srgb, var(--accent) 30%, transparent); opacity: 0; pointer-events: none; transition: all 0.3s ease; z-index: 9999; }
         #admin-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+        .result-box { max-height: 300px; overflow-y: auto; border: 1px solid var(--border); border-radius: 12px; padding: 16px; background: rgba(0,0,0,0.2); margin-top: 16px; font-size: 13px; }
+        .result-item { padding: 8px 0; border-bottom: 1px solid var(--border); }
+        .result-item:last-child { border-bottom: none; }
     </style>
 </head>
 <body>
@@ -155,8 +158,16 @@
             <div class="admin-section">
                 <h2>Глобальный поиск по сообщениям</h2>
                 <div style="display: flex; gap: 12px;">
-                    <input type="text" class="admin-input" placeholder="Введите текст для поиска..." style="margin: 0;">
-                    <button class="btn-primary" style="padding: 0 32px;" onclick="showToast('Поиск по сообщениям в разработке')">Найти</button>
+                    <input type="text" id="msgSearchInput" class="admin-input" placeholder="Введите текст для поиска..." style="margin: 0;">
+                    <button class="btn-primary" style="padding: 0 32px;" onclick="searchMessages()">Найти</button>
+                </div>
+                <div id="msgSearchResults" class="result-box hidden"></div>
+            </div>
+
+            <div class="admin-section">
+                <h2>Список активных групп</h2>
+                <div id="groupsListContainer">
+                    <div style="text-align:center; padding:20px; color:var(--text-mute);">Загрузка...</div>
                 </div>
             </div>
         </div>
@@ -214,12 +225,12 @@
                         <div style="font-weight: 600; margin-bottom: 6px;">Режим «Техработы»</div>
                         <div style="color: var(--text-dim); font-size: 13px;">Блокирует вход и отправку сообщений для всех, кроме вас.</div>
                     </div>
-                    <div class="toggle-switch" onclick="showToast('Функция в разработке')"></div>
+                    <div class="toggle-switch" id="toggle-maintenance" onclick="toggleMaintenance()"></div>
                 </div>
                 <div class="toggle-row">
                     <div>
                         <div style="font-weight: 600; margin-bottom: 6px;">Отключить регистрацию</div>
-                        <div style="color: var(--text-dim); font-size: 13px;">Новые пользователи не смогут создать аккаунт.</div>
+                        <div style="color: var(--text-dim); font-size: 13px;">Функция в разработке.</div>
                     </div>
                     <div class="toggle-switch" onclick="showToast('Функция в разработке')"></div>
                 </div>
@@ -227,8 +238,8 @@
 
             <div class="admin-section">
                 <h2>Глобальный баннер</h2>
-                <input type="text" class="admin-input" placeholder="Например: Внимание! Сегодня перезагрузка в 20:00">
-                <button class="btn-primary" onclick="showToast('Функция в разработке')">Показать баннер всем</button>
+                <input type="text" id="globalBannerInput" class="admin-input" placeholder="Например: Внимание! Сегодня перезагрузка в 20:00">
+                <button class="btn-primary" onclick="saveBanner()">Сохранить баннер</button>
             </div>
         </div>
 
@@ -238,8 +249,8 @@
 
             <div class="admin-section">
                 <h2>Отправить сообщение всем</h2>
-                <textarea class="admin-input" rows="4" placeholder="Текст сообщения..." style="resize: vertical;"></textarea>
-                <button class="btn-primary" onclick="showToast('Рассылка в разработке')">Отправить во все чаты</button>
+                <textarea id="broadcastText" class="admin-input" rows="4" placeholder="Текст сообщения..." style="resize: vertical;"></textarea>
+                <button class="btn-primary" onclick="sendBroadcast()">Отправить во все чаты</button>
             </div>
 
             <div class="admin-section">
@@ -288,6 +299,8 @@
 
             if (tab.dataset.tab === 'dashboard') loadStats();
             if (tab.dataset.tab === 'users') loadUsers();
+            if (tab.dataset.tab === 'content') loadGroups();
+            if (tab.dataset.tab === 'settings') loadAdminSettings();
         });
     });
 
@@ -347,7 +360,7 @@
                                 <option value="star" ${u.badge === 'star' ? 'selected' : ''}>⭐ Звезда</option>
                                 <option value="smile" ${u.badge === 'smile' ? 'selected' : ''}>😎 Смайл</option>
                             </select>
-                            ${!isAdmin ? `<button class="action-btn" onclick="showToast('Сброс пароля в разработке')">Сброс</button>` : ''}
+                            ${!isAdmin ? `<button class="action-btn" onclick="resetPassword(${u.id})">Сброс пароля</button>` : ''}
                             ${!isAdmin ? (isBanned 
                                 ? `<button class="action-btn" onclick="unbanUser(${u.id})" style="color:#00ff88; border-color:rgba(0,255,136,0.3);">Разбанить</button>`
                                 : `<button class="action-btn btn-danger" onclick="banUser(${u.id})">Бан</button>`
@@ -363,11 +376,7 @@
     async function banUser(userId) {
         if (!confirm('Забанить пользователя? Он не сможет войти и будет выкинут из сети.')) return;
         try {
-            const res = await fetch('/api/admin/ban', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId })
-            });
+            const res = await fetch('/api/admin/ban', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId }) });
             const data = await res.json();
             if (data.ok) { showToast('Пользователь забанен'); loadUsers(); loadStats(); }
             else showToast('Ошибка: ' + data.error);
@@ -376,11 +385,7 @@
 
     async function unbanUser(userId) {
         try {
-            const res = await fetch('/api/admin/unban', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId })
-            });
+            const res = await fetch('/api/admin/unban', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId }) });
             const data = await res.json();
             if (data.ok) { showToast('Пользователь разбанен'); loadUsers(); }
             else showToast('Ошибка: ' + data.error);
@@ -389,13 +394,19 @@
 
     async function setBadge(userId, badge) {
         try {
-            const res = await fetch('/api/admin/set-badge', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId, badge })
-            });
+            const res = await fetch('/api/admin/set-badge', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId, badge }) });
             const data = await res.json();
             if (data.ok) { showToast('Бейдж обновлен'); loadUsers(); }
+            else showToast('Ошибка: ' + data.error);
+        } catch (e) { showToast('Ошибка сети'); }
+    }
+
+    async function resetPassword(userId) {
+        if (!confirm('Сбросить пароль? Новый пароль будет: 123456')) return;
+        try {
+            const res = await fetch('/api/admin/reset-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId }) });
+            const data = await res.json();
+            if (data.ok) showToast('Новый пароль: ' + data.password);
             else showToast('Ошибка: ' + data.error);
         } catch (e) { showToast('Ошибка сети'); }
     }
@@ -406,6 +417,114 @@
             const res = await fetch(`/api/admin/${action}`, { method: 'POST' });
             const data = await res.json();
             if (data.ok) { showToast(successMessage); loadStats(); }
+            else showToast('Ошибка: ' + data.error);
+        } catch (e) { showToast('Ошибка сети'); }
+    }
+
+    async function loadGroups() {
+        try {
+            const res = await fetch('/api/admin/groups');
+            const data = await res.json();
+            if (data.ok) {
+                const container = document.getElementById('groupsListContainer');
+                if (data.groups.length === 0) {
+                    container.innerHTML = '<div style="color:var(--text-mute); text-align:center;">Групп нет</div>';
+                    return;
+                }
+                container.innerHTML = data.groups.map(g => `
+                    <div class="user-row">
+                        <div class="user-info">
+                            <div>
+                                <div class="user-name">${g.name}</div>
+                                <div class="user-login">Создатель ID: ${g.creator_id} • Группа ID: ${g.id}</div>
+                            </div>
+                        </div>
+                        <button class="action-btn btn-danger" onclick="deleteGroup(${g.id})">Удалить</button>
+                    </div>
+                `).join('');
+            }
+        } catch (e) { console.error(e); }
+    }
+
+    async function deleteGroup(groupId) {
+        if (!confirm('Удалить группу со всеми сообщениями?')) return;
+        try {
+            const res = await fetch('/api/admin/delete-group', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ groupId }) });
+            const data = await res.json();
+            if (data.ok) { showToast('Группа удалена'); loadGroups(); loadStats(); }
+            else showToast('Ошибка: ' + data.error);
+        } catch (e) { showToast('Ошибка сети'); }
+    }
+
+    async function searchMessages() {
+        const query = document.getElementById('msgSearchInput').value.trim();
+        if (!query) return;
+        try {
+            const res = await fetch('/api/admin/search-messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query }) });
+            const data = await res.json();
+            const box = document.getElementById('msgSearchResults');
+            box.classList.remove('hidden');
+            if (data.ok) {
+                if (data.messages.length === 0) {
+                    box.innerHTML = '<div style="color:var(--text-mute); text-align:center;">Ничего не найдено</div>';
+                } else {
+                    box.innerHTML = data.messages.map(m => `
+                        <div class="result-item">
+                            <span style="color:var(--accent); font-weight:600;">${m.sender_name}</span> 
+                            (@${m.sender_login}) в чате <b>${m.chat_name || 'ЛС'}</b>:
+                            <br>«${m.text}»
+                        </div>
+                    `).join('');
+                }
+            } else showToast('Ошибка: ' + data.error);
+        } catch (e) { showToast('Ошибка сети'); }
+    }
+
+    async function loadAdminSettings() {
+        try {
+            const res = await fetch('/api/admin/settings');
+            const data = await res.json();
+            if (data.ok) {
+                const maintToggle = document.getElementById('toggle-maintenance');
+                if (data.maintenance === '1') maintToggle.classList.add('active');
+                else maintToggle.classList.remove('active');
+                document.getElementById('globalBannerInput').value = data.banner || '';
+            }
+        } catch (e) { console.error(e); }
+    }
+
+    async function toggleMaintenance() {
+        const toggle = document.getElementById('toggle-maintenance');
+        const isActive = toggle.classList.contains('active');
+        const newVal = isActive ? '0' : '1';
+        try {
+            const res = await fetch('/api/admin/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ maintenance: newVal }) });
+            const data = await res.json();
+            if (data.ok) {
+                if (newVal === '1') { toggle.classList.add('active'); showToast('Техработы ВКЛ'); }
+                else { toggle.classList.remove('active'); showToast('Техработы ВЫКЛ'); }
+            } else showToast('Ошибка: ' + data.error);
+        } catch (e) { showToast('Ошибка сети'); }
+    }
+
+    async function saveBanner() {
+        const banner = document.getElementById('globalBannerInput').value.trim();
+        try {
+            const res = await fetch('/api/admin/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ banner }) });
+            const data = await res.json();
+            if (data.ok) showToast('Баннер сохранен');
+            else showToast('Ошибка: ' + data.error);
+        } catch (e) { showToast('Ошибка сети'); }
+    }
+
+    async function sendBroadcast() {
+        const text = document.getElementById('broadcastText').value.trim();
+        if (!text) return showToast('Введите текст');
+        if (!confirm('Отправить это сообщение во все чаты?')) return;
+        try {
+            const res = await fetch('/api/admin/broadcast', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) });
+            const data = await res.json();
+            if (data.ok) { showToast('Рассылка отправлена'); document.getElementById('broadcastText').value = ''; }
             else showToast('Ошибка: ' + data.error);
         } catch (e) { showToast('Ошибка сети'); }
     }

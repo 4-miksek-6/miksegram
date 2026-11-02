@@ -14,100 +14,37 @@
         .msg.reaction-pop { animation: reactionPop 0.15s ease; }
         @keyframes reactionPop { 50% { transform: scale(1.03); } }
 
-        .empty-logo {
-            width: 140px; height: 140px; margin-bottom: 16px;
-            animation: logoFloat 4s ease-in-out infinite, logoGlow 3s ease-in-out infinite alternate;
-            z-index: 1;
-        }
+        .empty-logo { width: 140px; height: 140px; margin-bottom: 16px; animation: logoFloat 4s ease-in-out infinite, logoGlow 3s ease-in-out infinite alternate; z-index: 1; }
         @keyframes logoFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
         @keyframes logoGlow { from { filter: drop-shadow(0 0 20px var(--accent)); } to { filter: drop-shadow(0 0 60px var(--accent-2)); } }
 
-        /* ===== QR-КОД ===== */
         .qr-dots-bg { position: absolute; inset: 0; overflow: hidden; z-index: 1; pointer-events: none; }
-        .qr-dot {
-            position: absolute; width: 12px; height: 12px; border-radius: 50%;
-            animation: qrDotFloat 4s ease-in-out infinite;
-            box-shadow: 0 0 15px currentColor; opacity: 0.6;
-        }
+        .qr-dot { position: absolute; width: 12px; height: 12px; border-radius: 50%; animation: qrDotFloat 4s ease-in-out infinite; box-shadow: 0 0 15px currentColor; opacity: 0.6; }
         @keyframes qrDotFloat { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-20px) scale(1.2); } }
-        .qr-card {
-            position: relative; z-index: 2;
-            background: #ffffff; border-radius: 32px;
-            padding: 24px; display: flex; flex-direction: column; align-items: center;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.8), 0 0 40px var(--accent);
-            animation: modalIn 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.2);
-        }
+        .qr-card { position: relative; z-index: 2; background: #ffffff; border-radius: 32px; padding: 24px; display: flex; flex-direction: column; align-items: center; box-shadow: 0 20px 60px rgba(0,0,0,0.8), 0 0 40px var(--accent); animation: modalIn 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.2); }
         #qrCodeContainer { width: 260px; height: 260px; margin-bottom: 16px; }
-        .qr-username {
-            font-family: 'Unbounded', sans-serif; font-size: 18px; font-weight: 700;
-            color: #08091a; letter-spacing: 1px; text-transform: uppercase;
-        }
+        .qr-username { font-family: 'Unbounded', sans-serif; font-size: 18px; font-weight: 700; color: #08091a; letter-spacing: 1px; text-transform: uppercase; }
         .qr-actions { position: relative; z-index: 2; display: flex; gap: 20px; margin-top: 30px; }
-        .qr-action-btn {
-            width: 56px; height: 56px; border-radius: 50%;
-            background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2); color: #fff;
-            display: flex; align-items: center; justify-content: center;
-            cursor: pointer; transition: all 0.3s ease;
-        }
-        .qr-action-btn:hover {
-            background: var(--accent); color: #08091a;
-            transform: scale(1.1) translateY(-3px); box-shadow: 0 10px 20px var(--accent);
-        }
+        .qr-action-btn { width: 56px; height: 56px; border-radius: 50%; background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.3s ease; }
+        .qr-action-btn:hover { background: var(--accent); color: #08091a; transform: scale(1.1) translateY(-3px); box-shadow: 0 10px 20px var(--accent); }
         .qr-action-btn svg { width: 24px; height: 24px; }
 
-        /* ===== РАЗДЕЛИТЕЛИ ДАТ И НЕПРОЧИТАННЫЕ ===== */
-        .msg-date-separator, .unread-divider {
-            list-style: none; text-align: center; margin: 16px 0; position: relative;
-        }
-        .msg-date-separator span {
-            display: inline-block; padding: 4px 14px; background: rgba(0,0,0,0.4);
-            border: 1px solid var(--border); border-radius: 20px;
-            font-size: 12px; color: var(--text-mute); backdrop-filter: blur(10px);
-        }
-        .unread-divider::before {
-            content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 1px;
-            background: var(--accent); opacity: 0.4;
-        }
-        .unread-divider span {
-            display: inline-block; padding: 4px 14px; background: var(--bg-0);
-            border: 1px solid var(--accent); border-radius: 20px; font-size: 12px;
-            color: var(--accent); position: relative; z-index: 1;
-            box-shadow: 0 0 15px color-mix(in srgb, var(--accent) 30%, transparent);
-        }
+        .msg-date-separator, .unread-divider { list-style: none; text-align: center; margin: 16px 0; position: relative; }
+        .msg-date-separator span { display: inline-block; padding: 4px 14px; background: rgba(0,0,0,0.4); border: 1px solid var(--border); border-radius: 20px; font-size: 12px; color: var(--text-mute); backdrop-filter: blur(10px); }
+        .unread-divider::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: var(--accent); opacity: 0.4; }
+        .unread-divider span { display: inline-block; padding: 4px 14px; background: var(--bg-0); border: 1px solid var(--accent); border-radius: 20px; font-size: 12px; color: var(--accent); position: relative; z-index: 1; box-shadow: 0 0 15px color-mix(in srgb, var(--accent) 30%, transparent); }
 
-        /* ===== КНОПКА ВНИЗ ===== */
-        .scroll-to-bottom {
-            position: absolute; bottom: 90px; right: 24px; width: 44px; height: 44px;
-            border-radius: 50%; background: var(--panel-strong); border: 1px solid var(--accent);
-            color: var(--accent); display: flex; align-items: center; justify-content: center;
-            cursor: pointer; box-shadow: 0 4px 20px rgba(0,0,0,0.5), 0 0 15px color-mix(in srgb, var(--accent) 40%, transparent);
-            transition: all 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.2); z-index: 20;
-        }
+        .scroll-to-bottom { position: absolute; bottom: 90px; right: 24px; width: 44px; height: 44px; border-radius: 50%; background: var(--panel-strong); border: 1px solid var(--accent); color: var(--accent); display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 20px rgba(0,0,0,0.5), 0 0 15px color-mix(in srgb, var(--accent) 40%, transparent); transition: all 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.2); z-index: 20; }
         .scroll-to-bottom:hover { background: var(--accent); color: #06101c; transform: scale(1.1); }
         .scroll-to-bottom.hidden { opacity: 0; pointer-events: none; transform: translateY(15px) scale(0.8); }
-        .scroll-badge {
-            position: absolute; top: -4px; right: -4px; min-width: 20px; height: 20px;
-            padding: 0 6px; background: #ff3b3b; color: #fff; border-radius: 10px;
-            font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 0 10px #ff3b3b;
-        }
+        .scroll-badge { position: absolute; top: -4px; right: -4px; min-width: 20px; height: 20px; padding: 0 6px; background: #ff3b3b; color: #fff; border-radius: 10px; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 10px #ff3b3b; }
         .scroll-badge.hidden { display: none; }
 
-        /* ===== НЕОНОВОЕ ВРЕМЯ ===== */
-        .msg-time {
-            color: var(--accent) !important;
-            text-shadow: 0 0 6px color-mix(in srgb, var(--accent) 70%, transparent) !important;
-            opacity: 0.95;
-            font-weight: 500;
-        }
+        .msg-time { color: var(--accent) !important; text-shadow: 0 0 6px color-mix(in srgb, var(--accent) 70%, transparent) !important; opacity: 0.95; font-weight: 500; }
 
-        /* ===== ВЕРСИЯ ===== */
-        .app-version-text {
-            position: absolute; bottom: 16px; left: 20px; font-size: 11px;
-            color: var(--text-mute); opacity: 0.6; font-family: 'Inter', sans-serif;
-            pointer-events: none; user-select: none;
-        }
+        .app-version-text { position: absolute; bottom: 16px; left: 20px; font-size: 11px; color: var(--text-mute); opacity: 0.6; font-family: 'Inter', sans-serif; pointer-events: none; user-select: none; }
+
+        .global-banner { background: var(--accent); color: #06101c; text-align: center; padding: 8px; font-weight: 600; font-size: 13px; z-index: 100; position: relative; }
 
         @media (max-width: 768px) {
             .scroll-to-bottom { bottom: 80px; right: 16px; width: 40px; height: 40px; }
@@ -120,6 +57,8 @@
 <div class="bg-grid"></div>
 <div class="stars" id="stars"></div>
 <div class="grain"></div>
+
+<div id="globalBanner" class="global-banner hidden"></div>
 
 <div class="app">
     <aside class="sidebar">
@@ -141,8 +80,6 @@
         </div>
         <button class="new-chat-btn" id="newGroupBtn">+ Создать группу</button>
         <div class="chats-list" id="chatsList"></div>
-        
-        <!-- ВЕРСИЯ ПРИЛОЖЕНИЯ -->
         <div class="app-version-text">v1.1.1</div>
     </aside>
 
@@ -268,18 +205,14 @@
 <div class="modal-overlay" id="groupInfoModal">
     <div class="modal" style="max-width: 480px; padding: 0; overflow: hidden; background: var(--bg-0); display: flex; flex-direction: column;">
         <button class="icon-btn" id="closeGroupInfo" style="position:absolute; top:16px; right:16px; z-index:10; background:rgba(0,0,0,0.4); color:#fff; border-radius:50%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-        
         <div class="preview-banner" id="groupInfoBanner" style="height: 160px;"></div>
-        
         <div style="padding: 20px; flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 16px;">
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <h2 id="groupInfoName" style="font-family:'Unbounded'; font-size: 22px; font-weight: 700; margin:0;">Группа</h2>
                 <button class="secondary-btn" id="editGroupBtn" style="padding: 6px 12px; font-size:12px; display:none;">✏️ Изменить</button>
             </div>
-            
             <div class="settings-label" style="margin-top:8px;">Участники</div>
             <div id="groupInfoMembers" style="display:flex; flex-direction:column; gap:8px;"></div>
-            
             <div id="addMemberSection" style="display:none; margin-top: 12px; border-top: 1px solid var(--border); padding-top: 16px;">
                 <button class="primary-btn" id="addMemberBtn" style="width:100%;">+ Добавить участника</button>
             </div>
@@ -291,10 +224,7 @@
     <div class="modal" style="max-width: 400px; background: var(--bg-0);">
         <div class="modal-header"><h2 class="modal-title">Изменить группу</h2><button class="icon-btn" id="closeEditGroup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
         <div class="modal-body">
-            <label class="settings-field">
-                <span class="settings-field-label">Название группы</span>
-                <input id="editGroupNameInput" maxlength="50">
-            </label>
+            <label class="settings-field"><span class="settings-field-label">Название группы</span><input id="editGroupNameInput" maxlength="50"></label>
             <button class="primary-btn" id="saveGroupNameBtn" style="margin-top: 16px;">Сохранить</button>
         </div>
     </div>
@@ -313,7 +243,6 @@
 <div class="modal-overlay" id="profileModal">
     <div class="modal" style="max-width: 420px; padding: 0; overflow: hidden; background: var(--bg-0);">
         <button class="icon-btn" id="closeProfileModal" style="position:absolute; top:16px; right:16px; z-index:10; background:rgba(0,0,0,0.4); color:#fff; border-radius:50%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-        
         <div id="modalProfileBanner" style="height: 180px; background-size:cover; background-position:center; position:relative; border-radius: 20px 20px 0 0;">
             <div style="position:absolute; inset:0; background:linear-gradient(to bottom, transparent 40%, var(--bg-0) 100%);"></div>
             <div style="position:absolute; bottom: 40px; left: 20px; display:flex; align-items:center; gap: 16px; z-index:2;">
@@ -324,18 +253,15 @@
                 </div>
             </div>
         </div>
-        
         <div style="padding: 16px 20px 20px; display:flex; flex-direction:column; gap: 12px;">
             <div style="background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 16px; padding: 14px;">
                 <div style="font-size: 11px; color: var(--text-mute); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">О себе</div>
                 <div id="modalProfileBio" style="font-size: 14px; color: var(--text);">...</div>
             </div>
-
             <button class="secondary-btn" id="modalQrBtn" style="width: 100%; display:none; align-items: center; justify-content: center; gap: 8px;">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
                 Мой QR-код
             </button>
-
             <button class="primary-btn" id="modalWriteBtn" style="width: 100%; margin-top: 4px;">Написать сообщение</button>
             <button class="secondary-btn" id="modalEditBtn" style="width: 100%; display:none;">Редактировать профиль</button>
         </div>
@@ -389,8 +315,7 @@
     let messagesCache = {};
     let messages = [];
     let currentLoadToken = 0;
-    let qrCodeInstance = null; 
-    
+    let qrCodeInstance = null;
     let unreadNewCount = 0;
 
     const originalTitle = "Miksegram";
@@ -450,6 +375,9 @@
         }
     });
 
+    const badgeMap = { 'crown': '👑', 'check': '✅', 'star': '⭐', 'smile': '😎' };
+    function getBadgeEmoji(badge) { return badgeMap[badge] || ''; }
+
     function formatDateOnly(iso) {
         const d = new Date(iso);
         return d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate();
@@ -505,7 +433,7 @@
                     data.users.forEach(u => {
                         const el = document.createElement('div');
                         el.className = 'chat-item';
-                        el.innerHTML = `<div class="avatar" id="s-avatar-${u.id}">?</div><div class="chat-item-body"><div class="chat-item-top"><div class="chat-item-name">${escapeHtml(u.display_name)}</div></div><div class="chat-item-bottom"><div class="chat-item-preview">@${escapeHtml(u.login)}</div></div></div>`;
+                        el.innerHTML = `<div class="avatar" id="s-avatar-${u.id}">?</div><div class="chat-item-body"><div class="chat-item-top"><div class="chat-item-name">${escapeHtml(u.display_name)} ${getBadgeEmoji(u.badge)}</div></div><div class="chat-item-bottom"><div class="chat-item-preview">@${escapeHtml(u.login)}</div></div></div>`;
                         el.addEventListener('click', () => { searchInput.value = ''; startEmptyChat(u.id); });
                         chatsList.appendChild(el);
                         applyAvatarTo(document.getElementById(`s-avatar-${u.id}`), u.avatar, u.display_name, u.avatar_frame);
@@ -539,14 +467,14 @@
             if (c.type === 'saved') {
                 avatarHtml = `<div class="avatar" id="c-avatar-${c.id}" style="background: linear-gradient(135deg, #2a2a35, #0a0a0f); display:flex; align-items:center; justify-content:center; color:#fff; font-size:20px; border: 1px solid rgba(255,255,255,0.1);">💾</div>`;
             }
-
+            const badge = getBadgeEmoji(c.badge);
             el.innerHTML = `
                 <div class="avatar-wrap">${avatarHtml}${isOnline ? '<div class="online-dot"></div>' : ''}</div>
                 <div class="chat-item-body">
-                    <div class="chat-item-top"><div class="chat-item-name">${escapeHtml(c.name)}</div><div class="chat-item-time">${formatTime(c.last_time)}</div></div>
+                    <div class="chat-item-top"><div class="chat-item-name">${escapeHtml(c.name)} ${badge}</div><div class="chat-item-time">${formatTime(c.last_time)}</div></div>
                     <div class="chat-item-bottom"><div class="chat-item-preview" style="${unread ? 'color:var(--text);font-weight:600' : ''}">${preview}</div>${unread ? `<div class="unread-badge">${c.unread_count}</div>` : ''}</div>
                 </div>`;
-            el.addEventListener('click', () => openChat(c.id, c.name, c.avatar, c.type, c.other_id, c.login, c.last_seen, c.avatar_frame, c.name_effect, c.other_last_read));
+            el.addEventListener('click', () => openChat(c.id, c.name, c.avatar, c.type, c.other_id, c.login, c.last_seen, c.avatar_frame, c.name_effect, c.other_last_read, c.badge));
             chatsList.appendChild(el);
             if (c.type !== 'saved') {
                 applyAvatarTo(document.getElementById(`c-avatar-${c.id}`), c.avatar, c.name, c.avatar_frame);
@@ -573,7 +501,7 @@
             if (!chatsData.length) await loadChats();
             const savedChat = chatsData.find(c => c.type === 'saved');
             if (savedChat) {
-                openChat(savedChat.id, savedChat.name, savedChat.avatar, 'saved', null, '', null, 'none', 'none', 0);
+                openChat(savedChat.id, savedChat.name, savedChat.avatar, 'saved', null, '', null, 'none', 'none', 0, 'none');
             } else {
                 showToast('Избранное не найдено. Обновите страницу.');
             }
@@ -584,7 +512,7 @@
         
         const existingChat = chatsData.find(c => c.type === 'private' && c.other_id === otherId);
         if (existingChat) {
-            openChat(existingChat.id, existingChat.name, existingChat.avatar, 'private', existingChat.other_id, existingChat.login, existingChat.last_seen, existingChat.avatar_frame, existingChat.name_effect, existingChat.other_last_read);
+            openChat(existingChat.id, existingChat.name, existingChat.avatar, 'private', existingChat.other_id, existingChat.login, existingChat.last_seen, existingChat.avatar_frame, existingChat.name_effect, existingChat.other_last_read, existingChat.badge);
             return;
         }
 
@@ -596,7 +524,7 @@
 
         activeChatId = null;
         activeOtherId = otherId;
-        activeChat = { type: 'private', name: userData.display_name, login: userData.login, last_seen: userData.last_seen, name_effect: userData.name_effect };
+        activeChat = { type: 'private', name: userData.display_name, login: userData.login, last_seen: userData.last_seen, name_effect: userData.name_effect, badge: userData.badge };
         messages = [];
         
         document.getElementById('emptyState').style.display = 'none';
@@ -608,7 +536,7 @@
         chatAvatar.style.display = 'flex';
         applyAvatarTo(chatAvatar, userData.avatar, userData.display_name, userData.avatar_frame);
         
-        document.getElementById('chatName').textContent = userData.display_name;
+        document.getElementById('chatName').textContent = userData.display_name + ' ' + getBadgeEmoji(userData.badge);
         applyNameEffect(document.getElementById('chatName'), userData.name_effect);
         document.getElementById('chatLogin').style.color = 'var(--accent)';
         updateChatStatus();
@@ -622,7 +550,7 @@
         if (window.innerWidth <= 768) document.querySelector('.app').classList.add('mobile-chat-open');
     }
 
-    function openChat(chatId, name, avatar, type, otherId = null, login = '', last_seen = null, avatar_frame = 'none', name_effect = 'none', other_last_read = 0) {
+    function openChat(chatId, name, avatar, type, otherId = null, login = '', last_seen = null, avatar_frame = 'none', name_effect = 'none', other_last_read = 0, badge = 'none') {
         if (activeChatId === chatId && activeChat) return;
 
         const chatData = chatsData.find(x => x.id === chatId);
@@ -633,7 +561,7 @@
 
         activeChatId = chatId;
         activeOtherId = otherId;
-        activeChat = { type, name, login, last_seen, name_effect, other_last_read };
+        activeChat = { type, name, login, last_seen, name_effect, other_last_read, badge };
         
         const myToken = ++currentLoadToken;
         hideScrollBtn();
@@ -658,7 +586,7 @@
             applyAvatarTo(chatAvatar, avatar, name, avatar_frame);
         }
         
-        document.getElementById('chatName').textContent = name;
+        document.getElementById('chatName').textContent = name + ' ' + getBadgeEmoji(badge);
         applyNameEffect(document.getElementById('chatName'), name_effect);
         
         if (type === 'group') {
@@ -805,8 +733,10 @@
             }).join('')}</div>`;
         }
 
+        const badge = getBadgeEmoji(m.sender_badge);
+
         return `
-            ${showSender ? `<div class="msg-from">${escapeHtml(m.sender_name)}</div>` : ''}
+            ${showSender ? `<div class="msg-from">${escapeHtml(m.sender_name)} ${badge}</div>` : ''}
             ${replyHtml}
             ${m.text ? `<div class="msg-text" style="white-space: pre-wrap;">${escapeHtml(m.text)}</div>` : ''}
             ${fileHtml}
@@ -1089,7 +1019,6 @@
 
     document.getElementById('attachBtn').addEventListener('click', () => fileInput.click());
     
-    // === СЖАТИЕ КАРТИНОК ===
     async function compressImage(file) {
         return new Promise((resolve) => {
             const reader = new FileReader();
@@ -1123,7 +1052,7 @@
                         } else {
                             resolve(file);
                         }
-                    }, 'image/jpeg', 0.8); // Качество 80%
+                    }, 'image/jpeg', 0.8);
                 };
                 img.onerror = () => resolve(file);
             };
@@ -1137,7 +1066,6 @@
         
         if (file.size > 5 * 1024 * 1024) { showToast('Файл больше 5 МБ'); fileInput.value = ''; return; }
 
-        // Если это картинка — сжимаем
         if (file.type.startsWith('image/')) {
             fileNameEl.textContent = 'Сжатие фото...';
             uploadProgressWrap.style.display = 'block';
@@ -1340,6 +1268,21 @@
         }
     });
 
+    socket.on('global_banner_update', (data) => {
+        const banner = document.getElementById('globalBanner');
+        if (data.banner) {
+            banner.textContent = data.banner;
+            banner.classList.remove('hidden');
+        } else {
+            banner.classList.add('hidden');
+        }
+    });
+
+    socket.on('force_logout', () => {
+        alert('❌ Ваш аккаунт был заблокирован администратором.');
+        window.location.href = '/login.html';
+    });
+
     socket.on('update_chats', loadChats);
     socket.on('online_list', (ids) => { onlineUsersSet = new Set(ids); renderChats(); updateChatStatus(); });
     socket.on('user_online', (id) => { onlineUsersSet.add(id); renderChats(); updateChatStatus(); });
@@ -1434,10 +1377,11 @@
             const isMe = m.id === myId;
             const row = document.createElement('div');
             row.style.cssText = 'display:flex; align-items:center; gap:10px; background:rgba(255,255,255,0.05); padding:10px; border-radius:12px;';
+            const badge = getBadgeEmoji(m.badge);
             row.innerHTML = `
                 <div class="avatar small" id="gm-avatar-${m.id}">?</div>
                 <div style="flex:1;">
-                    <div style="font-family:'Unbounded'; font-size:13px;">${escapeHtml(m.display_name)} ${isAdmin ? '<span style="color:var(--accent); font-size:10px;">(Создатель)</span>' : ''}</div>
+                    <div style="font-family:'Unbounded'; font-size:13px;">${escapeHtml(m.display_name)} ${badge} ${isAdmin ? '<span style="color:var(--accent); font-size:10px;">(Создатель)</span>' : ''}</div>
                     <div style="font-size:11px; color:var(--text-dim);">@${escapeHtml(m.login)}</div>
                 </div>
                 ${(!isMe && currentGroupInfo.creator_id === myId) ? `<button class="icon-btn" onclick="removeMember(${m.id})" title="Исключить" style="color:#ff5c7c;">✖</button>` : ''}
@@ -1546,7 +1490,7 @@
             if (!data.ok) return;
             const u = data.user;
             applyAvatarTo(document.getElementById('modalProfileAvatar'), u.avatar, u.display_name, u.avatar_frame);
-            document.getElementById('modalProfileName').textContent = u.display_name;
+            document.getElementById('modalProfileName').textContent = u.display_name + ' ' + getBadgeEmoji(u.badge);
             applyNameEffect(document.getElementById('modalProfileName'), u.name_effect);
             document.getElementById('modalProfileLogin').textContent = '@' + u.login;
             document.getElementById('modalProfileBio').textContent = u.bio || 'Пока ничего не рассказал(а) о себе';
@@ -1666,6 +1610,20 @@
         document.getElementById('myDisplayName').textContent = data.display_name;
         applyNameEffect(document.getElementById('myDisplayName'), data.name_effect);
         document.getElementById('myLogin').textContent = '@' + data.login;
+        
+        // Баннер
+        if (data.global_banner) {
+            const banner = document.getElementById('globalBanner');
+            banner.textContent = data.global_banner;
+            banner.classList.remove('hidden');
+        }
+        
+        // Техработы
+        if (data.maintenance === '1' && data.login !== 'admin') {
+            document.body.innerHTML = '<div style="display:flex; align-items:center; justify-content:center; height:100vh; color:#fff; font-family:Unbounded; font-size:24px; text-align:center; flex-direction:column; gap:20px;"><div>🛠 Идут технические работы</div><div style="font-size:16px; color:#8a8fa8;">Зайдите позже, мы уже чиним!</div></div>';
+            return;
+        }
+
         loadChats();
         
         const params = new URLSearchParams(window.location.search);
@@ -1686,7 +1644,6 @@
     let searchTimeout;
     searchInput.addEventListener('input', () => { clearTimeout(searchTimeout); searchTimeout = setTimeout(renderChats, 300); });
 
-    // ================= QR-КОД =================
     const qrModal = document.getElementById('qrModal');
 
     function openQrModal() {

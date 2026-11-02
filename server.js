@@ -48,9 +48,13 @@ async function initDb(attempt = 1) {
     await db.execute(`CREATE TABLE IF NOT EXISTS read_status (chat_id INTEGER NOT NULL, user_id INTEGER NOT NULL, last_read_id INTEGER DEFAULT 0, PRIMARY KEY (chat_id, user_id));`);
     await db.execute(`CREATE TABLE IF NOT EXISTS reactions (message_id INTEGER NOT NULL, user_id INTEGER NOT NULL, emoji TEXT NOT NULL, PRIMARY KEY (message_id, user_id));`);
     await db.execute(`CREATE TABLE IF NOT EXISTS sessions (sid TEXT PRIMARY KEY, sess TEXT NOT NULL);`);
+    await db.execute(`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);`);
 
     try { await db.execute(`ALTER TABLE users ADD COLUMN is_banned INTEGER DEFAULT 0;`); } catch (e) {}
     try { await db.execute(`ALTER TABLE users ADD COLUMN badge TEXT DEFAULT 'none';`); } catch (e) {}
+
+    await db.execute(`INSERT OR IGNORE INTO settings (key, value) VALUES ('maintenance', '0');`);
+    await db.execute(`INSERT OR IGNORE INTO settings (key, value) VALUES ('banner', '');`);
 
     await db.execute(`CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON messages(chat_id);`);
     await db.execute(`CREATE INDEX IF NOT EXISTS idx_chat_members_user_id ON chat_members(user_id);`);
@@ -104,9 +108,19 @@ async function isAdmin(req, res, next) {
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 }
 
+async function getSetting(key, defaultVal = '') {
+  try {
+    const res = await db.execute({ sql: 'SELECT value FROM settings WHERE key = ?', args: [key] });
+    return res.rows.length > 0 ? res.rows[0].value : defaultVal;
+  } catch (e) { return defaultVal; }
+}
+
 // ==================== АВТОРИЗАЦИЯ ====================
 app.post('/api/register', async (req, res) => {
   try {
+    const isMaint = await getSetting('maintenance');
+    if (isMaint === '1') return res.json({ ok: false, error: 'Сейчас идут техработы. Регистрация недоступна.' });
+
     let { login, display_name, password } = req.body;
     if (!login || !display_name || !password) return res.json({ ok: false, error: 'Заполни все поля' });
     login = login.trim().toLowerCase().replace(/^@/, '');
@@ -136,6 +150,11 @@ app.post('/api/login', async (req, res) => {
     
     if (user.is_banned) return res.json({ ok: false, error: '❌ Ваш аккаунт заблокирован администратором' });
     
+    const isMaint = await getSetting('maintenance');
+    if (isMaint === '1' && user.login !== 'admin') {
+      return res.json({ ok: false, error: '🛠 На сервере идут техработы. Зайдите позже.' });
+    }
+    
     req.session.userId = user.id;
     await db.execute({ sql: 'UPDATE users SET last_seen = ? WHERE id = ?', args: [new Date().toISOString(), user.id] });
     await ensureSavedChat(user.id);
@@ -158,69 +177,16 @@ app.get('/api/me', async (req, res) => {
       req.session.destroy();
       return res.json({ ok: false, error: 'Аккаунт заблокирован' });
     }
-    res.json({ ok: true, ...uRes.rows[0] });
+    const isMaint = await getSetting('maintenance');
+    const banner = await getSetting('banner');
+    res.json({ ok: true, ...uRes.rows[0], maintenance: isMaint, global_banner: banner });
   } catch (e) { res.json({ ok: false }); }
 });
 
-app.post('/api/change-password', async (req, res) => {
-  if (!req.session.userId) return res.json({ ok: false });
-  const { old_password, new_password } = req.body;
-  if (!old_password || !new_password) return res.json({ ok: false, error: 'Заполни все поля' });
-  if (new_password.length < 4) return res.json({ ok: false, error: 'Новый пароль слишком короткий' });
-  try {
-    const userRes = await db.execute({ sql: 'SELECT * FROM users WHERE id = ?', args: [req.session.userId] });
-    const user = userRes.rows[0];
-    if (!bcrypt.compareSync(old_password, user.password)) return res.json({ ok: false, error: 'Неверный текущий пароль' });
-    await db.execute({ sql: 'UPDATE users SET password = ? WHERE id = ?', args: [bcrypt.hashSync(new_password, 10), req.session.userId] });
-    res.json({ ok: true });
-  } catch (e) { res.json({ ok: false, error: 'Ошибка сервера' }); }
-});
-
-app.post('/api/delete-account', async (req, res) => {
-  if (!req.session.userId) return res.json({ ok: false });
-  const { password } = req.body;
-  if (!password) return res.json({ ok: false, error: 'Введите пароль' });
-  try {
-    const userRes = await db.execute({ sql: 'SELECT * FROM users WHERE id = ?', args: [req.session.userId] });
-    const user = userRes.rows[0];
-    if (!user || !bcrypt.compareSync(password, user.password)) return res.json({ ok: false, error: 'Неверный пароль' });
-    const myId = req.session.userId;
-    await db.execute({ sql: 'DELETE FROM reactions WHERE user_id = ?', args: [myId] });
-    await db.execute({ sql: 'DELETE FROM messages WHERE sender_id = ?', args: [myId] });
-    await db.execute({ sql: 'DELETE FROM chat_members WHERE user_id = ?', args: [myId] });
-    await db.execute({ sql: 'DELETE FROM users WHERE id = ?', args: [myId] });
-    const emptyChats = await db.execute({ sql: 'SELECT c.id FROM chats c LEFT JOIN chat_members cm ON c.id = cm.chat_id WHERE cm.chat_id IS NULL', args: [] });
-    for (const c of emptyChats.rows) {
-      await db.execute({ sql: 'DELETE FROM chats WHERE id = ?', args: [c.id] });
-      await db.execute({ sql: 'DELETE FROM messages WHERE chat_id = ?', args: [c.id] });
-    }
-    io.emit('update_chats'); 
-    req.session.destroy();
-    res.json({ ok: true });
-  } catch (e) { res.json({ ok: false, error: 'Ошибка сервера' }); }
-});
-
-app.post('/api/update-profile', async (req, res) => {
-  if (!req.session.userId) return res.json({ ok: false });
-  try {
-    const { display_name, bio, avatar, banner, avatar_frame, name_effect } = req.body;
-    if (display_name !== undefined) await db.execute({ sql: 'UPDATE users SET display_name = ? WHERE id = ?', args: [String(display_name).trim().slice(0,40), req.session.userId] });
-    if (bio !== undefined) await db.execute({ sql: 'UPDATE users SET bio = ? WHERE id = ?', args: [String(bio).slice(0,200), req.session.userId] });
-    if (avatar !== undefined) await db.execute({ sql: 'UPDATE users SET avatar = ? WHERE id = ?', args: [avatar, req.session.userId] });
-    if (banner !== undefined) await db.execute({ sql: 'UPDATE users SET banner = ? WHERE id = ?', args: [banner, req.session.userId] });
-    if (avatar_frame !== undefined) await db.execute({ sql: 'UPDATE users SET avatar_frame = ? WHERE id = ?', args: [avatar_frame, req.session.userId] });
-    if (name_effect !== undefined) await db.execute({ sql: 'UPDATE users SET name_effect = ? WHERE id = ?', args: [name_effect, req.session.userId] });
-    const uRes = await db.execute({ sql: 'SELECT id, login, display_name, bio, avatar, banner, avatar_frame, name_effect, badge FROM users WHERE id = ?', args: [req.session.userId] });
-    res.json({ ok: true, user: uRes.rows[0] });
-  } catch (e) { res.json({ ok: false, error: 'Ошибка сервера' }); }
-});
-
-app.get('/api/all-users', async (req, res) => {
-  if (!req.session.userId) return res.json({ ok: false });
-  try {
-    const uRes = await db.execute({ sql: 'SELECT id, login, display_name, avatar, avatar_frame, name_effect, badge FROM users WHERE id != ? ORDER BY display_name ASC', args: [req.session.userId] });
-    res.json({ ok: true, users: uRes.rows });
-  } catch (e) { res.json({ ok: false, users: [] }); }
+// ==================== СИСТЕМНЫЕ НАСТРОЙКИ ====================
+app.get('/api/system/settings', async (req, res) => {
+  const banner = await getSetting('banner');
+  res.json({ ok: true, banner });
 });
 
 // ==================== АДМИН API ====================
@@ -272,6 +238,17 @@ app.post('/api/admin/set-badge', isAdmin, async (req, res) => {
   } catch (e) { res.json({ ok: false, error: e.message }); }
 });
 
+app.post('/api/admin/reset-password', isAdmin, async (req, res) => {
+  try {
+    const { userId } = req.body;
+    const target = await db.execute({ sql: 'SELECT login FROM users WHERE id = ?', args: [userId] });
+    if (target.rows.length === 0 || target.rows[0].login === 'admin') return res.json({ ok: false, error: 'Нельзя сбросить пароль админу' });
+    const newPass = '123456';
+    await db.execute({ sql: 'UPDATE users SET password = ? WHERE id = ?', args: [bcrypt.hashSync(newPass, 10), userId] });
+    res.json({ ok: true, password: newPass });
+  } catch (e) { res.json({ ok: false, error: e.message }); }
+});
+
 app.post('/api/admin/clear-avatars', isAdmin, async (req, res) => {
   try {
     await db.execute(`UPDATE users SET avatar = 'grad-emerald', banner = 'ban-aurora' WHERE avatar LIKE 'https://%' OR banner LIKE 'https://%'`);
@@ -311,6 +288,86 @@ app.post('/api/admin/clear-storage', isAdmin, async (req, res) => {
       await supabase.storage.from('uploads').remove(fileNames);
     }
     res.json({ ok: true, count: files ? files.length : 0 });
+  } catch (e) { res.json({ ok: false, error: e.message }); }
+});
+
+// ДОПОЛНИТЕЛЬНЫЕ АДМИН ФУНКЦИИ
+app.get('/api/admin/groups', isAdmin, async (req, res) => {
+  try {
+    const gRes = await db.execute('SELECT * FROM chats WHERE type = "group" ORDER BY id DESC');
+    res.json({ ok: true, groups: gRes.rows });
+  } catch (e) { res.json({ ok: false, error: e.message }); }
+});
+
+app.post('/api/admin/delete-group', isAdmin, async (req, res) => {
+  try {
+    const { groupId } = req.body;
+    await db.execute({ sql: 'DELETE FROM messages WHERE chat_id = ?', args: [groupId] });
+    await db.execute({ sql: 'DELETE FROM chat_members WHERE chat_id = ?', args: [groupId] });
+    await db.execute({ sql: 'DELETE FROM chats WHERE id = ?', args: [groupId] });
+    io.emit('update_chats');
+    res.json({ ok: true });
+  } catch (e) { res.json({ ok: false, error: e.message }); }
+});
+
+app.post('/api/admin/search-messages', isAdmin, async (req, res) => {
+  try {
+    const { query } = req.body;
+    const searchRes = await db.execute({
+      sql: `SELECT m.*, u.login as sender_login, u.display_name as sender_name, c.name as chat_name 
+            FROM messages m 
+            JOIN users u ON m.sender_id = u.id 
+            JOIN chats c ON m.chat_id = c.id
+            WHERE m.text LIKE ? 
+            ORDER BY m.id DESC LIMIT 50`,
+      args: [`%${query}%`]
+    });
+    res.json({ ok: true, messages: searchRes.rows });
+  } catch (e) { res.json({ ok: false, error: e.message }); }
+});
+
+app.get('/api/admin/settings', isAdmin, async (req, res) => {
+  try {
+    const maint = await getSetting('maintenance');
+    const banner = await getSetting('banner');
+    res.json({ ok: true, maintenance: maint, banner: banner });
+  } catch (e) { res.json({ ok: false, error: e.message }); }
+});
+
+app.post('/api/admin/settings', isAdmin, async (req, res) => {
+  try {
+    const { maintenance, banner } = req.body;
+    if (maintenance !== undefined) await db.execute({ sql: 'UPDATE settings SET value = ? WHERE key = "maintenance"', args: [maintenance] });
+    if (banner !== undefined) await db.execute({ sql: 'UPDATE settings SET value = ? WHERE key = "banner"', args: [banner] });
+    io.emit('global_banner_update', { banner: banner });
+    res.json({ ok: true });
+  } catch (e) { res.json({ ok: false, error: e.message }); }
+});
+
+app.post('/api/admin/broadcast', isAdmin, async (req, res) => {
+  try {
+    const { text } = req.body;
+    if (!text) return res.json({ ok: false, error: 'Введите текст' });
+    const info = await db.execute({ sql: 'INSERT INTO users (login, display_name, password) VALUES (?, ?, ?)', args: ['system', 'Система', 'nopassword'] }).catch(() => null);
+    let systemId = null;
+    if (info) systemId = Number(info.lastInsertRowid);
+    else {
+      const sys = await db.execute('SELECT id FROM users WHERE login = "system"');
+      systemId = sys.rows[0]?.id;
+    }
+    
+    const allUsers = await db.execute('SELECT id FROM users WHERE login != "system"');
+    for (const u of allUsers.rows) {
+      let chatId = await ensureSavedChat(u.id);
+      if (chatId) {
+        const msgInfo = await db.execute({ sql: 'INSERT INTO messages (chat_id, sender_id, text) VALUES (?, ?, ?)', args: [chatId, systemId, text] });
+        const msgId = Number(msgInfo.lastInsertRowid);
+        const msg = await getMsgWithDetails(msgId);
+        io.to('user_' + u.id).emit('new_message', msg);
+        io.to('user_' + u.id).emit('update_chats');
+      }
+    }
+    res.json({ ok: true });
   } catch (e) { res.json({ ok: false, error: e.message }); }
 });
 
@@ -364,7 +421,7 @@ app.get('/api/search-user', async (req, res) => {
   try {
     const q = (req.query.q || '').trim().toLowerCase().replace(/^@/, '');
     if (!q) return res.json({ ok: true, users: [] });
-    const uRes = await db.execute({ sql: 'SELECT id, login, display_name, avatar, avatar_frame, name_effect, badge FROM users WHERE id != ? AND (login LIKE ? OR display_name LIKE ?) LIMIT 10', args: [req.session.userId, `%${q}%`, `%${q}%`] });
+    const uRes = await db.execute({ sql: 'SELECT id, login, display_name, avatar, avatar_frame, name_effect, badge FROM users WHERE id != ? AND login != "system" AND (login LIKE ? OR display_name LIKE ?) LIMIT 10', args: [req.session.userId, `%${q}%`, `%${q}%`] });
     res.json({ ok: true, users: uRes.rows });
   } catch (e) { res.json({ ok: false, users: [] }); }
 });
@@ -501,7 +558,6 @@ async function getMsgWithDetails(msgId) {
     if (msgRes.rows.length === 0) return null;
     const msg = msgRes.rows[0];
     
-    // Безопасное получение бейджа (если колонки нет, не падаем)
     try {
       const bRes = await db.execute({ sql: 'SELECT badge FROM users WHERE id = ?', args: [msg.sender_id] });
       msg.sender_badge = bRes.rows[0] ? bRes.rows[0].badge : 'none';
@@ -638,6 +694,11 @@ io.on('connection', async (socket) => {
   });
 
   socket.on('send_message', async (data, callback) => {
+    try {
+      const bRes = await db.execute({ sql: 'SELECT is_banned FROM users WHERE id = ?', args: [myId] });
+      if (bRes.rows[0]?.is_banned) { if (callback) callback({ error: 'Вы забанены' }); socket.emit('force_logout'); return; }
+    } catch(e) {}
+
     let { chat_id, text, other_id, file_url, file_type, file_name, reply_to_id, temp_id } = data;
     if (!text && !file_url) { if (callback) callback({ error: 'Пустое сообщение' }); return; }
     const clean = (text || '').trim().slice(0, 2000);
