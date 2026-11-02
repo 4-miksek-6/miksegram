@@ -10,7 +10,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { createClient } = require('@libsql/client');
-const { createClient: createSupabase } = require('@supabase/supabase-js');
+const { S3Client, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 
 // --- ЛОГИРОВАНИЕ ---
 const LOG = (tag, ...args) => console.log(`[${new Date().toISOString()}] [${tag}]`, ...args);
@@ -30,7 +30,16 @@ const db = createClient({
   authToken: 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3OTMzODMzODUsImlkIjoiMDFhMThkZGQtYjcwMS03YTg5LWIxMGEtMjk1MTkxNWVmY2Q2Iiwia2lkIjoiMDY0M3BHaVkteXR5X0t2OC1HbVY5Y2Nlb0RyTVYyVUlnZVRtU2Y5MXQtcyIsInJpZCI6IjgzM2JlNTQyLWViZjEtNGVhZC05MTQ3LTFkY2VhNDYzYmZjNCJ9.GSH-xuW9awXLGLOjssUuqDoXuoouiydQgBL7oc2BkEwRJVpABbEO-2jHW9JFLHDJ5Of_nXGtBApz7uY19k7BDQ'
 });
 
-const supabase = createSupabase('https://tvmypcjwrlwiorpmugpb.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2bXlwY2p3cmx3aW9ycG11Z3BiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MzQwODQwOSwiZXhwIjoyMTA4OTg0NDA5fQ.1ChmymKXpkweU7PImFwAfFYY4ufSx525Fotjn4FRtSw');
+// --- НАСТРОЙКА FILEBASE (S3) ---
+const s3 = new S3Client({
+  endpoint: 'https://s3.filebase.io',
+  region: 'auto',
+  credentials: {
+    accessKeyId: process.env.FILEBASE_ACCESS_KEY || 'твой_ключ_сюда',
+    secretAccessKey: process.env.FILEBASE_SECRET_KEY || 'твой_секрет_сюда',
+  },
+});
+const BUCKET_NAME = process.env.FILEBASE_BUCKET_NAME || 'miksegram-files';
 
 // --- ИНИЦИАЛИЗАЦИЯ БД С ПОВТОРАМИ ---
 async function initDb(attempt = 1) {
@@ -270,7 +279,6 @@ app.get('/api/chats', async (req, res) => {
   const myId = req.session.userId;
 
   try {
-    // Гарантируем "Избранное" (для старых пользователей)
     await ensureSavedChat(myId);
 
     const chatsRes = await db.execute({
@@ -310,13 +318,7 @@ app.get('/api/chats', async (req, res) => {
       }
       if (c.type === 'saved') {
         result.push({ 
-          ...c, 
-          name: 'Избранное', 
-          avatar: 'grad-amber', 
-          other_id: null, 
-          login: '', 
-          last_seen: null, 
-          other_last_read: 0 
+          ...c, name: 'Избранное', avatar: 'grad-amber', other_id: null, login: '', last_seen: null, other_last_read: 0 
         });
         continue;
       }
@@ -512,10 +514,7 @@ app.post('/api/chats/:id/delete', async (req, res) => {
     if (chatRes.rows.length === 0) return res.json({ ok: false });
     const chat = chatRes.rows[0];
 
-    if (chat.type === 'saved') {
-      // Избранное нельзя удалить, можно только очистить
-      return res.json({ ok: false, error: 'Избранное нельзя удалить. Используйте "Очистить историю"' });
-    }
+    if (chat.type === 'saved') return res.json({ ok: false, error: 'Избранное нельзя удалить. Используйте "Очистить историю"' });
 
     if (chat.type === 'group') {
       await db.execute({ sql: 'DELETE FROM chat_members WHERE chat_id = ? AND user_id = ?', args: [chatId, myId] });
@@ -615,9 +614,9 @@ app.get('/api/messages/:chatId', async (req, res) => {
   }
 });
 
-// ==================== ФАЙЛЫ ====================
+// ==================== ФАЙЛЫ (FILEBASE / S3) ====================
 const storage = multer.memoryStorage();
-const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } });
+const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } }); // 5 MB
 
 app.post('/api/upload', (req, res) => {
   if (!req.session.userId) return res.json({ ok: false });
@@ -631,16 +630,22 @@ app.post('/api/upload', (req, res) => {
     try {
       const fileExt = path.extname(req.file.originalname);
       const fileName = Date.now() + '-' + Math.round(Math.random() * 1E9) + fileExt;
-      const { data, error } = await supabase.storage.from('uploads').upload(fileName, req.file.buffer, { contentType: req.file.mimetype, upsert: false });
-      if (error) throw error;
-      const { data: publicUrlData } = supabase.storage.from('uploads').getPublicUrl(fileName);
-      const fileUrl = publicUrlData.publicUrl;
+      
+      await s3.send(new PutObjectCommand({
+        Bucket: BUCKET_NAME,
+        Key: fileName,
+        Body: req.file.buffer,
+        ContentType: req.file.mimetype
+      }));
+
+      const fileUrl = `https://${BUCKET_NAME}.s3.filebase.io/${fileName}`;
       const isImage = req.file.mimetype.startsWith('image/');
       const isAudio = req.file.mimetype.startsWith('audio/');
       const type = isImage ? 'image' : (isAudio ? 'audio' : 'file');
+      
       res.json({ ok: true, file_url: fileUrl, file_type: type, file_name: req.file.originalname });
     } catch (error) {
-      ERR('UPLOAD', 'Ошибка загрузки файла:', error.message);
+      ERR('UPLOAD', 'Ошибка загрузки файла в Filebase:', error.message);
       res.json({ ok: false, error: 'Ошибка сервера при загрузке файла' });
     }
   });
@@ -658,12 +663,18 @@ app.post('/api/upload-avatar', (req, res) => {
     try {
       const fileExt = path.extname(req.file.originalname) || '.jpg';
       const fileName = Date.now() + '-' + Math.round(Math.random() * 1E9) + fileExt;
-      const { data, error } = await supabase.storage.from('uploads').upload(fileName, req.file.buffer, { contentType: req.file.mimetype, upsert: false });
-      if (error) throw error;
-      const { data: publicUrlData } = supabase.storage.from('uploads').getPublicUrl(fileName);
-      res.json({ ok: true, url: publicUrlData.publicUrl });
+
+      await s3.send(new PutObjectCommand({
+        Bucket: BUCKET_NAME,
+        Key: fileName,
+        Body: req.file.buffer,
+        ContentType: req.file.mimetype
+      }));
+
+      const fileUrl = `https://${BUCKET_NAME}.s3.filebase.io/${fileName}`;
+      res.json({ ok: true, url: fileUrl });
     } catch (error) {
-      ERR('UPLOAD', 'Ошибка загрузки аватара:', error.message);
+      ERR('UPLOAD', 'Ошибка загрузки аватара в Filebase:', error.message);
       res.json({ ok: false, error: 'Ошибка сервера' });
     }
   });
@@ -678,11 +689,17 @@ app.post('/api/messages/:id/delete', async (req, res) => {
     if (msgRes.rows.length === 0 || msgRes.rows[0].sender_id !== myId) return res.json({ ok: false });
     const msg = msgRes.rows[0];
     
-    if (msg.file_url && msg.file_url.includes('supabase.co')) {
+    // Удаление файла из Filebase
+    if (msg.file_url && msg.file_url.includes('filebase.io')) {
       try {
         const fileName = msg.file_url.split('/').pop();
-        await supabase.storage.from('uploads').remove([fileName]);
-      } catch (e) { }
+        await s3.send(new DeleteObjectCommand({
+          Bucket: BUCKET_NAME,
+          Key: fileName
+        }));
+      } catch (e) { 
+        ERR('API', 'Не удалось удалить файл из Filebase:', e.message); 
+      }
     }
     
     await db.execute({ sql: 'DELETE FROM reactions WHERE message_id = ?', args: [msgId] });
@@ -752,11 +769,9 @@ io.on('connection', (socket) => {
     const clean = (text || '').trim().slice(0, 2000);
     
     try {
-      // Если other_id — это я сам, то используем чат "Избранное"
       if (!chat_id && other_id === myId) {
         chat_id = await ensureSavedChat(myId);
       }
-      // Создание нового чата, если его нет и other_id — другой пользователь
       else if (!chat_id && other_id) {
         LOG('SOCKET', `Пользователь ${myId} создаёт новый чат с ${other_id}`);
         const existing = await db.execute({ sql: `SELECT c.id FROM chats c JOIN chat_members cm1 ON c.id = cm1.chat_id AND cm1.user_id = ? JOIN chat_members cm2 ON c.id = cm2.chat_id AND cm2.user_id = ? WHERE c.type = 'private'`, args: [myId, other_id] });
