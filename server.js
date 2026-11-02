@@ -13,7 +13,7 @@ const { createClient } = require('@libsql/client');
 const { createClient: createSupabase } = require('@supabase/supabase-js');
 
 // --- ВЕРСИЯ ПРИЛОЖЕНИЯ (Меняй при каждом деплое!) ---
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.1.1';
 
 const LOG = (tag, ...args) => console.log(`[${new Date().toISOString()}] [${tag}]`, ...args);
 const ERR = (tag, ...args) => console.error(`[${new Date().toISOString()}] [${tag}]`, ...args);
