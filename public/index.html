@@ -1288,7 +1288,7 @@
         window.location.href = '/login.html';
     });
 
-    // ==== КОНФЕТТИ (PASХАЛКА) ====
+    // ==== КОНФЕТТИ (ПАСХАЛКА) ====
     socket.on('confetti', () => {
         launchConfetti();
     });
@@ -1301,30 +1301,53 @@
         document.body.appendChild(canvas);
         const ctx = canvas.getContext('2d');
         const colors = ['#00d4ff', '#a855f7', '#ff4ec7', '#00ffa3', '#ffb347', '#ff512f', '#ffffff'];
-        const particles = [];
-        const count = 200;
-        for (let i = 0; i < count; i++) {
+        let particles = [];
+        
+        // Начальный залп (500 частиц)
+        for (let i = 0; i < 500; i++) {
             particles.push({
                 x: Math.random() * canvas.width,
-                y: -20 - Math.random() * canvas.height * 0.5,
-                w: 6 + Math.random() * 8,
-                h: 6 + Math.random() * 8,
-                vx: (Math.random() - 0.5) * 4,
-                vy: 2 + Math.random() * 4,
+                y: -20 - Math.random() * canvas.height * 0.8,
+                w: 8 + Math.random() * 10,
+                h: 8 + Math.random() * 10,
+                vx: (Math.random() - 0.5) * 8,
+                vy: 2 + Math.random() * 6,
                 rot: Math.random() * Math.PI * 2,
-                vrot: (Math.random() - 0.5) * 0.3,
+                vrot: (Math.random() - 0.5) * 0.4,
                 color: colors[Math.floor(Math.random() * colors.length)]
             });
         }
+
         let frame = 0;
-        const maxFrames = 300; // ~5 секунд при 60fps
+        const maxFrames = 720; // ~12 секунд при 60fps
+        
         function tick() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Подсыпаем ещё частиц в течение первых 8 секунд (480 кадров)
+            if (frame < 480 && frame % 2 === 0) {
+                 for (let i = 0; i < 6; i++) {
+                    particles.push({
+                        x: Math.random() * canvas.width,
+                        y: -20,
+                        w: 8 + Math.random() * 10,
+                        h: 8 + Math.random() * 10,
+                        vx: (Math.random() - 0.5) * 8,
+                        vy: 2 + Math.random() * 6,
+                        rot: Math.random() * Math.PI * 2,
+                        vrot: (Math.random() - 0.5) * 0.4,
+                        color: colors[Math.floor(Math.random() * colors.length)]
+                    });
+                }
+            }
+
             particles.forEach(p => {
-                p.vy += 0.08;
+                p.vy += 0.1; // гравитация
+                p.vx *= 0.99; // сопротивление воздуха
                 p.x += p.vx;
                 p.y += p.vy;
                 p.rot += p.vrot;
+                
                 ctx.save();
                 ctx.translate(p.x, p.y);
                 ctx.rotate(p.rot);
@@ -1332,6 +1355,10 @@
                 ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
                 ctx.restore();
             });
+            
+            // Удаляем улетевшие за экран
+            particles = particles.filter(p => p.y < canvas.height + 50);
+            
             frame++;
             if (frame < maxFrames) {
                 requestAnimationFrame(tick);

@@ -350,7 +350,7 @@ app.post('/api/admin/clear-storage', isAdmin, async (req, res) => {
 
 app.get('/api/admin/groups', isAdmin, async (req, res) => {
   try {
-    const gRes = await db.execute('SELECT * FROM chats WHERE type = "group" ORDER BY id DESC');
+    const gRes = await db.execute("SELECT * FROM chats WHERE type = 'group' ORDER BY id DESC");
     res.json({ ok: true, groups: gRes.rows });
   } catch (e) { res.json({ ok: false, error: e.message }); }
 });
@@ -396,9 +396,9 @@ app.post('/api/admin/settings', isAdmin, async (req, res) => {
     const { maintenance, banner, register_disabled } = req.body;
     
     if (maintenance !== undefined) {
-      await db.execute({ sql: 'UPDATE settings SET value = ? WHERE key = "maintenance"', args: [maintenance] });
+      await db.execute({ sql: "UPDATE settings SET value = ? WHERE key = 'maintenance'", args: [maintenance] });
       if (maintenance === '1') {
-        const adminRes = await db.execute('SELECT id FROM users WHERE login = "admin"');
+        const adminRes = await db.execute("SELECT id FROM users WHERE login = 'admin'");
         const adminId = adminRes.rows[0]?.id;
         for (const userId of onlineUsers.keys()) {
           if (userId !== adminId) {
@@ -409,12 +409,12 @@ app.post('/api/admin/settings', isAdmin, async (req, res) => {
     }
 
     if (register_disabled !== undefined) {
-      await db.execute({ sql: 'UPDATE settings SET value = ? WHERE key = "register_disabled"', args: [register_disabled] });
+      await db.execute({ sql: "UPDATE settings SET value = ? WHERE key = 'register_disabled'", args: [register_disabled] });
     }
 
     if (banner !== undefined) {
       const cleanBanner = String(banner).trim();
-      await db.execute({ sql: 'UPDATE settings SET value = ? WHERE key = "banner"', args: [cleanBanner] });
+      await db.execute({ sql: "UPDATE settings SET value = ? WHERE key = 'banner'", args: [cleanBanner] });
       io.emit('global_banner_update', { banner: cleanBanner });
     }
     
@@ -430,11 +430,11 @@ app.post('/api/admin/broadcast', isAdmin, async (req, res) => {
     let systemId = null;
     if (info) systemId = Number(info.lastInsertRowid);
     else {
-      const sys = await db.execute('SELECT id FROM users WHERE login = "system"');
+      const sys = await db.execute("SELECT id FROM users WHERE login = 'system'");
       systemId = sys.rows[0]?.id;
     }
     
-    const allUsers = await db.execute('SELECT id FROM users WHERE login != "system"');
+    const allUsers = await db.execute("SELECT id FROM users WHERE login != 'system'");
     for (const u of allUsers.rows) {
       let chatId = await ensureSavedChat(u.id);
       if (chatId) {
@@ -449,10 +449,9 @@ app.post('/api/admin/broadcast', isAdmin, async (req, res) => {
   } catch (e) { res.json({ ok: false, error: e.message }); }
 });
 
-// НОВОЕ: Конфетти
 app.post('/api/admin/confetti', isAdmin, async (req, res) => {
   try {
-    io.emit('confetti', { duration: 5000 });
+    io.emit('confetti', { duration: 12000 });
     res.json({ ok: true, count: onlineUsers.size });
   } catch (e) { res.json({ ok: false, error: e.message }); }
 });
@@ -507,7 +506,7 @@ app.get('/api/search-user', async (req, res) => {
   try {
     const q = (req.query.q || '').trim().toLowerCase().replace(/^@/, '');
     if (!q) return res.json({ ok: true, users: [] });
-    const uRes = await db.execute({ sql: 'SELECT id, login, display_name, avatar, avatar_frame, name_effect, badge FROM users WHERE id != ? AND login != "system" AND (login LIKE ? OR display_name LIKE ?) LIMIT 10', args: [req.session.userId, `%${q}%`, `%${q}%`] });
+    const uRes = await db.execute({ sql: "SELECT id, login, display_name, avatar, avatar_frame, name_effect, badge FROM users WHERE id != ? AND login != 'system' AND (login LIKE ? OR display_name LIKE ?) LIMIT 10", args: [req.session.userId, `%${q}%`, `%${q}%`] });
     res.json({ ok: true, users: uRes.rows });
   } catch (e) { res.json({ ok: false, users: [] }); }
 });
