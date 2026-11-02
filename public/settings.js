@@ -81,7 +81,6 @@ function buildSettingsUI() {
         </div>
     `;
 
-    // Показываем кнопку админа, если логин 'admin'
     if (u.login === 'admin') {
         const adminBtn = document.getElementById('adminPanelBtn');
         adminBtn.style.display = 'block';
@@ -197,11 +196,7 @@ function buildSettingsUI() {
                     if (f.key === 'dashed') patchValue = `frame_dashed:${frameColor}`;
 
                     const data = await saveProfilePatch({ avatar_frame: patchValue });
-                    if (data.ok) { 
-                        Object.assign(u, data.user); 
-                        updatePreview(); 
-                        renderTab('profile');
-                    }
+                    if (data.ok) { Object.assign(u, data.user); updatePreview(); renderTab('profile'); }
                 });
                 framePicker.appendChild(d);
             });

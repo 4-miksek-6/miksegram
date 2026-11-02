@@ -9,35 +9,20 @@
     <style>
         body { overflow: hidden; background: var(--bg-0); }
         
-        .admin-layout {
-            display: grid;
-            grid-template-columns: 280px 1fr;
-            height: 100vh;
-            width: 100vw;
-        }
+        .admin-layout { display: grid; grid-template-columns: 280px 1fr; height: 100vh; width: 100vw; }
 
         .admin-sidebar {
-            background: var(--panel-strong);
-            border-right: 1px solid var(--border);
-            padding: 24px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
+            background: var(--panel-strong); border-right: 1px solid var(--border);
+            padding: 24px; display: flex; flex-direction: column; gap: 8px;
         }
-        .admin-logo {
-            display: flex; align-items: center; gap: 12px; margin-bottom: 32px;
-            font-family: 'Unbounded', sans-serif; font-size: 18px; font-weight: 700; color: var(--text);
-        }
+        .admin-logo { display: flex; align-items: center; gap: 12px; margin-bottom: 32px; font-family: 'Unbounded', sans-serif; font-size: 18px; font-weight: 700; color: var(--text); }
         .admin-logo img { width: 32px; height: 32px; filter: drop-shadow(0 0 10px var(--accent)); }
         .admin-tab {
             padding: 14px 16px; border-radius: 12px; cursor: pointer; font-size: 14px; font-weight: 500;
             color: var(--text-dim); display: flex; align-items: center; gap: 12px; transition: all 0.25s ease;
         }
         .admin-tab:hover { background: rgba(255,255,255,0.05); color: var(--text); transform: translateX(4px); }
-        .admin-tab.active {
-            background: rgba(255,255,255,0.1); color: var(--accent); font-weight: 600;
-            box-shadow: inset 3px 0 0 var(--accent); transform: translateX(4px);
-        }
+        .admin-tab.active { background: rgba(255,255,255,0.1); color: var(--accent); font-weight: 600; box-shadow: inset 3px 0 0 var(--accent); transform: translateX(4px); }
         .back-btn {
             margin-top: auto; padding: 14px; border-radius: 12px; background: rgba(255,255,255,0.05);
             border: 1px solid var(--border); color: var(--text); text-decoration: none;
@@ -50,17 +35,11 @@
         .tab-content { animation: fadeSlideUp 0.4s cubic-bezier(0.2, 0.9, 0.3, 1) forwards; }
         @keyframes fadeSlideUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
 
-        .admin-content h1 {
-            font-family: 'Unbounded', sans-serif; font-size: 28px; font-weight: 700; margin: 0 0 12px 0;
-            background: var(--grad-aurora); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
-        }
+        .admin-content h1 { font-family: 'Unbounded', sans-serif; font-size: 28px; font-weight: 700; margin: 0 0 12px 0; background: var(--grad-aurora); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
         .admin-content p.subtitle { color: var(--text-dim); font-size: 14px; margin-bottom: 40px; }
 
         .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 24px; margin-bottom: 40px; }
-        .stat-card {
-            background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 20px;
-            padding: 28px; display: flex; flex-direction: column; gap: 8px; transition: transform 0.2s, border-color 0.2s;
-        }
+        .stat-card { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 20px; padding: 28px; display: flex; flex-direction: column; gap: 8px; transition: transform 0.2s, border-color 0.2s; }
         .stat-card:hover { transform: translateY(-4px); border-color: var(--accent); }
         .stat-value { font-family: 'Unbounded', sans-serif; font-size: 32px; font-weight: 700; color: var(--accent); text-shadow: 0 0 20px color-mix(in srgb, var(--accent) 40%, transparent); }
         .stat-label { color: var(--text-mute); font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
@@ -112,14 +91,7 @@
 
         .hidden { display: none !important; }
 
-        /* Тост для уведомлений */
-        #admin-toast {
-            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(20px);
-            background: var(--panel-strong); border: 1px solid var(--accent); padding: 12px 24px;
-            border-radius: 12px; color: var(--text); font-size: 14px; font-weight: 500;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 0 20px color-mix(in srgb, var(--accent) 30%, transparent);
-            opacity: 0; pointer-events: none; transition: all 0.3s ease; z-index: 9999;
-        }
+        #admin-toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--panel-strong); border: 1px solid var(--accent); padding: 12px 24px; border-radius: 12px; color: var(--text); font-size: 14px; font-weight: 500; box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 0 20px color-mix(in srgb, var(--accent) 30%, transparent); opacity: 0; pointer-events: none; transition: all 0.3s ease; z-index: 9999; }
         #admin-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
     </style>
 </head>
@@ -145,7 +117,6 @@
 
     <main class="admin-content">
         
-        <!-- ВКЛАДКА 1: ДАШБОРД -->
         <div id="tab-dashboard" class="tab-content">
             <h1>Обзор системы</h1>
             <p class="subtitle">Статистика вашего мессенджера в реальном времени.</p>
@@ -184,7 +155,7 @@
 
             <div class="admin-section" style="margin-bottom: 0;">
                 <h2>Инфраструктура проекта</h2>
-                <p style="color: var(--text-dim); font-size: 13px; margin-bottom: 20px;">Быстрые ссылки на панели управления сервисами, которые использует Miksegram.</p>
+                <p style="color: var(--text-dim); font-size: 13px; margin-bottom: 20px;">Быстрые ссылки на панели управления сервисами.</p>
                 <div class="links-grid">
                     <a href="https://turso.tech" target="_blank" class="service-link"><span class="service-icon">🗄</span> Turso (База)</a>
                     <a href="https://enzonic.com" target="_blank" class="service-link"><span class="service-icon">🚀</span> Enzonic (Хостинг)</a>
@@ -194,7 +165,6 @@
             </div>
         </div>
 
-        <!-- ВКЛАДКА 2: ПОЛЬЗОВАТЕЛИ -->
         <div id="tab-users" class="tab-content hidden">
             <h1>Управление пользователями</h1>
             <p class="subtitle">Баны, сброс паролей и выдача VIP-статусов.</p>
@@ -207,7 +177,6 @@
             </div>
         </div>
 
-        <!-- ВКЛАДКА 3: КОНТЕНТ -->
         <div id="tab-content" class="tab-content hidden">
             <h1>Управление контентом</h1>
             <p class="subtitle">Модерация чатов и сообщений.</p>
@@ -219,21 +188,8 @@
                     <button class="btn-primary" style="padding: 0 32px;" onclick="showToast('Поиск по сообщениям в разработке')">Найти</button>
                 </div>
             </div>
-
-            <div class="admin-section">
-                <h2>Список активных групп</h2>
-                <div class="user-row">
-                    <div class="user-info">
-                        <div>
-                            <div class="user-name">Управление группами в разработке</div>
-                            <div class="user-login">В следующем обновлении</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
 
-        <!-- ВКЛАДКА 4: ЯДЕРНАЯ ОЧИСТКА -->
         <div id="tab-danger" class="tab-content hidden">
             <h1 style="background: #ff5c7c; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">Опасная зона</h1>
             <p class="subtitle">Эти действия необратимы. Будьте осторожны!</p>
@@ -277,7 +233,6 @@
             </div>
         </div>
 
-        <!-- ВКЛАДКА 5: УПРАВЛЕНИЕ -->
         <div id="tab-settings" class="tab-content hidden">
             <h1>Управление приложением</h1>
             <p class="subtitle">Настройки работы сервера и интерфейса.</p>
@@ -306,7 +261,6 @@
             </div>
         </div>
 
-        <!-- ВКЛАДКА 6: РАССЫЛКА -->
         <div id="tab-broadcast" class="tab-content hidden">
             <h1>Рассылка и Фишки</h1>
             <p class="subtitle">Отправка сообщений от лица системы и развлечения.</p>
@@ -335,7 +289,6 @@
 <div id="admin-toast">Уведомление</div>
 
 <script>
-    // Показ уведомлений
     let toastTimer;
     function showToast(text) {
         const toast = document.getElementById('admin-toast');
@@ -345,7 +298,6 @@
         toastTimer = setTimeout(() => toast.classList.remove('show'), 3000);
     }
 
-    // Переключение вкладок
     const tabs = document.querySelectorAll('.admin-tab');
     const contents = document.querySelectorAll('.tab-content');
 
@@ -359,18 +311,15 @@
             const targetContent = document.getElementById(targetId);
             targetContent.classList.remove('hidden');
             
-            // Перезапуск анимации
             targetContent.style.animation = 'none';
             targetContent.offsetHeight;
             targetContent.style.animation = null; 
 
-            // Подгрузка данных при переходе на вкладку
             if (tab.dataset.tab === 'dashboard') loadStats();
             if (tab.dataset.tab === 'users') loadUsers();
         });
     });
 
-    // ================= ЗАГРУЗКА СТАТИСТИКИ =================
     async function loadStats() {
         try {
             const res = await fetch('/api/admin/stats');
@@ -384,7 +333,6 @@
         } catch (e) { console.error('Ошибка статистики:', e); }
     }
 
-    // ================= ЗАГРУЗКА ПОЛЬЗОВАТЕЛЕЙ =================
     async function loadUsers() {
         try {
             const res = await fetch('/api/admin/users');
@@ -400,29 +348,39 @@
                 
                 container.innerHTML = data.users.map(u => {
                     const isAdmin = u.login === 'admin';
+                    const isBanned = u.is_banned === 1;
                     const displayName = u.display_name || u.login;
                     const initial = displayName.charAt(0).toUpperCase();
                     
+                    const badges = { 'crown': '👑', 'check': '✅', 'star': '⭐', 'smile': '😎' };
+                    const badgeEmoji = badges[u.badge] || '';
+                    
                     return `
-                    <div class="user-row">
+                    <div class="user-row" style="${isBanned ? 'opacity: 0.6;' : ''}">
                         <div class="user-info">
                             <div class="user-avatar" style="background: var(--grad-cyan);">${initial}</div>
                             <div>
                                 <div class="user-name">
-                                    ${displayName} ${isAdmin ? '<span style="color:var(--accent); font-size:10px;">(Создатель)</span>' : ''}
+                                    ${displayName} ${badgeEmoji}
+                                    ${isAdmin ? '<span style="color:var(--accent); font-size:10px;">(Создатель)</span>' : ''}
+                                    ${isBanned ? '<span style="color:#ff5c7c; font-size:10px; margin-left:6px;">(ЗАБАНЕН)</span>' : ''}
                                 </div>
                                 <div class="user-login">@${u.login} • ID: ${u.id}</div>
                             </div>
                         </div>
                         <div style="display: flex; gap: 12px; align-items: center;">
-                            <select class="badge-select" onchange="showToast('Бейджи в разработке')">
-                                <option value="none">Без бейджа</option>
-                                <option value="crown">👑 Корона</option>
-                                <option value="check">✅ Галочка</option>
-                                <option value="star">⭐ Звезда</option>
+                            <select class="badge-select" onchange="setBadge(${u.id}, this.value)" ${isAdmin ? 'disabled' : ''}>
+                                <option value="none" ${u.badge === 'none' ? 'selected' : ''}>Без бейджа</option>
+                                <option value="crown" ${u.badge === 'crown' ? 'selected' : ''}>👑 Корона</option>
+                                <option value="check" ${u.badge === 'check' ? 'selected' : ''}>✅ Галочка</option>
+                                <option value="star" ${u.badge === 'star' ? 'selected' : ''}>⭐ Звезда</option>
+                                <option value="smile" ${u.badge === 'smile' ? 'selected' : ''}>😎 Смайл</option>
                             </select>
-                            <button class="action-btn" onclick="showToast('Сброс пароля в разработке')">Сброс пароля</button>
-                            <button class="action-btn btn-danger" onclick="showToast('Бан в разработке')">Бан</button>
+                            ${!isAdmin ? `<button class="action-btn" onclick="showToast('Сброс пароля в разработке')">Сброс</button>` : ''}
+                            ${!isAdmin ? (isBanned 
+                                ? `<button class="action-btn" onclick="unbanUser(${u.id})" style="color:#00ff88; border-color:rgba(0,255,136,0.3);">Разбанить</button>`
+                                : `<button class="action-btn btn-danger" onclick="banUser(${u.id})">Бан</button>`
+                            ) : ''}
                         </div>
                     </div>
                     `;
@@ -431,27 +389,64 @@
         } catch (e) { console.error('Ошибка пользователей:', e); }
     }
 
-    // ================= ОЧИСТКА ДАННЫХ =================
+    async function banUser(userId) {
+        if (!confirm('Забанить пользователя? Он не сможет войти и будет выкинут из сети.')) return;
+        try {
+            const res = await fetch('/api/admin/ban', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId })
+            });
+            const data = await res.json();
+            if (data.ok) { showToast('Пользователь забанен'); loadUsers(); loadStats(); }
+            else showToast('Ошибка: ' + data.error);
+        } catch (e) { showToast('Ошибка сети'); }
+    }
+
+    async function unbanUser(userId) {
+        try {
+            const res = await fetch('/api/admin/unban', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId })
+            });
+            const data = await res.json();
+            if (data.ok) { showToast('Пользователь разбанен'); loadUsers(); }
+            else showToast('Ошибка: ' + data.error);
+        } catch (e) { showToast('Ошибка сети'); }
+    }
+
+    async function setBadge(userId, badge) {
+        try {
+            const res = await fetch('/api/admin/set-badge', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId, badge })
+            });
+            const data = await res.json();
+            if (data.ok) { showToast('Бейдж обновлен'); loadUsers(); }
+            else showToast('Ошибка: ' + data.error);
+        } catch (e) { showToast('Ошибка сети'); }
+    }
+
     async function wipeData(action, successMessage) {
         if (!confirm('Вы уверены? Это действие необратимо!')) return;
-        
         try {
             const res = await fetch(`/api/admin/${action}`, { method: 'POST' });
             const data = await res.json();
-            
-            if (data.ok) {
-                showToast(successMessage);
-                loadStats(); // Обновляем цифры на дашборде
-            } else {
-                showToast('Ошибка: ' + data.error);
-            }
-        } catch (e) {
-            showToast('Ошибка сети');
-        }
+            if (data.ok) { showToast(successMessage); loadStats(); }
+            else showToast('Ошибка: ' + data.error);
+        } catch (e) { showToast('Ошибка сети'); }
     }
 
-    // Первичная загрузка
     loadStats();
+    
+    // Слушаем сигнал принудительного выхода (бан)
+    const socket = io();
+    socket.on('force_logout', () => {
+        alert('❌ Ваш аккаунт был заблокирован администратором.');
+        window.location.href = '/login.html';
+    });
 </script>
 </body>
 </html>

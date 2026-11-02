@@ -18,6 +18,7 @@ const ERR = (tag, ...args) => console.error(`[${new Date().toISOString()}] [${ta
 process.on('uncaughtException', (err) => ERR('UNCAUGHT', err.message, err.stack));
 process.on('unhandledRejection', (reason) => ERR('UNHANDLED', reason));
 
+// --- КЛЮЧИ (позже вынесем в ENV) ---
 const db = createClient({
   url: 'libsql://miksegram-miksek.aws-ap-northeast-1.turso.io',
   authToken: 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3OTMzODMzODUsImlkIjoiMDFhMThkZGQtYjcwMS03YTg5LWIxMGEtMjk1MTkxNWVmY2Q2Iiwia2lkIjoiMDY0M3BHaVkteXR5X0t2OC1HbVY5Y2Nlb0RyTVYyVUlnZVRtU2Y5MXQtcyIsInJpZCI6IjgzM2JlNTQyLWViZjEtNGVhZC05MTQ3LTFkY2VhNDYzYmZjNCJ9.GSH-xuW9awXLGLOjssUuqDoXuoouiydQgBL7oc2BkEwRJVpABbEO-2jHW9JFLHDJ5Of_nXGtBApz7uY19k7BDQ'
@@ -25,33 +26,21 @@ const db = createClient({
 
 const supabase = createSupabase('https://tvmypcjwrlwiorpmugpb.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2bXlwY2p3cmx3aW9ycG11Z3BiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MzQwODQwOSwiZXhwIjoyMTA4OTg0NDA5fQ.1ChmymKXpkweU7PImFwAfFYY4ufSx525Fotjn4FRtSw');
 
+// --- СЕССИИ В БАЗЕ ---
 class TursoStore extends session.Store {
-  constructor(options) {
-    super(options);
-    this.db = db;
+  constructor(options) { super(options); this.db = db; }
+  async get(sid, cb) {
+    try { const r = await this.db.execute({ sql: 'SELECT sess FROM sessions WHERE sid = ?', args: [sid] }); cb(null, r.rows.length ? JSON.parse(r.rows[0].sess) : null); } catch (e) { cb(e); }
   }
-  async get(sid, callback) {
-    try {
-      const res = await this.db.execute({ sql: 'SELECT sess FROM sessions WHERE sid = ?', args: [sid] });
-      if (res.rows.length > 0) callback(null, JSON.parse(res.rows[0].sess));
-      else callback(null, null);
-    } catch (e) { callback(e); }
+  async set(sid, sess, cb) {
+    try { await this.db.execute({ sql: 'INSERT INTO sessions (sid, sess) VALUES (?, ?) ON CONFLICT(sid) DO UPDATE SET sess = excluded.sess', args: [sid, JSON.stringify(sess)] }); cb(null); } catch (e) { cb(e); }
   }
-  async set(sid, session, callback) {
-    try {
-      const sessStr = JSON.stringify(session);
-      await this.db.execute({ sql: 'INSERT INTO sessions (sid, sess) VALUES (?, ?) ON CONFLICT(sid) DO UPDATE SET sess = excluded.sess', args: [sid, sessStr] });
-      callback(null);
-    } catch (e) { callback(e); }
-  }
-  async destroy(sid, callback) {
-    try {
-      await this.db.execute({ sql: 'DELETE FROM sessions WHERE sid = ?', args: [sid] });
-      callback(null);
-    } catch (e) { callback(e); }
+  async destroy(sid, cb) {
+    try { await this.db.execute({ sql: 'DELETE FROM sessions WHERE sid = ?', args: [sid] }); cb(null); } catch (e) { cb(e); }
   }
 }
 
+// --- ИНИЦИАЛИЗАЦИЯ БД ---
 async function initDb(attempt = 1) {
   try {
     LOG('DB', `Инициализация БД (попытка ${attempt})...`);
@@ -62,14 +51,17 @@ async function initDb(attempt = 1) {
     await db.execute(`CREATE TABLE IF NOT EXISTS read_status (chat_id INTEGER NOT NULL, user_id INTEGER NOT NULL, last_read_id INTEGER DEFAULT 0, PRIMARY KEY (chat_id, user_id));`);
     await db.execute(`CREATE TABLE IF NOT EXISTS reactions (message_id INTEGER NOT NULL, user_id INTEGER NOT NULL, emoji TEXT NOT NULL, PRIMARY KEY (message_id, user_id));`);
     await db.execute(`CREATE TABLE IF NOT EXISTS sessions (sid TEXT PRIMARY KEY, sess TEXT NOT NULL);`);
-    
+
+    try { await db.execute(`ALTER TABLE users ADD COLUMN is_banned INTEGER DEFAULT 0;`); } catch (e) {}
+    try { await db.execute(`ALTER TABLE users ADD COLUMN badge TEXT DEFAULT 'none';`); } catch (e) {}
+
     await db.execute(`CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON messages(chat_id);`);
     await db.execute(`CREATE INDEX IF NOT EXISTS idx_chat_members_user_id ON chat_members(user_id);`);
     await db.execute(`CREATE INDEX IF NOT EXISTS idx_chat_members_chat_id ON chat_members(chat_id);`);
     await db.execute(`CREATE INDEX IF NOT EXISTS idx_read_status_user_id ON read_status(user_id);`);
     await db.execute(`CREATE INDEX IF NOT EXISTS idx_reactions_message_id ON reactions(message_id);`);
-    
-    LOG('DB', '✅ База данных и индексы готовы!');
+
+    LOG('DB', '✅ База данных готова (с колонками ban/badge).');
   } catch (err) {
     ERR('DB', `❌ Ошибка инициализации (попытка ${attempt}):`, err.message);
     if (attempt < 3) setTimeout(() => initDb(attempt + 1), 3000);
@@ -102,22 +94,17 @@ async function ensureSavedChat(userId) {
 }
 
 async function isChatMember(chatId, userId) {
-    const res = await db.execute({ sql: 'SELECT 1 FROM chat_members WHERE chat_id = ? AND user_id = ?', args: [chatId, userId] });
-    return res.rows.length > 0;
+  const res = await db.execute({ sql: 'SELECT 1 FROM chat_members WHERE chat_id = ? AND user_id = ?', args: [chatId, userId] });
+  return res.rows.length > 0;
 }
 
-// ==================== ПРОВЕРКА НА АДМИНА ====================
 async function isAdmin(req, res, next) {
-    if (!req.session.userId) return res.status(401).json({ ok: false, error: 'Не авторизован' });
-    try {
-        const uRes = await db.execute({ sql: 'SELECT login FROM users WHERE id = ?', args: [req.session.userId] });
-        if (uRes.rows.length === 0 || uRes.rows[0].login !== 'admin') {
-            return res.status(403).json({ ok: false, error: 'Доступ запрещен' });
-        }
-        next();
-    } catch (e) {
-        res.status(500).json({ ok: false, error: e.message });
-    }
+  if (!req.session.userId) return res.status(401).json({ ok: false, error: 'Не авторизован' });
+  try {
+    const uRes = await db.execute({ sql: 'SELECT login FROM users WHERE id = ?', args: [req.session.userId] });
+    if (uRes.rows.length === 0 || uRes.rows[0].login !== 'admin') return res.status(403).json({ ok: false, error: 'Доступ запрещен' });
+    next();
+  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 }
 
 // ==================== АВТОРИЗАЦИЯ ====================
@@ -127,23 +114,17 @@ app.post('/api/register', async (req, res) => {
     if (!login || !display_name || !password) return res.json({ ok: false, error: 'Заполни все поля' });
     login = login.trim().toLowerCase().replace(/^@/, '');
     display_name = display_name.trim();
-    
     if (!/^[a-z0-9_]{3,32}$/.test(login)) return res.json({ ok: false, error: 'Логин: 3-32 символа' });
     if (display_name.length < 1 || display_name.length > 40) return res.json({ ok: false, error: 'Имя: от 1 до 40 символов' });
     if (password.length < 4) return res.json({ ok: false, error: 'Пароль: минимум 4 символа' });
-    
     const existing = await db.execute({ sql: 'SELECT id FROM users WHERE login = ?', args: [login] });
     if (existing.rows.length > 0) return res.json({ ok: false, error: 'Этот логин уже занят' });
-    
     const hash = bcrypt.hashSync(password, 10);
     const info = await db.execute({ sql: 'INSERT INTO users (login, display_name, password) VALUES (?, ?, ?)', args: [login, display_name, hash] });
-    
     req.session.userId = Number(info.lastInsertRowid);
     await ensureSavedChat(req.session.userId);
     res.json({ ok: true });
-  } catch (e) { 
-    res.json({ ok: false, error: 'Ошибка сервера' }); 
-  }
+  } catch (e) { res.json({ ok: false, error: 'Ошибка сервера' }); }
 });
 
 app.post('/api/login', async (req, res) => {
@@ -151,41 +132,37 @@ app.post('/api/login', async (req, res) => {
     let { login, password } = req.body;
     login = (login || '').trim().toLowerCase().replace(/^@/, '');
     if (!login || !password) return res.json({ ok: false, error: 'Введите логин и пароль' });
-    
     const userRes = await db.execute({ sql: 'SELECT * FROM users WHERE login = ?', args: [login] });
     const user = userRes.rows[0];
-    
     if (!user) return res.json({ ok: false, error: 'Пользователь не найден' });
     if (!bcrypt.compareSync(password, user.password)) return res.json({ ok: false, error: 'Неверный пароль' });
+    
+    if (user.is_banned) return res.json({ ok: false, error: '❌ Ваш аккаунт заблокирован администратором' });
     
     req.session.userId = user.id;
     await db.execute({ sql: 'UPDATE users SET last_seen = ? WHERE id = ?', args: [new Date().toISOString(), user.id] });
     await ensureSavedChat(user.id);
-    
     res.json({ ok: true, user: { id: user.id, login: user.login, display_name: user.display_name, avatar: user.avatar } });
-  } catch (e) { 
-    res.json({ ok: false, error: 'Ошибка сервера' }); 
-  }
+  } catch (e) { res.json({ ok: false, error: 'Ошибка сервера' }); }
 });
 
 app.post('/api/logout', async (req, res) => {
   try {
     if (req.session.userId) await db.execute({ sql: 'UPDATE users SET last_seen = ? WHERE id = ?', args: [new Date().toISOString(), req.session.userId] });
     req.session.destroy(() => res.json({ ok: true }));
-  } catch (e) {
-    req.session.destroy(() => res.json({ ok: true }));
-  }
+  } catch (e) { req.session.destroy(() => res.json({ ok: true })); }
 });
 
 app.get('/api/me', async (req, res) => {
   if (!req.session.userId) return res.json({ ok: false });
   try {
-    const uRes = await db.execute({ sql: 'SELECT id, login, display_name, bio, avatar, banner, avatar_frame, name_effect FROM users WHERE id = ?', args: [req.session.userId] });
-    if (uRes.rows.length === 0) return res.json({ ok: false });
+    const uRes = await db.execute({ sql: 'SELECT id, login, display_name, bio, avatar, banner, avatar_frame, name_effect, badge, is_banned FROM users WHERE id = ?', args: [req.session.userId] });
+    if (uRes.rows.length === 0 || uRes.rows[0].is_banned) {
+      req.session.destroy();
+      return res.json({ ok: false, error: 'Аккаунт заблокирован' });
+    }
     res.json({ ok: true, ...uRes.rows[0] });
-  } catch (e) {
-    res.json({ ok: false });
-  }
+  } catch (e) { res.json({ ok: false }); }
 });
 
 app.post('/api/change-password', async (req, res) => {
@@ -193,34 +170,28 @@ app.post('/api/change-password', async (req, res) => {
   const { old_password, new_password } = req.body;
   if (!old_password || !new_password) return res.json({ ok: false, error: 'Заполни все поля' });
   if (new_password.length < 4) return res.json({ ok: false, error: 'Новый пароль слишком короткий' });
-  
   try {
     const userRes = await db.execute({ sql: 'SELECT * FROM users WHERE id = ?', args: [req.session.userId] });
     const user = userRes.rows[0];
     if (!bcrypt.compareSync(old_password, user.password)) return res.json({ ok: false, error: 'Неверный текущий пароль' });
     await db.execute({ sql: 'UPDATE users SET password = ? WHERE id = ?', args: [bcrypt.hashSync(new_password, 10), req.session.userId] });
     res.json({ ok: true });
-  } catch (e) {
-    res.json({ ok: false, error: 'Ошибка сервера' });
-  }
+  } catch (e) { res.json({ ok: false, error: 'Ошибка сервера' }); }
 });
 
 app.post('/api/delete-account', async (req, res) => {
   if (!req.session.userId) return res.json({ ok: false });
   const { password } = req.body;
   if (!password) return res.json({ ok: false, error: 'Введите пароль' });
-
   try {
     const userRes = await db.execute({ sql: 'SELECT * FROM users WHERE id = ?', args: [req.session.userId] });
     const user = userRes.rows[0];
     if (!user || !bcrypt.compareSync(password, user.password)) return res.json({ ok: false, error: 'Неверный пароль' });
-
     const myId = req.session.userId;
     await db.execute({ sql: 'DELETE FROM reactions WHERE user_id = ?', args: [myId] });
     await db.execute({ sql: 'DELETE FROM messages WHERE sender_id = ?', args: [myId] });
     await db.execute({ sql: 'DELETE FROM chat_members WHERE user_id = ?', args: [myId] });
     await db.execute({ sql: 'DELETE FROM users WHERE id = ?', args: [myId] });
-
     const emptyChats = await db.execute({ sql: 'SELECT c.id FROM chats c LEFT JOIN chat_members cm ON c.id = cm.chat_id WHERE cm.chat_id IS NULL', args: [] });
     for (const c of emptyChats.rows) {
       await db.execute({ sql: 'DELETE FROM chats WHERE id = ?', args: [c.id] });
@@ -229,9 +200,7 @@ app.post('/api/delete-account', async (req, res) => {
     io.emit('update_chats'); 
     req.session.destroy();
     res.json({ ok: true });
-  } catch (e) {
-    res.json({ ok: false, error: 'Ошибка сервера' });
-  }
+  } catch (e) { res.json({ ok: false, error: 'Ошибка сервера' }); }
 });
 
 app.post('/api/update-profile', async (req, res) => {
@@ -244,18 +213,15 @@ app.post('/api/update-profile', async (req, res) => {
     if (banner !== undefined) await db.execute({ sql: 'UPDATE users SET banner = ? WHERE id = ?', args: [banner, req.session.userId] });
     if (avatar_frame !== undefined) await db.execute({ sql: 'UPDATE users SET avatar_frame = ? WHERE id = ?', args: [avatar_frame, req.session.userId] });
     if (name_effect !== undefined) await db.execute({ sql: 'UPDATE users SET name_effect = ? WHERE id = ?', args: [name_effect, req.session.userId] });
-    
-    const uRes = await db.execute({ sql: 'SELECT id, login, display_name, bio, avatar, banner, avatar_frame, name_effect FROM users WHERE id = ?', args: [req.session.userId] });
+    const uRes = await db.execute({ sql: 'SELECT id, login, display_name, bio, avatar, banner, avatar_frame, name_effect, badge FROM users WHERE id = ?', args: [req.session.userId] });
     res.json({ ok: true, user: uRes.rows[0] });
-  } catch (e) {
-    res.json({ ok: false, error: 'Ошибка сервера' });
-  }
+  } catch (e) { res.json({ ok: false, error: 'Ошибка сервера' }); }
 });
 
 app.get('/api/all-users', async (req, res) => {
   if (!req.session.userId) return res.json({ ok: false });
   try {
-    const uRes = await db.execute({ sql: 'SELECT id, login, display_name, avatar, avatar_frame, name_effect FROM users WHERE id != ? ORDER BY display_name ASC', args: [req.session.userId] });
+    const uRes = await db.execute({ sql: 'SELECT id, login, display_name, avatar, avatar_frame, name_effect, badge FROM users WHERE id != ? ORDER BY display_name ASC', args: [req.session.userId] });
     res.json({ ok: true, users: uRes.rows });
   } catch (e) { res.json({ ok: false, users: [] }); }
 });
@@ -271,8 +237,41 @@ app.get('/api/admin/stats', isAdmin, async (req, res) => {
 
 app.get('/api/admin/users', isAdmin, async (req, res) => {
   try {
-    const uRes = await db.execute('SELECT id, login, display_name, avatar FROM users ORDER BY id ASC');
+    const uRes = await db.execute('SELECT id, login, display_name, avatar, badge, is_banned FROM users ORDER BY id ASC');
     res.json({ ok: true, users: uRes.rows });
+  } catch (e) { res.json({ ok: false, error: e.message }); }
+});
+
+app.post('/api/admin/ban', isAdmin, async (req, res) => {
+  try {
+    const { userId } = req.body;
+    if (!userId) return res.json({ ok: false, error: 'Не указан userId' });
+    const target = await db.execute({ sql: 'SELECT login FROM users WHERE id = ?', args: [userId] });
+    if (target.rows.length === 0 || target.rows[0].login === 'admin') return res.json({ ok: false, error: 'Нельзя забанить админа' });
+    await db.execute({ sql: 'UPDATE users SET is_banned = 1 WHERE id = ?', args: [userId] });
+    io.to('user_' + userId).emit('force_logout');
+    res.json({ ok: true });
+  } catch (e) { res.json({ ok: false, error: e.message }); }
+});
+
+app.post('/api/admin/unban', isAdmin, async (req, res) => {
+  try {
+    const { userId } = req.body;
+    if (!userId) return res.json({ ok: false, error: 'Не указан userId' });
+    await db.execute({ sql: 'UPDATE users SET is_banned = 0 WHERE id = ?', args: [userId] });
+    res.json({ ok: true });
+  } catch (e) { res.json({ ok: false, error: e.message }); }
+});
+
+app.post('/api/admin/set-badge', isAdmin, async (req, res) => {
+  try {
+    const { userId, badge } = req.body;
+    if (!userId || !badge) return res.json({ ok: false, error: 'Не хватает параметров' });
+    const allowed = ['none', 'crown', 'check', 'star', 'smile'];
+    if (!allowed.includes(badge)) return res.json({ ok: false, error: 'Неверный бейдж' });
+    await db.execute({ sql: 'UPDATE users SET badge = ? WHERE id = ?', args: [badge, userId] });
+    io.emit('update_chats');
+    res.json({ ok: true });
   } catch (e) { res.json({ ok: false, error: e.message }); }
 });
 
@@ -344,17 +343,17 @@ app.get('/api/chats', async (req, res) => {
     for (const c of chatsRes.rows) {
       if (c.type === 'private') {
         const otherRes = await db.execute({
-          sql: `SELECT u.id, u.display_name, u.login, u.avatar, u.avatar_frame, u.name_effect, u.last_seen, cm.last_read_msg_id FROM users u JOIN chat_members cm ON u.id = cm.user_id WHERE cm.chat_id = ? AND u.id != ?`,
+          sql: `SELECT u.id, u.display_name, u.login, u.avatar, u.avatar_frame, u.name_effect, u.last_seen, u.badge, cm.last_read_msg_id FROM users u JOIN chat_members cm ON u.id = cm.user_id WHERE cm.chat_id = ? AND u.id != ?`,
           args: [c.id, myId]
         });
         if (otherRes.rows.length > 0) {
           const other = otherRes.rows[0];
-          result.push({ ...c, name: other.display_name, avatar: other.avatar, avatar_frame: other.avatar_frame, name_effect: other.name_effect, other_id: other.id, login: other.login, last_seen: other.last_seen, other_last_read: other.last_read_msg_id });
+          result.push({ ...c, name: other.display_name, avatar: other.avatar, avatar_frame: other.avatar_frame, name_effect: other.name_effect, badge: other.badge, other_id: other.id, login: other.login, last_seen: other.last_seen, other_last_read: other.last_read_msg_id });
           continue;
         }
       }
       if (c.type === 'saved') {
-        result.push({ ...c, name: 'Избранное', avatar: 'grad-amber', other_id: null, login: '', last_seen: null, other_last_read: 0 });
+        result.push({ ...c, name: 'Избранное', avatar: 'grad-amber', other_id: null, login: '', last_seen: null, other_last_read: 0, badge: 'none' });
         continue;
       }
       result.push(c);
@@ -368,7 +367,7 @@ app.get('/api/search-user', async (req, res) => {
   try {
     const q = (req.query.q || '').trim().toLowerCase().replace(/^@/, '');
     if (!q) return res.json({ ok: true, users: [] });
-    const uRes = await db.execute({ sql: 'SELECT id, login, display_name, avatar, avatar_frame, name_effect FROM users WHERE id != ? AND (login LIKE ? OR display_name LIKE ?) LIMIT 10', args: [req.session.userId, `%${q}%`, `%${q}%`] });
+    const uRes = await db.execute({ sql: 'SELECT id, login, display_name, avatar, avatar_frame, name_effect, badge FROM users WHERE id != ? AND (login LIKE ? OR display_name LIKE ?) LIMIT 10', args: [req.session.userId, `%${q}%`, `%${q}%`] });
     res.json({ ok: true, users: uRes.rows });
   } catch (e) { res.json({ ok: false, users: [] }); }
 });
@@ -376,7 +375,7 @@ app.get('/api/search-user', async (req, res) => {
 app.get('/api/user/:id', async (req, res) => {
   if (!req.session.userId) return res.json({ ok: false });
   try {
-    const uRes = await db.execute({ sql: 'SELECT id, login, display_name, bio, avatar, banner, avatar_frame, name_effect, last_seen FROM users WHERE id = ?', args: [req.params.id] });
+    const uRes = await db.execute({ sql: 'SELECT id, login, display_name, bio, avatar, banner, avatar_frame, name_effect, last_seen, badge FROM users WHERE id = ?', args: [req.params.id] });
     if (uRes.rows.length === 0) return res.json({ ok: false });
     res.json({ ok: true, user: uRes.rows[0] });
   } catch (e) { res.json({ ok: false }); }
@@ -409,7 +408,7 @@ app.get('/api/groups/:id', async (req, res) => {
     const myId = req.session.userId;
     if (!(await isChatMember(chatId, myId))) return res.json({ ok: false });
     const chatRes = await db.execute({ sql: 'SELECT * FROM chats WHERE id = ?', args: [chatId] });
-    const membersRes = await db.execute({ sql: `SELECT u.id, u.login, u.display_name, u.avatar, u.avatar_frame, u.name_effect FROM users u JOIN chat_members cm ON u.id = cm.user_id WHERE cm.chat_id = ? ORDER BY u.display_name ASC`, args: [chatId] });
+    const membersRes = await db.execute({ sql: `SELECT u.id, u.login, u.display_name, u.avatar, u.avatar_frame, u.name_effect, u.badge FROM users u JOIN chat_members cm ON u.id = cm.user_id WHERE cm.chat_id = ? ORDER BY u.display_name ASC`, args: [chatId] });
     res.json({ ok: true, group: chatRes.rows[0], members: membersRes.rows });
   } catch (e) { res.json({ ok: false }); }
 });
@@ -500,7 +499,7 @@ app.post('/api/chats/:id/delete', async (req, res) => {
 
 // ==================== СООБЩЕНИЯ ====================
 async function getMsgWithDetails(msgId) {
-  const msgRes = await db.execute({ sql: `SELECT m.id, m.chat_id, m.sender_id, m.text, m.file_url, m.file_type, m.file_name, m.reply_to_id, m.created_at, u.display_name as sender_name, u.avatar as sender_avatar, u.avatar_frame, u.name_effect FROM messages m JOIN users u ON m.sender_id = u.id WHERE m.id = ?`, args: [msgId] });
+  const msgRes = await db.execute({ sql: `SELECT m.id, m.chat_id, m.sender_id, m.text, m.file_url, m.file_type, m.file_name, m.reply_to_id, m.created_at, u.display_name as sender_name, u.avatar as sender_avatar, u.avatar_frame, u.name_effect, u.badge as sender_badge FROM messages m JOIN users u ON m.sender_id = u.id WHERE m.id = ?`, args: [msgId] });
   if (msgRes.rows.length === 0) return null;
   const msg = msgRes.rows[0];
   if (msg.reply_to_id) {
@@ -520,7 +519,7 @@ app.get('/api/messages/:chatId', async (req, res) => {
   const chatId = parseInt(req.params.chatId);
   try {
     if (!(await isChatMember(chatId, myId))) return res.json({ ok: false });
-    const rawMsgs = await db.execute({ sql: `SELECT m.*, u.display_name as sender_name, u.avatar as sender_avatar, u.avatar_frame, u.name_effect FROM messages m JOIN users u ON m.sender_id = u.id WHERE m.chat_id = ? ORDER BY m.id ASC`, args: [chatId] });
+    const rawMsgs = await db.execute({ sql: `SELECT m.*, u.display_name as sender_name, u.avatar as sender_avatar, u.avatar_frame, u.name_effect, u.badge as sender_badge FROM messages m JOIN users u ON m.sender_id = u.id WHERE m.chat_id = ? ORDER BY m.id ASC`, args: [chatId] });
     const allReactions = await db.execute({ sql: `SELECT r.message_id, r.emoji, COUNT(*) as count, GROUP_CONCAT(r.user_id) as users FROM reactions r JOIN messages m ON r.message_id = m.id WHERE m.chat_id = ? GROUP BY r.message_id, r.emoji`, args: [chatId] });
     const allReads = await db.execute({ sql: `SELECT cm.last_read_msg_id, u.display_name FROM chat_members cm JOIN users u ON cm.user_id = u.id WHERE cm.chat_id = ? AND cm.user_id != ?`, args: [chatId, myId] });
     const msgs = rawMsgs.rows.map(m => { m.reactions = allReactions.rows.filter(r => r.message_id === m.id); m.read_by = allReads.rows.filter(r => r.last_read_msg_id >= m.id).map(r => r.display_name); return m; });
@@ -592,10 +591,9 @@ app.post('/api/messages/:id/delete', async (req, res) => {
   } catch (e) { res.json({ ok: false }); }
 });
 
-// ==================== СТАТИКА И АДМИНКА ====================
+// ==================== СТАТИКА ====================
 app.get('/admin', isAdmin, (req, res) => res.sendFile(__dirname + '/public/admin.html'));
 app.get('/admin.html', isAdmin, (req, res) => res.sendFile(__dirname + '/public/admin.html'));
-
 app.get('/', (req, res) => { if (!req.session.userId) return res.redirect('/login.html'); res.sendFile(__dirname + '/public/index.html'); });
 app.get('/profile', (req, res) => { if (!req.session.userId) return res.redirect('/login.html'); res.sendFile(__dirname + '/public/profile.html'); });
 app.get('/user/:id', (req, res) => { if (!req.session.userId) return res.redirect('/login.html'); res.sendFile(__dirname + '/public/user.html'); });
@@ -604,10 +602,16 @@ app.use(express.static('public'));
 
 // ==================== SOCKET.IO ====================
 const onlineUsers = new Map();
-io.on('connection', (socket) => {
+io.on('connection', async (socket) => {
   const sess = socket.request.session;
   if (!sess || !sess.userId) { socket.disconnect(); return; }
   const myId = sess.userId;
+  
+  try {
+    const uRes = await db.execute({ sql: 'SELECT is_banned FROM users WHERE id = ?', args: [myId] });
+    if (uRes.rows[0]?.is_banned) { socket.emit('force_logout'); socket.disconnect(); return; }
+  } catch (e) {}
+  
   socket.join('user_' + myId);
   const count = (onlineUsers.get(myId) || 0) + 1;
   onlineUsers.set(myId, count);
