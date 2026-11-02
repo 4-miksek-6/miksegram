@@ -44,7 +44,32 @@
 
         .app-version-text { position: absolute; bottom: 16px; left: 20px; font-size: 11px; color: var(--text-mute); opacity: 0.6; font-family: 'Inter', sans-serif; pointer-events: none; user-select: none; }
 
-        .global-banner { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #06101c; text-align: center; padding: 10px 20px; font-weight: 700; font-size: 13px; z-index: 100; position: relative; margin: 12px auto 0; border-radius: 12px; max-width: 800px; width: calc(100% - 32px); box-shadow: 0 4px 20px color-mix(in srgb, var(--accent) 40%, transparent); border: 1px solid rgba(255,255,255,0.2); }
+        .global-banner { 
+            background: linear-gradient(135deg, var(--accent), var(--accent-2)); 
+            color: #06101c; 
+            text-align: center; 
+            padding: 10px 20px; 
+            font-weight: 700; 
+            font-size: 13px; 
+            z-index: 90; 
+            position: fixed; 
+            top: 20px; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            border-radius: 12px; 
+            max-width: 600px; 
+            width: calc(100% - 32px); 
+            box-shadow: 0 8px 30px color-mix(in srgb, var(--accent) 50%, transparent); 
+            border: 1px solid rgba(255,255,255,0.3); 
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            animation: bannerDropIn 0.4s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+        }
+
+        @keyframes bannerDropIn {
+            from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
 
         @media (max-width: 768px) {
             .scroll-to-bottom { bottom: 80px; right: 16px; width: 40px; height: 40px; }
