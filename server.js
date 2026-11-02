@@ -18,7 +18,6 @@ const ERR = (tag, ...args) => console.error(`[${new Date().toISOString()}] [${ta
 process.on('uncaughtException', (err) => ERR('UNCAUGHT', err.message, err.stack));
 process.on('unhandledRejection', (reason) => ERR('UNHANDLED', reason));
 
-// --- КЛЮЧИ (позже вынесем в ENV) ---
 const db = createClient({
   url: 'libsql://miksegram-miksek.aws-ap-northeast-1.turso.io',
   authToken: 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3OTMzODMzODUsImlkIjoiMDFhMThkZGQtYjcwMS03YTg5LWIxMGEtMjk1MTkxNWVmY2Q2Iiwia2lkIjoiMDY0M3BHaVkteXR5X0t2OC1HbVY5Y2Nlb0RyTVYyVUlnZVRtU2Y5MXQtcyIsInJpZCI6IjgzM2JlNTQyLWViZjEtNGVhZC05MTQ3LTFkY2VhNDYzYmZjNCJ9.GSH-xuW9awXLGLOjssUuqDoXuoouiydQgBL7oc2BkEwRJVpABbEO-2jHW9JFLHDJ5Of_nXGtBApz7uY19k7BDQ'
@@ -26,7 +25,6 @@ const db = createClient({
 
 const supabase = createSupabase('https://tvmypcjwrlwiorpmugpb.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2bXlwY2p3cmx3aW9ycG11Z3BiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MzQwODQwOSwiZXhwIjoyMTA4OTg0NDA5fQ.1ChmymKXpkweU7PImFwAfFYY4ufSx525Fotjn4FRtSw');
 
-// --- СЕССИИ В БАЗЕ ---
 class TursoStore extends session.Store {
   constructor(options) { super(options); this.db = db; }
   async get(sid, cb) {
@@ -40,7 +38,6 @@ class TursoStore extends session.Store {
   }
 }
 
-// --- ИНИЦИАЛИЗАЦИЯ БД ---
 async function initDb(attempt = 1) {
   try {
     LOG('DB', `Инициализация БД (попытка ${attempt})...`);
@@ -61,7 +58,7 @@ async function initDb(attempt = 1) {
     await db.execute(`CREATE INDEX IF NOT EXISTS idx_read_status_user_id ON read_status(user_id);`);
     await db.execute(`CREATE INDEX IF NOT EXISTS idx_reactions_message_id ON reactions(message_id);`);
 
-    LOG('DB', '✅ База данных готова (с колонками ban/badge).');
+    LOG('DB', '✅ База данных готова.');
   } catch (err) {
     ERR('DB', `❌ Ошибка инициализации (попытка ${attempt}):`, err.message);
     if (attempt < 3) setTimeout(() => initDb(attempt + 1), 3000);
@@ -499,18 +496,32 @@ app.post('/api/chats/:id/delete', async (req, res) => {
 
 // ==================== СООБЩЕНИЯ ====================
 async function getMsgWithDetails(msgId) {
-  const msgRes = await db.execute({ sql: `SELECT m.id, m.chat_id, m.sender_id, m.text, m.file_url, m.file_type, m.file_name, m.reply_to_id, m.created_at, u.display_name as sender_name, u.avatar as sender_avatar, u.avatar_frame, u.name_effect, u.badge as sender_badge FROM messages m JOIN users u ON m.sender_id = u.id WHERE m.id = ?`, args: [msgId] });
-  if (msgRes.rows.length === 0) return null;
-  const msg = msgRes.rows[0];
-  if (msg.reply_to_id) {
-    const rRes = await db.execute({ sql: 'SELECT text, file_type, file_name, sender_id, u.display_name as sender_name FROM messages m JOIN users u ON m.sender_id = u.id WHERE m.id = ?', args: [msg.reply_to_id] });
-    if (rRes.rows.length > 0) msg.reply_to = rRes.rows[0];
+  try {
+    const msgRes = await db.execute({ sql: `SELECT m.id, m.chat_id, m.sender_id, m.text, m.file_url, m.file_type, m.file_name, m.reply_to_id, m.created_at, u.display_name as sender_name, u.avatar as sender_avatar, u.avatar_frame, u.name_effect FROM messages m JOIN users u ON m.sender_id = u.id WHERE m.id = ?`, args: [msgId] });
+    if (msgRes.rows.length === 0) return null;
+    const msg = msgRes.rows[0];
+    
+    // Безопасное получение бейджа (если колонки нет, не падаем)
+    try {
+      const bRes = await db.execute({ sql: 'SELECT badge FROM users WHERE id = ?', args: [msg.sender_id] });
+      msg.sender_badge = bRes.rows[0] ? bRes.rows[0].badge : 'none';
+    } catch (e) { msg.sender_badge = 'none'; }
+
+    if (msg.reply_to_id) {
+      const rRes = await db.execute({ sql: 'SELECT text, file_type, file_name, sender_id, u.display_name as sender_name FROM messages m JOIN users u ON m.sender_id = u.id WHERE m.id = ?', args: [msg.reply_to_id] });
+      if (rRes.rows.length > 0) msg.reply_to = rRes.rows[0];
+    }
+    
+    const reactions = await db.execute({ sql: 'SELECT emoji, COUNT(*) as count, GROUP_CONCAT(user_id) as users FROM reactions WHERE message_id = ? GROUP BY emoji', args: [msgId] });
+    msg.reactions = reactions.rows;
+    
+    const reads = await db.execute({ sql: `SELECT u.display_name FROM users u JOIN chat_members cm ON u.id = cm.user_id WHERE cm.chat_id = ? AND cm.last_read_msg_id >= ? AND u.id != ?`, args: [msg.chat_id, msgId, msg.sender_id] });
+    msg.read_by = reads.rows.map(r => r.display_name);
+    return msg;
+  } catch (e) {
+    console.error('Ошибка getMsgWithDetails:', e);
+    return null;
   }
-  const reactions = await db.execute({ sql: 'SELECT emoji, COUNT(*) as count, GROUP_CONCAT(user_id) as users FROM reactions WHERE message_id = ? GROUP BY emoji', args: [msgId] });
-  msg.reactions = reactions.rows;
-  const reads = await db.execute({ sql: `SELECT u.display_name FROM users u JOIN chat_members cm ON u.id = cm.user_id WHERE cm.chat_id = ? AND cm.last_read_msg_id >= ? AND u.id != ?`, args: [msg.chat_id, msgId, msg.sender_id] });
-  msg.read_by = reads.rows.map(r => r.display_name);
-  return msg;
 }
 
 app.get('/api/messages/:chatId', async (req, res) => {
