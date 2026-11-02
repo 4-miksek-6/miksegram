@@ -9,7 +9,6 @@
     <title>Админ-панель — Miksegram</title>
     <link rel="icon" type="image/svg+xml" href="/logo.svg">
     <link rel="stylesheet" href="/style.css">
-    <script src="/common.js"></script>
     <style>
         body { overflow: hidden; background: var(--bg-0); }
         .admin-layout { display: grid; grid-template-columns: 280px 1fr; height: 100vh; width: 100vw; }
@@ -328,6 +327,9 @@
     </div>
 </div>
 
+<!-- Все скрипты подключены в самом низу, после HTML -->
+<script src="/socket.io/socket.io.js"></script>
+<script src="/common.js"></script>
 <script>
     let toastTimer;
     function showToast(text) {
@@ -338,6 +340,7 @@
         toastTimer = setTimeout(() => toast.classList.remove('show'), 3000);
     }
 
+    // --- ЛОГИКА ВКЛАДОК ---
     const tabs = document.querySelectorAll('.admin-tab');
     const contents = document.querySelectorAll('.tab-content');
 
@@ -785,17 +788,22 @@
         } catch (e) { showToast('Ошибка сети'); }
     }
 
+    // --- ИНИЦИАЛИЗАЦИЯ ---
+    // Запускаем загрузку данных для первой вкладки при старте
     loadDashboard();
     
-    const socket = io();
-    socket.on('force_logout', (data) => {
-        if (data && data.reason === 'maintenance') {
-            alert('🛠 На сервере идут технические работы. Зайдите позже.');
-        } else {
-            alert('❌ Ваш аккаунт был заблокирован администратором.');
-        }
-        window.location.href = '/login.html';
-    });
+    // Проверка на наличие socket.io перед использованием
+    if (typeof io !== 'undefined') {
+        const socket = io();
+        socket.on('force_logout', (data) => {
+            if (data && data.reason === 'maintenance') {
+                alert('🛠 На сервере идут технические работы. Зайдите позже.');
+            } else {
+                alert('❌ Ваш аккаунт был заблокирован администратором.');
+            }
+            window.location.href = '/login.html';
+        });
+    }
 </script>
 </body>
 </html>
