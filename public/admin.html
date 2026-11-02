@@ -51,17 +51,19 @@
             display: flex;
             align-items: center;
             gap: 12px;
-            transition: all 0.2s;
+            transition: all 0.25s ease;
         }
         .admin-tab:hover {
             background: rgba(255,255,255,0.05);
             color: var(--text);
+            transform: translateX(4px);
         }
         .admin-tab.active {
             background: rgba(255,255,255,0.1);
             color: var(--accent);
             font-weight: 600;
             box-shadow: inset 3px 0 0 var(--accent);
+            transform: translateX(4px);
         }
         .back-btn {
             margin-top: auto;
@@ -79,46 +81,60 @@
         .back-btn:hover {
             background: rgba(255,255,255,0.1);
             border-color: var(--accent);
+            box-shadow: 0 0 15px color-mix(in srgb, var(--accent) 30%, transparent);
         }
 
         /* Правая часть контента */
         .admin-content {
-            padding: 40px;
+            padding: 40px 60px; /* Увеличили отступы, чтобы текст не лип к краям */
             overflow-y: auto;
             position: relative;
         }
+        
+        .tab-content {
+            animation: fadeSlideUp 0.4s cubic-bezier(0.2, 0.9, 0.3, 1) forwards;
+        }
+        @keyframes fadeSlideUp {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
         .admin-content h1 {
             font-family: 'Unbounded', sans-serif;
             font-size: 28px;
             font-weight: 700;
-            margin: 0 0 8px 0;
+            margin: 0 0 12px 0;
             background: var(--grad-aurora);
             -webkit-background-clip: text;
-background-clip: text;
-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
         }
         .admin-content p.subtitle {
             color: var(--text-dim);
             font-size: 14px;
-            margin-bottom: 32px;
+            margin-bottom: 40px;
         }
 
         /* Карточки Дашборда */
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
+            gap: 24px;
             margin-bottom: 40px;
         }
         .stat-card {
             background: rgba(255,255,255,0.03);
             border: 1px solid var(--border);
             border-radius: 20px;
-            padding: 24px;
+            padding: 28px;
             display: flex;
             flex-direction: column;
             gap: 8px;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+        .stat-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--accent);
         }
         .stat-value {
             font-family: 'Unbounded', sans-serif;
@@ -129,7 +145,7 @@ background-clip: text;
         }
         .stat-label {
             color: var(--text-mute);
-            font-size: 13px;
+            font-size: 12px;
             text-transform: uppercase;
             letter-spacing: 1px;
         }
@@ -139,13 +155,13 @@ background-clip: text;
             background: rgba(255,255,255,0.02);
             border: 1px solid var(--border);
             border-radius: 24px;
-            padding: 32px;
-            margin-bottom: 24px;
+            padding: 32px 40px;
+            margin-bottom: 32px;
         }
         .admin-section h2 {
             font-family: 'Unbounded', sans-serif;
             font-size: 18px;
-            margin: 0 0 20px 0;
+            margin: 0 0 24px 0;
             color: var(--text);
         }
 
@@ -154,59 +170,64 @@ background-clip: text;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 16px;
+            padding: 20px 0;
             border-bottom: 1px solid var(--border);
         }
-        .user-row:last-child { border-bottom: none; }
-        .user-info { display: flex; align-items: center; gap: 16px; }
-        .user-avatar { width: 40px; height: 40px; border-radius: 50%; background: #333; }
-        .user-name { font-weight: 600; font-size: 15px; display: flex; align-items: center; gap: 8px; }
+        .user-row:last-child { border-bottom: none; padding-bottom: 0; }
+        .user-info { display: flex; align-items: center; gap: 20px; }
+        .user-avatar { width: 46px; height: 46px; border-radius: 50%; background: #333; }
+        .user-name { font-weight: 600; font-size: 15px; display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
         .user-login { color: var(--text-dim); font-size: 13px; }
         
         /* Кнопки действий */
         .action-btn {
-            padding: 8px 12px;
-            border-radius: 8px;
+            padding: 10px 16px;
+            border-radius: 10px;
             border: 1px solid var(--border);
             background: rgba(0,0,0,0.2);
             color: var(--text);
             cursor: pointer;
-            font-size: 12px;
+            font-size: 13px;
+            font-weight: 500;
             transition: all 0.2s;
         }
         .action-btn:hover { background: rgba(255,255,255,0.1); border-color: var(--accent); }
         .btn-danger { color: #ff5c7c; border-color: rgba(255,92,124,0.3); }
-        .btn-danger:hover { background: rgba(255,92,124,0.1); border-color: #ff5c7c; }
+        .btn-danger:hover { background: rgba(255,92,124,0.1); border-color: #ff5c7c; box-shadow: 0 0 15px rgba(255,92,124,0.2); }
 
         /* Бейджи (VIP) */
         .badge-select {
             background: rgba(0,0,0,0.3);
             border: 1px solid var(--border);
             color: var(--text);
-            padding: 6px 10px;
-            border-radius: 8px;
-            font-size: 12px;
+            padding: 10px 14px;
+            border-radius: 10px;
+            font-size: 13px;
             outline: none;
             cursor: pointer;
+            transition: all 0.2s;
         }
+        .badge-select:hover { border-color: var(--accent); }
 
         /* Формы */
         .admin-input {
             width: 100%;
-            padding: 14px;
+            padding: 16px;
             background: rgba(0,0,0,0.3);
             border: 1px solid var(--border);
             border-radius: 12px;
             color: var(--text);
             font-family: inherit;
             font-size: 14px;
-            margin-bottom: 16px;
+            margin-bottom: 20px;
             outline: none;
+            transition: all 0.2s;
+            box-sizing: border-box;
         }
-        .admin-input:focus { border-color: var(--accent); }
+        .admin-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent); }
 
         .btn-primary {
-            padding: 12px 24px;
+            padding: 14px 28px;
             background: var(--grad-aurora);
             color: #06101c;
             border: none;
@@ -217,33 +238,65 @@ background-clip: text;
             cursor: pointer;
             transition: all 0.2s;
         }
-        .btn-primary:hover { box-shadow: 0 0 20px var(--accent); }
+        .btn-primary:hover { box-shadow: 0 0 25px var(--accent); transform: translateY(-2px); }
 
         /* Переключатели */
         .toggle-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 16px 0;
+            padding: 20px 0;
             border-bottom: 1px solid var(--border);
         }
-        .toggle-row:last-child { border-bottom: none; }
+        .toggle-row:last-child { border-bottom: none; padding-bottom: 0; }
+        .toggle-row > div:first-child { padding-right: 40px; }
         .toggle-switch {
-            width: 48px; height: 24px;
+            width: 48px; height: 26px;
             background: rgba(255,255,255,0.1);
             border-radius: 20px;
             position: relative;
             cursor: pointer;
+            transition: background 0.3s;
+            flex-shrink: 0;
         }
         .toggle-switch::after {
             content: ''; position: absolute;
-            top: 2px; left: 2px;
+            top: 3px; left: 3px;
             width: 20px; height: 20px;
             background: #fff; border-radius: 50%;
-            transition: transform 0.3s;
+            transition: transform 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.2);
         }
         .toggle-switch.active { background: var(--accent); box-shadow: 0 0 15px var(--accent); }
-        .toggle-switch.active::after { transform: translateX(24px); }
+        .toggle-switch.active::after { transform: translateX(22px); }
+
+        /* Блок ссылок на сервисы */
+        .links-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 16px;
+            margin-top: 20px;
+        }
+        .service-link {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 18px 20px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            color: var(--text);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .service-link:hover {
+            background: rgba(255,255,255,0.08);
+            border-color: var(--accent);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+        }
+        .service-icon { font-size: 20px; }
 
         .hidden { display: none !important; }
     </style>
@@ -299,7 +352,6 @@ background-clip: text;
             <div class="admin-section">
                 <h2>Активность за 24 часа</h2>
                 <div style="height: 150px; background: rgba(0,0,0,0.2); border-radius: 12px; display: flex; align-items: flex-end; justify-content: space-around; padding: 10px; gap: 10px;">
-                    <!-- Фейковый график -->
                     <div style="width: 30px; height: 40%; background: var(--accent); border-radius: 4px 4px 0 0;"></div>
                     <div style="width: 30px; height: 60%; background: var(--accent); border-radius: 4px 4px 0 0;"></div>
                     <div style="width: 30px; height: 30%; background: var(--accent); border-radius: 4px 4px 0 0;"></div>
@@ -307,6 +359,26 @@ background-clip: text;
                     <div style="width: 30px; height: 100%; background: var(--accent-2); border-radius: 4px 4px 0 0; box-shadow: 0 0 20px var(--accent-2);"></div>
                     <div style="width: 30px; height: 70%; background: var(--accent); border-radius: 4px 4px 0 0;"></div>
                     <div style="width: 30px; height: 50%; background: var(--accent); border-radius: 4px 4px 0 0;"></div>
+                </div>
+            </div>
+
+            <!-- ИНФРАСТРУКТУРА -->
+            <div class="admin-section" style="margin-bottom: 0;">
+                <h2>Инфраструктура проекта</h2>
+                <p style="color: var(--text-dim); font-size: 13px; margin-bottom: 16px;">Быстрые ссылки на панели управления сервисами, которые использует Miksegram.</p>
+                <div class="links-grid">
+                    <a href="https://turso.tech" target="_blank" class="service-link">
+                        <span class="service-icon">🗄</span> Turso (База данных)
+                    </a>
+                    <a href="https://enzonic.com" target="_blank" class="service-link">
+                        <span class="service-icon">🚀</span> Enzonic (Хостинг)
+                    </a>
+                    <a href="https://supabase.com" target="_blank" class="service-link">
+                        <span class="service-icon">📦</span> Supabase (Файлы)
+                    </a>
+                    <a href="https://github.com/4-miksek-6/miksegram" target="_blank" class="service-link">
+                        <span class="service-icon">🐙</span> GitHub (Код)
+                    </a>
                 </div>
             </div>
         </div>
@@ -319,20 +391,18 @@ background-clip: text;
             <div class="admin-section">
                 <input type="text" class="admin-input" placeholder="Поиск по логину или имени...">
                 
-                <!-- Пример строки пользователя -->
                 <div class="user-row">
                     <div class="user-info">
                         <div class="user-avatar" style="background: var(--grad-aurora);"></div>
                         <div>
                             <div class="user-name">
                                 Саша (Админ) 
-                                <!-- Пример красивого бейджа -->
-                                <span style="background: rgba(255, 215, 0, 0.2); color: #ffd700; border: 1px solid #ffd700; padding: 2px 6px; border-radius: 10px; font-size: 10px; box-shadow: 0 0 10px rgba(255,215,0,0.5);">👑 VIP</span>
+                                <span style="background: rgba(255, 215, 0, 0.2); color: #ffd700; border: 1px solid #ffd700; padding: 2px 8px; border-radius: 10px; font-size: 10px; box-shadow: 0 0 10px rgba(255,215,0,0.5);">👑 VIP</span>
                             </div>
                             <div class="user-login">@admin • ID: 1</div>
                         </div>
                     </div>
-                    <div style="display: flex; gap: 8px; align-items: center;">
+                    <div style="display: flex; gap: 12px; align-items: center;">
                         <select class="badge-select">
                             <option value="none">Нет бейджа</option>
                             <option value="crown" selected>👑 Корона</option>
@@ -346,19 +416,18 @@ background-clip: text;
                     </div>
                 </div>
 
-                <!-- Еще один пример -->
                 <div class="user-row">
                     <div class="user-info">
                         <div class="user-avatar" style="background: var(--grad-cyan);"></div>
                         <div>
                             <div class="user-name">
                                 Миша
-                                <span style="background: rgba(0, 212, 255, 0.2); color: #00d4ff; border: 1px solid #00d4ff; padding: 2px 6px; border-radius: 10px; font-size: 10px; box-shadow: 0 0 10px rgba(0,212,255,0.5);">✅ PRO</span>
+                                <span style="background: rgba(0, 212, 255, 0.2); color: #00d4ff; border: 1px solid #00d4ff; padding: 2px 8px; border-radius: 10px; font-size: 10px; box-shadow: 0 0 10px rgba(0,212,255,0.5);">✅ PRO</span>
                             </div>
                             <div class="user-login">@misha • ID: 2</div>
                         </div>
                     </div>
-                    <div style="display: flex; gap: 8px; align-items: center;">
+                    <div style="display: flex; gap: 12px; align-items: center;">
                         <select class="badge-select">
                             <option value="none">Нет бейджа</option>
                             <option value="crown">👑 Корона</option>
@@ -381,9 +450,9 @@ background-clip: text;
 
             <div class="admin-section">
                 <h2>Глобальный поиск по сообщениям</h2>
-                <div style="display: flex; gap: 10px;">
+                <div style="display: flex; gap: 12px;">
                     <input type="text" class="admin-input" placeholder="Введите текст для поиска..." style="margin: 0;">
-                    <button class="btn-primary">Найти</button>
+                    <button class="btn-primary" style="padding: 0 32px;">Найти</button>
                 </div>
             </div>
 
@@ -396,7 +465,7 @@ background-clip: text;
                             <div class="user-login">Создатель: @admin • 5 участников</div>
                         </div>
                     </div>
-                    <div style="display: flex; gap: 8px;">
+                    <div style="display: flex; gap: 12px;">
                         <button class="action-btn">Очистить историю</button>
                         <button class="action-btn btn-danger">Удалить группу</button>
                     </div>
@@ -406,43 +475,42 @@ background-clip: text;
 
         <!-- ВКЛАДКА 4: ЯДЕРНАЯ ОЧИСТКА -->
         <div id="tab-danger" class="tab-content hidden">
-            <h1 style="background: #ff5c7c; -webkit-background-clip: text;
-background-clip: text;">Опасная зона</h1>
+            <h1 style="background: #ff5c7c; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">Опасная зона</h1>
             <p class="subtitle">Эти действия необратимы. Будьте осторожны!</p>
 
             <div class="admin-section" style="border-color: rgba(255, 92, 124, 0.3);">
                 <div class="toggle-row">
                     <div>
-                        <div style="font-weight: 600;">Удалить все аватарки</div>
-                        <div style="color: var(--text-dim); font-size: 12px;">Сбросит фото профилей на стандартные градиенты.</div>
+                        <div style="font-weight: 600; margin-bottom: 4px;">Удалить все аватарки</div>
+                        <div style="color: var(--text-dim); font-size: 13px;">Сбросит фото профилей на стандартные градиенты.</div>
                     </div>
                     <button class="action-btn btn-danger">Очистить</button>
                 </div>
                 <div class="toggle-row">
                     <div>
-                        <div style="font-weight: 600;">Удалить все баннеры</div>
-                        <div style="color: var(--text-dim); font-size: 12px;">Удалит фоны профилей у всех пользователей.</div>
+                        <div style="font-weight: 600; margin-bottom: 4px;">Удалить все баннеры</div>
+                        <div style="color: var(--text-dim); font-size: 13px;">Удалит фоны профилей у всех пользователей.</div>
                     </div>
                     <button class="action-btn btn-danger">Очистить</button>
                 </div>
                 <div class="toggle-row">
                     <div>
-                        <div style="font-weight: 600;">Очистить все сообщения</div>
-                        <div style="color: var(--text-dim); font-size: 12px;">Удалит всю переписку, оставив аккаунты и чаты.</div>
+                        <div style="font-weight: 600; margin-bottom: 4px;">Очистить все сообщения</div>
+                        <div style="color: var(--text-dim); font-size: 13px;">Удалит всю переписку, оставив аккаунты и чаты.</div>
                     </div>
                     <button class="action-btn btn-danger">Очистить</button>
                 </div>
                 <div class="toggle-row">
                     <div>
-                        <div style="font-weight: 600;">Очистить хранилище</div>
-                        <div style="color: var(--text-dim); font-size: 12px;">Удалит все файлы из Supabase (картинки, архивы).</div>
+                        <div style="font-weight: 600; margin-bottom: 4px;">Очистить хранилище</div>
+                        <div style="color: var(--text-dim); font-size: 13px;">Удалит все файлы из Supabase (картинки, архивы).</div>
                     </div>
                     <button class="action-btn btn-danger">Очистить</button>
                 </div>
-                <div class="toggle-row" style="border: none; margin-top: 20px;">
+                <div class="toggle-row" style="border: none; margin-top: 20px; padding-bottom: 0;">
                     <div>
-                        <div style="font-weight: 700; color: #ff5c7c; font-size: 16px;">Полный сброс (Factory Reset)</div>
-                        <div style="color: #ff5c7c; font-size: 12px;">Удалит ВСЁ, кроме вашего аккаунта @admin.</div>
+                        <div style="font-weight: 700; color: #ff5c7c; font-size: 16px; margin-bottom: 4px;">Полный сброс (Factory Reset)</div>
+                        <div style="color: #ff5c7c; font-size: 13px;">Удалит ВСЁ, кроме вашего аккаунта @admin.</div>
                     </div>
                     <button class="action-btn btn-danger" style="background: #ff5c7c; color: #fff;">СБРОСИТЬ ВСЁ</button>
                 </div>
@@ -457,15 +525,15 @@ background-clip: text;">Опасная зона</h1>
             <div class="admin-section">
                 <div class="toggle-row">
                     <div>
-                        <div style="font-weight: 600;">Режим «Техработы»</div>
-                        <div style="color: var(--text-dim); font-size: 12px;">Блокирует вход и отправку сообщений для всех, кроме вас.</div>
+                        <div style="font-weight: 600; margin-bottom: 4px;">Режим «Техработы»</div>
+                        <div style="color: var(--text-dim); font-size: 13px;">Блокирует вход и отправку сообщений для всех, кроме вас.</div>
                     </div>
                     <div class="toggle-switch"></div>
                 </div>
                 <div class="toggle-row">
                     <div>
-                        <div style="font-weight: 600;">Отключить регистрацию</div>
-                        <div style="color: var(--text-dim); font-size: 12px;">Новые пользователи не смогут создать аккаунт.</div>
+                        <div style="font-weight: 600; margin-bottom: 4px;">Отключить регистрацию</div>
+                        <div style="color: var(--text-dim); font-size: 13px;">Новые пользователи не смогут создать аккаунт.</div>
                     </div>
                     <div class="toggle-switch"></div>
                 </div>
@@ -485,7 +553,7 @@ background-clip: text;">Опасная зона</h1>
 
             <div class="admin-section">
                 <h2>Отправить сообщение всем</h2>
-                <textarea class="admin-input" rows="4" placeholder="Текст сообщения..."></textarea>
+                <textarea class="admin-input" rows="4" placeholder="Текст сообщения..." style="resize: vertical;"></textarea>
                 <button class="btn-primary">Отправить во все чаты</button>
             </div>
 
@@ -493,10 +561,10 @@ background-clip: text;">Опасная зона</h1>
                 <h2>Пасхалки</h2>
                 <div class="toggle-row">
                     <div>
-                        <div style="font-weight: 600;">Запустить конфетти</div>
-                        <div style="color: var(--text-dim); font-size: 12px;">У всех пользователей на экране взорвется салют.</div>
+                        <div style="font-weight: 600; margin-bottom: 4px;">Запустить конфетти</div>
+                        <div style="color: var(--text-dim); font-size: 13px;">У всех пользователей на экране взорвется салют.</div>
                     </div>
-                    <button class="btn-primary" style="padding: 8px 16px;">🎉 Запустить</button>
+                    <button class="btn-primary" style="padding: 10px 20px;">🎉 Запустить</button>
                 </div>
             </div>
         </div>
@@ -505,7 +573,7 @@ background-clip: text;">Опасная зона</h1>
 </div>
 
 <script>
-    // Логика переключения вкладок (визуальная)
+    // Логика переключения вкладок
     const tabs = document.querySelectorAll('.admin-tab');
     const contents = document.querySelectorAll('.tab-content');
 
@@ -515,8 +583,15 @@ background-clip: text;">Опасная зона</h1>
             tab.classList.add('active');
 
             contents.forEach(c => c.classList.add('hidden'));
+            
             const targetId = 'tab-' + tab.dataset.tab;
-            document.getElementById(targetId).classList.remove('hidden');
+            const targetContent = document.getElementById(targetId);
+            targetContent.classList.remove('hidden');
+            
+            // Перезапуск анимации
+            targetContent.style.animation = 'none';
+            targetContent.offsetHeight; /* trigger reflow */
+            targetContent.style.animation = null; 
         });
     });
 
