@@ -13,7 +13,7 @@ const { createClient } = require('@libsql/client');
 const { createClient: createSupabase } = require('@supabase/supabase-js');
 
 // --- ВЕРСИЯ ПРИЛОЖЕНИЯ (Меняй при каждом деплое!) ---
-const APP_VERSION = '1.1.1';
+const APP_VERSION = '1.1.2';
 
 const LOG = (tag, ...args) => console.log(`[${new Date().toISOString()}] [${tag}]`, ...args);
 const ERR = (tag, ...args) => console.error(`[${new Date().toISOString()}] [${tag}]`, ...args);
@@ -547,10 +547,28 @@ app.post('/api/messages/:id/delete', async (req, res) => {
 });
 
 // ==================== СТАТИКА ====================
-app.get('/', (req, res) => { if (!req.session.userId) return res.redirect('/login.html'); res.sendFile(__dirname + '/public/index.html'); });
-app.get('/profile', (req, res) => { if (!req.session.userId) return res.redirect('/login.html'); res.sendFile(__dirname + '/public/profile.html'); });
-app.get('/user/:id', (req, res) => { if (!req.session.userId) return res.redirect('/login.html'); res.sendFile(__dirname + '/public/user.html'); });
-app.use((req, res, next) => { if ((req.path === '/index.html' || req.path === '/profile.html' || req.path.startsWith('/user/')) && !req.session.userId) return res.redirect('/login.html'); next(); });
+// Отключаем кэширование для HTML-файлов
+app.use((req, res, next) => {
+  if (req.path.endsWith('.html') || req.path === '/') {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
+  next();
+});
+
+app.get('/', (req, res) => {
+  if (!req.session.userId) return res.redirect('/login.html');
+  res.sendFile(__dirname + '/public/index.html');
+});
+app.get('/profile', (req, res) => {
+  if (!req.session.userId) return res.redirect('/login.html');
+  res.sendFile(__dirname + '/public/profile.html');
+});
+app.get('/user/:id', (req, res) => {
+  if (!req.session.userId) return res.redirect('/login.html');
+  res.sendFile(__dirname + '/public/user.html');
+});
 app.use(express.static('public'));
 
 // ==================== SOCKET.IO ====================
