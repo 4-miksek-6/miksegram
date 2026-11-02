@@ -265,32 +265,6 @@ app.get('/api/all-users', async (req, res) => {
   }
 });
 
-// ВРЕМЕННЫЙ МАРШРУТ ДЛЯ ОЧИСТКИ (потом удалим)
-app.get('/api/secret-wipe-everything', async (req, res) => {
-    try {
-        // 1. Ищем все файлы, которые прикреплены к сообщениям
-        const msgs = await db.execute('SELECT file_url FROM messages WHERE file_url IS NOT NULL');
-        const filesToDelete = msgs.rows.map(r => r.file_url.split('/').pop()).filter(f => f);
-        
-        // 2. Удаляем эти файлы из Supabase (аватарки не тронем, их нет в сообщениях)
-        if (filesToDelete.length > 0) {
-            await supabase.storage.from('uploads').remove(filesToDelete);
-        }
-        
-        // 3. Полностью очищаем таблицы (кроме users!)
-        await db.execute('DELETE FROM reactions');
-        await db.execute('DELETE FROM read_status');
-        await db.execute('DELETE FROM messages');
-        await db.execute('DELETE FROM chat_members');
-        await db.execute('DELETE FROM chats');
-        
-        res.json({ ok: true, message: '✅ Все чаты, сообщения и файлы удалены. Аккаунты сохранены!' });
-    } catch (e) {
-        res.json({ ok: false, error: e.message });
-    }
-});
-
-
 // ==================== ЧАТЫ ====================
 app.get('/api/chats', async (req, res) => {
   if (!req.session.userId) return res.json({ ok: false });
