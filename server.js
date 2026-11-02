@@ -34,7 +34,7 @@ const db = createClient({
 const s3 = new S3Client({
   region: 'ru-central-1',
   endpoint: 'https://s3.cloud.ru',
-  forcePathStyle: true,
+  forcePathStyle: false,
   credentials: {
     accessKeyId: process.env.CLOUDRU_ACCESS_KEY || 'твой_tenant_id:твой_key_id',
     secretAccessKey: process.env.CLOUDRU_SECRET_KEY || 'твой_secret_key',
