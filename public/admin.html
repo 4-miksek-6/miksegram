@@ -331,13 +331,13 @@
 <script src="/socket.io/socket.io.js"></script>
 <script src="/common.js"></script>
 <script>
-    let toastTimer;
+    let adminToastTimer;
     function showToast(text) {
         const toast = document.getElementById('admin-toast');
         toast.textContent = text;
         toast.classList.add('show');
-        clearTimeout(toastTimer);
-        toastTimer = setTimeout(() => toast.classList.remove('show'), 3000);
+        clearTimeout(adminToastTimer);
+        adminToastTimer = setTimeout(() => toast.classList.remove('show'), 3000);
     }
 
     // --- ЛОГИКА ВКЛАДОК ---
