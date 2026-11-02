@@ -86,7 +86,7 @@
 
         /* Правая часть контента */
         .admin-content {
-            padding: 40px 60px; /* Увеличили отступы, чтобы текст не лип к краям */
+            padding: 40px 60px;
             overflow-y: auto;
             position: relative;
         }
@@ -155,7 +155,7 @@
             background: rgba(255,255,255,0.02);
             border: 1px solid var(--border);
             border-radius: 24px;
-            padding: 32px 40px;
+            padding: 40px; /* Увеличили внутренний отступ */
             margin-bottom: 32px;
         }
         .admin-section h2 {
@@ -170,13 +170,13 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 20px 0;
+            padding: 24px 0; /* Больше воздуха по вертикали */
             border-bottom: 1px solid var(--border);
         }
         .user-row:last-child { border-bottom: none; padding-bottom: 0; }
         .user-info { display: flex; align-items: center; gap: 20px; }
         .user-avatar { width: 46px; height: 46px; border-radius: 50%; background: #333; }
-        .user-name { font-weight: 600; font-size: 15px; display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+        .user-name { font-weight: 600; font-size: 15px; display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
         .user-login { color: var(--text-dim); font-size: 13px; }
         
         /* Кнопки действий */
@@ -195,19 +195,38 @@
         .btn-danger { color: #ff5c7c; border-color: rgba(255,92,124,0.3); }
         .btn-danger:hover { background: rgba(255,92,124,0.1); border-color: #ff5c7c; box-shadow: 0 0 15px rgba(255,92,124,0.2); }
 
-        /* Бейджи (VIP) */
+        /* КРАСИВЫЙ ВЫПАДАЮЩИЙ СПИСОК (Select) */
         .badge-select {
-            background: rgba(0,0,0,0.3);
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            background: rgba(0,0,0,0.4);
             border: 1px solid var(--border);
             color: var(--text);
-            padding: 10px 14px;
+            padding: 10px 40px 10px 16px; /* Место справа для стрелочки */
             border-radius: 10px;
             font-size: 13px;
+            font-weight: 600;
             outline: none;
             cursor: pointer;
             transition: all 0.2s;
+            
+            /* Рисуем свою стрелочку через SVG */
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a855f7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 16px;
         }
         .badge-select:hover { border-color: var(--accent); }
+        .badge-select:focus { border-color: var(--accent); box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 20%, transparent); }
+        
+        /* Стилизация самих пунктов списка (работает в большинстве браузеров) */
+        .badge-select option {
+            background: var(--bg-0);
+            color: var(--text);
+            padding: 10px;
+            font-size: 14px;
+        }
 
         /* Формы */
         .admin-input {
@@ -245,13 +264,13 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 20px 0;
+            padding: 24px 0; /* Больше воздуха между строками */
             border-bottom: 1px solid var(--border);
         }
         .toggle-row:last-child { border-bottom: none; padding-bottom: 0; }
         .toggle-row > div:first-child { padding-right: 40px; }
         .toggle-switch {
-            width: 48px; height: 26px;
+            width: 52px; height: 28px; /* Чуть больше */
             background: rgba(255,255,255,0.1);
             border-radius: 20px;
             position: relative;
@@ -262,12 +281,13 @@
         .toggle-switch::after {
             content: ''; position: absolute;
             top: 3px; left: 3px;
-            width: 20px; height: 20px;
+            width: 22px; height: 22px;
             background: #fff; border-radius: 50%;
             transition: transform 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
         .toggle-switch.active { background: var(--accent); box-shadow: 0 0 15px var(--accent); }
-        .toggle-switch.active::after { transform: translateX(22px); }
+        .toggle-switch.active::after { transform: translateX(24px); }
 
         /* Блок ссылок на сервисы */
         .links-grid {
@@ -365,7 +385,7 @@
             <!-- ИНФРАСТРУКТУРА -->
             <div class="admin-section" style="margin-bottom: 0;">
                 <h2>Инфраструктура проекта</h2>
-                <p style="color: var(--text-dim); font-size: 13px; margin-bottom: 16px;">Быстрые ссылки на панели управления сервисами, которые использует Miksegram.</p>
+                <p style="color: var(--text-dim); font-size: 13px; margin-bottom: 20px;">Быстрые ссылки на панели управления сервисами, которые использует Miksegram.</p>
                 <div class="links-grid">
                     <a href="https://turso.tech" target="_blank" class="service-link">
                         <span class="service-icon">🗄</span> Turso (База данных)
@@ -404,7 +424,7 @@
                     </div>
                     <div style="display: flex; gap: 12px; align-items: center;">
                         <select class="badge-select">
-                            <option value="none">Нет бейджа</option>
+                            <option value="none">Без бейджа</option>
                             <option value="crown" selected>👑 Корона</option>
                             <option value="check">✅ Галочка</option>
                             <option value="star">⭐ Звезда</option>
@@ -429,7 +449,7 @@
                     </div>
                     <div style="display: flex; gap: 12px; align-items: center;">
                         <select class="badge-select">
-                            <option value="none">Нет бейджа</option>
+                            <option value="none">Без бейджа</option>
                             <option value="crown">👑 Корона</option>
                             <option value="check" selected>✅ Галочка</option>
                             <option value="star">⭐ Звезда</option>
@@ -481,35 +501,35 @@
             <div class="admin-section" style="border-color: rgba(255, 92, 124, 0.3);">
                 <div class="toggle-row">
                     <div>
-                        <div style="font-weight: 600; margin-bottom: 4px;">Удалить все аватарки</div>
+                        <div style="font-weight: 600; margin-bottom: 6px;">Удалить все аватарки</div>
                         <div style="color: var(--text-dim); font-size: 13px;">Сбросит фото профилей на стандартные градиенты.</div>
                     </div>
                     <button class="action-btn btn-danger">Очистить</button>
                 </div>
                 <div class="toggle-row">
                     <div>
-                        <div style="font-weight: 600; margin-bottom: 4px;">Удалить все баннеры</div>
+                        <div style="font-weight: 600; margin-bottom: 6px;">Удалить все баннеры</div>
                         <div style="color: var(--text-dim); font-size: 13px;">Удалит фоны профилей у всех пользователей.</div>
                     </div>
                     <button class="action-btn btn-danger">Очистить</button>
                 </div>
                 <div class="toggle-row">
                     <div>
-                        <div style="font-weight: 600; margin-bottom: 4px;">Очистить все сообщения</div>
+                        <div style="font-weight: 600; margin-bottom: 6px;">Очистить все сообщения</div>
                         <div style="color: var(--text-dim); font-size: 13px;">Удалит всю переписку, оставив аккаунты и чаты.</div>
                     </div>
                     <button class="action-btn btn-danger">Очистить</button>
                 </div>
                 <div class="toggle-row">
                     <div>
-                        <div style="font-weight: 600; margin-bottom: 4px;">Очистить хранилище</div>
+                        <div style="font-weight: 600; margin-bottom: 6px;">Очистить хранилище</div>
                         <div style="color: var(--text-dim); font-size: 13px;">Удалит все файлы из Supabase (картинки, архивы).</div>
                     </div>
                     <button class="action-btn btn-danger">Очистить</button>
                 </div>
                 <div class="toggle-row" style="border: none; margin-top: 20px; padding-bottom: 0;">
                     <div>
-                        <div style="font-weight: 700; color: #ff5c7c; font-size: 16px; margin-bottom: 4px;">Полный сброс (Factory Reset)</div>
+                        <div style="font-weight: 700; color: #ff5c7c; font-size: 16px; margin-bottom: 6px;">Полный сброс (Factory Reset)</div>
                         <div style="color: #ff5c7c; font-size: 13px;">Удалит ВСЁ, кроме вашего аккаунта @admin.</div>
                     </div>
                     <button class="action-btn btn-danger" style="background: #ff5c7c; color: #fff;">СБРОСИТЬ ВСЁ</button>
@@ -525,14 +545,14 @@
             <div class="admin-section">
                 <div class="toggle-row">
                     <div>
-                        <div style="font-weight: 600; margin-bottom: 4px;">Режим «Техработы»</div>
+                        <div style="font-weight: 600; margin-bottom: 6px;">Режим «Техработы»</div>
                         <div style="color: var(--text-dim); font-size: 13px;">Блокирует вход и отправку сообщений для всех, кроме вас.</div>
                     </div>
                     <div class="toggle-switch"></div>
                 </div>
                 <div class="toggle-row">
                     <div>
-                        <div style="font-weight: 600; margin-bottom: 4px;">Отключить регистрацию</div>
+                        <div style="font-weight: 600; margin-bottom: 6px;">Отключить регистрацию</div>
                         <div style="color: var(--text-dim); font-size: 13px;">Новые пользователи не смогут создать аккаунт.</div>
                     </div>
                     <div class="toggle-switch"></div>
@@ -561,7 +581,7 @@
                 <h2>Пасхалки</h2>
                 <div class="toggle-row">
                     <div>
-                        <div style="font-weight: 600; margin-bottom: 4px;">Запустить конфетти</div>
+                        <div style="font-weight: 600; margin-bottom: 6px;">Запустить конфетти</div>
                         <div style="color: var(--text-dim); font-size: 13px;">У всех пользователей на экране взорвется салют.</div>
                     </div>
                     <button class="btn-primary" style="padding: 10px 20px;">🎉 Запустить</button>
