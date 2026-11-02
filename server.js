@@ -30,16 +30,17 @@ const db = createClient({
   authToken: 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3OTMzODMzODUsImlkIjoiMDFhMThkZGQtYjcwMS03YTg5LWIxMGEtMjk1MTkxNWVmY2Q2Iiwia2lkIjoiMDY0M3BHaVkteXR5X0t2OC1HbVY5Y2Nlb0RyTVYyVUlnZVRtU2Y5MXQtcyIsInJpZCI6IjgzM2JlNTQyLWViZjEtNGVhZC05MTQ3LTFkY2VhNDYzYmZjNCJ9.GSH-xuW9awXLGLOjssUuqDoXuoouiydQgBL7oc2BkEwRJVpABbEO-2jHW9JFLHDJ5Of_nXGtBApz7uY19k7BDQ'
 });
 
-// --- НАСТРОЙКА FILEBASE (S3) ---
+// --- НАСТРОЙКА CLOUD.RU (S3) ---
 const s3 = new S3Client({
-  endpoint: 'https://s3.filebase.io',
-  region: 'auto',
+  region: 'ru-central-1',
+  endpoint: 'https://s3.cloud.ru',
+  forcePathStyle: true,
   credentials: {
-    accessKeyId: process.env.FILEBASE_ACCESS_KEY || 'твой_ключ_сюда',
-    secretAccessKey: process.env.FILEBASE_SECRET_KEY || 'твой_секрет_сюда',
+    accessKeyId: process.env.CLOUDRU_ACCESS_KEY || 'твой_tenant_id:твой_key_id',
+    secretAccessKey: process.env.CLOUDRU_SECRET_KEY || 'твой_secret_key',
   },
 });
-const BUCKET_NAME = process.env.FILEBASE_BUCKET_NAME || 'miksegram-files';
+const BUCKET_NAME = process.env.CLOUDRU_BUCKET_NAME || 'miksegram-files';
 
 // --- ИНИЦИАЛИЗАЦИЯ БД С ПОВТОРАМИ ---
 async function initDb(attempt = 1) {
@@ -614,15 +615,15 @@ app.get('/api/messages/:chatId', async (req, res) => {
   }
 });
 
-// ==================== ФАЙЛЫ (FILEBASE / S3) ====================
+// ==================== ФАЙЛЫ (CLOUD.RU S3) ====================
 const storage = multer.memoryStorage();
-const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } }); // 5 MB
+const upload = multer({ storage, limits: { fileSize: 15 * 1024 * 1024 } }); // 15 MB
 
 app.post('/api/upload', (req, res) => {
   if (!req.session.userId) return res.json({ ok: false });
   upload.single('file')(req, res, async (err) => {
     if (err) {
-      if (err.code === 'LIMIT_FILE_SIZE') return res.json({ ok: false, error: 'Файл больше 5 МБ' });
+      if (err.code === 'LIMIT_FILE_SIZE') return res.json({ ok: false, error: 'Файл больше 15 МБ' });
       return res.json({ ok: false, error: 'Ошибка загрузки' });
     }
     if (!req.file) return res.json({ ok: false, error: 'Файл не загружен' });
@@ -635,17 +636,18 @@ app.post('/api/upload', (req, res) => {
         Bucket: BUCKET_NAME,
         Key: fileName,
         Body: req.file.buffer,
-        ContentType: req.file.mimetype
+        ContentType: req.file.mimetype,
+        ACL: 'public-read' // Делаем файл публичным
       }));
 
-      const fileUrl = `https://${BUCKET_NAME}.s3.filebase.io/${fileName}`;
+      const fileUrl = `https://${BUCKET_NAME}.s3.cloud.ru/${fileName}`;
       const isImage = req.file.mimetype.startsWith('image/');
       const isAudio = req.file.mimetype.startsWith('audio/');
       const type = isImage ? 'image' : (isAudio ? 'audio' : 'file');
       
       res.json({ ok: true, file_url: fileUrl, file_type: type, file_name: req.file.originalname });
     } catch (error) {
-      ERR('UPLOAD', 'Ошибка загрузки файла в Filebase:', error.message);
+      ERR('UPLOAD', 'Ошибка загрузки файла в Cloud.ru:', error.message);
       res.json({ ok: false, error: 'Ошибка сервера при загрузке файла' });
     }
   });
@@ -655,7 +657,7 @@ app.post('/api/upload-avatar', (req, res) => {
   if (!req.session.userId) return res.json({ ok: false });
   upload.single('file')(req, res, async (err) => {
     if (err) {
-      if (err.code === 'LIMIT_FILE_SIZE') return res.json({ ok: false, error: 'Файл больше 5 МБ' });
+      if (err.code === 'LIMIT_FILE_SIZE') return res.json({ ok: false, error: 'Файл больше 15 МБ' });
       return res.json({ ok: false, error: 'Ошибка загрузки' });
     }
     if (!req.file) return res.json({ ok: false, error: 'Файл не загружен' });
@@ -668,13 +670,14 @@ app.post('/api/upload-avatar', (req, res) => {
         Bucket: BUCKET_NAME,
         Key: fileName,
         Body: req.file.buffer,
-        ContentType: req.file.mimetype
+        ContentType: req.file.mimetype,
+        ACL: 'public-read'
       }));
 
-      const fileUrl = `https://${BUCKET_NAME}.s3.filebase.io/${fileName}`;
+      const fileUrl = `https://${BUCKET_NAME}.s3.cloud.ru/${fileName}`;
       res.json({ ok: true, url: fileUrl });
     } catch (error) {
-      ERR('UPLOAD', 'Ошибка загрузки аватара в Filebase:', error.message);
+      ERR('UPLOAD', 'Ошибка загрузки аватара в Cloud.ru:', error.message);
       res.json({ ok: false, error: 'Ошибка сервера' });
     }
   });
@@ -689,8 +692,7 @@ app.post('/api/messages/:id/delete', async (req, res) => {
     if (msgRes.rows.length === 0 || msgRes.rows[0].sender_id !== myId) return res.json({ ok: false });
     const msg = msgRes.rows[0];
     
-    // Удаление файла из Filebase
-    if (msg.file_url && msg.file_url.includes('filebase.io')) {
+    if (msg.file_url && msg.file_url.includes('s3.cloud.ru')) {
       try {
         const fileName = msg.file_url.split('/').pop();
         await s3.send(new DeleteObjectCommand({
@@ -698,7 +700,7 @@ app.post('/api/messages/:id/delete', async (req, res) => {
           Key: fileName
         }));
       } catch (e) { 
-        ERR('API', 'Не удалось удалить файл из Filebase:', e.message); 
+        ERR('API', 'Не удалось удалить файл из Cloud.ru:', e.message); 
       }
     }
     
