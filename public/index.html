@@ -273,7 +273,7 @@
             <div style="position:absolute; bottom: 40px; left: 20px; display:flex; align-items:center; gap: 16px; z-index:2;">
                 <div class="avatar" id="modalProfileAvatar" style="width: 76px; height: 76px; font-size: 30px; border: 3px solid var(--bg-0); box-shadow: 0 4px 12px rgba(0,0,0,0.5);">?</div>
                 <div style="text-shadow: 0 2px 4px rgba(0,0,0,0.8);">
-                    <div id="modalProfileName" style="font-family:'Unbounded'; font-size: 20px; font-weight: 700; color: #fff;">...</div>
+                    <div id="modalProfileName" style="font-family:'Unbounded'; font-size: 20px; font-weight: 700; color: #fff; display:flex; align-items:center;">...</div>
                     <div id="modalProfileLogin" style="color: rgba(255,255,255,0.7); cursor: pointer; font-size: 13px; margin-top: 2px;">@...</div>
                 </div>
             </div>
@@ -400,8 +400,7 @@
         }
     });
 
-    const badgeMap = { 'crown': '👑', 'check': '✅', 'star': '⭐', 'smile': '😎' };
-    function getBadgeEmoji(badge) { return badgeMap[badge] || ''; }
+    function getBadgeEmoji(badge) { return getBadgeSVG(badge); }
 
     function formatDateOnly(iso) {
         const d = new Date(iso);
@@ -561,7 +560,7 @@
         chatAvatar.style.display = 'flex';
         applyAvatarTo(chatAvatar, userData.avatar, userData.display_name, userData.avatar_frame);
         
-        document.getElementById('chatName').textContent = userData.display_name + ' ' + getBadgeEmoji(userData.badge);
+        document.getElementById('chatName').innerHTML = escapeHtml(userData.display_name) + ' ' + getBadgeEmoji(userData.badge);
         applyNameEffect(document.getElementById('chatName'), userData.name_effect);
         document.getElementById('chatLogin').style.color = 'var(--accent)';
         updateChatStatus();
@@ -611,7 +610,7 @@
             applyAvatarTo(chatAvatar, avatar, name, avatar_frame);
         }
         
-        document.getElementById('chatName').textContent = name + ' ' + getBadgeEmoji(badge);
+        document.getElementById('chatName').innerHTML = escapeHtml(name) + ' ' + getBadgeEmoji(badge);
         applyNameEffect(document.getElementById('chatName'), name_effect);
         
         if (type === 'group') {
@@ -1492,7 +1491,7 @@
             row.innerHTML = `
                 <div class="avatar small" id="gm-avatar-${m.id}">?</div>
                 <div style="flex:1;">
-                    <div style="font-family:'Unbounded'; font-size:13px;">${escapeHtml(m.display_name)} ${badge} ${isAdmin ? '<span style="color:var(--accent); font-size:10px;">(Создатель)</span>' : ''}</div>
+                    <div style="font-family:'Unbounded'; font-size:13px; display:flex; align-items:center;">${escapeHtml(m.display_name)} ${badge} ${isAdmin ? '<span style="color:var(--accent); font-size:10px; margin-left:4px;">(Создатель)</span>' : ''}</div>
                     <div style="font-size:11px; color:var(--text-dim);">@${escapeHtml(m.login)}</div>
                 </div>
                 ${(!isMe && currentGroupInfo.creator_id === myId) ? `<button class="icon-btn" onclick="removeMember(${m.id})" title="Исключить" style="color:#ff5c7c;">✖</button>` : ''}
@@ -1601,7 +1600,7 @@
             if (!data.ok) return;
             const u = data.user;
             applyAvatarTo(document.getElementById('modalProfileAvatar'), u.avatar, u.display_name, u.avatar_frame);
-            document.getElementById('modalProfileName').textContent = u.display_name + ' ' + getBadgeEmoji(u.badge);
+            document.getElementById('modalProfileName').innerHTML = escapeHtml(u.display_name) + ' ' + getBadgeEmoji(u.badge);
             applyNameEffect(document.getElementById('modalProfileName'), u.name_effect);
             document.getElementById('modalProfileLogin').textContent = '@' + u.login;
             document.getElementById('modalProfileBio').textContent = u.bio || 'Пока ничего не рассказал(а) о себе';
@@ -1718,7 +1717,7 @@
         myId = data.id;
         window.currentUser = data;
         applyAvatarTo(document.getElementById('myAvatar'), data.avatar, data.display_name, data.avatar_frame);
-        document.getElementById('myDisplayName').textContent = data.display_name;
+        document.getElementById('myDisplayName').innerHTML = escapeHtml(data.display_name) + ' ' + getBadgeEmoji(data.badge);
         applyNameEffect(document.getElementById('myDisplayName'), data.name_effect);
         document.getElementById('myLogin').textContent = '@' + data.login;
         
@@ -1751,7 +1750,7 @@
     window.onSettingsSaved = (u) => {
         window.currentUser = u;
         applyAvatarTo(document.getElementById('myAvatar'), u.avatar, u.display_name, u.avatar_frame);
-        document.getElementById('myDisplayName').textContent = u.display_name;
+        document.getElementById('myDisplayName').innerHTML = escapeHtml(u.display_name) + ' ' + getBadgeEmoji(u.badge);
         applyNameEffect(document.getElementById('myDisplayName'), u.name_effect);
     };
 

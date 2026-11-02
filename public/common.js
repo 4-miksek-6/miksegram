@@ -58,21 +58,17 @@ function requestNotifications() {
 (function applyStoredSettings() {
     document.body.dataset.theme = 'cosmos';
     
-    // Применяем МОЙ акцент
     const accent = localStorage.getItem('accent');
     if (accent && accent !== 'default' && accent !== 'cyan') {
         document.body.dataset.accent = accent;
-        // Если это HEX-код (из новой палитры)
         if (accent.startsWith('#')) {
             document.documentElement.style.setProperty('--accent', accent);
-            // Делаем второй цвет чуть темнее для градиента
             document.documentElement.style.setProperty('--accent-2', `color-mix(in srgb, ${accent} 60%, #000)`);
         }
     } else if (accent && accent.startsWith('#')) {
          document.documentElement.style.setProperty('--accent', accent);
     }
     
-    // Применяем АКЦЕНТ СОБЕДНИКА
     const otherAccent = localStorage.getItem('interlocutor-accent');
     if (otherAccent && otherAccent !== 'none') {
         document.documentElement.style.setProperty('--interlocutor-accent', otherAccent);
@@ -82,18 +78,15 @@ function requestNotifications() {
         document.documentElement.style.removeProperty('--interlocutor-accent');
     }
 
-    // Двойной фон
     if (localStorage.getItem('dual-bg-accent') === 'on') {
         document.body.classList.add('dual-accent-bg');
     } else {
         document.body.classList.remove('dual-accent-bg');
     }
 
-    // Пресет фона
     const bgPreset = localStorage.getItem('bg-preset') || 'cosmos';
     document.body.dataset.bg = bgPreset;
 
-    // Прозрачность
     const sidebarOpacity = localStorage.getItem('sidebar-opacity') || '0.55';
     const chatOpacity = localStorage.getItem('chat-opacity') || '0.85';
     document.documentElement.style.setProperty('--sidebar-opacity', sidebarOpacity);
@@ -111,6 +104,67 @@ function showToast(text) {
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
 }
+
+// ===== БЕЙДЖИ (SVG + ТУЛТИПЫ) =====
+
+(function injectBadgeStyles() {
+    const style = document.createElement('style');
+    style.textContent = `
+        .custom-badge { 
+            position: relative; 
+            display: inline-flex; 
+            align-items: center; 
+            justify-content: center; 
+            width: 18px; 
+            height: 18px; 
+            margin-left: 4px; 
+            vertical-align: middle; 
+            cursor: help; 
+        }
+        .custom-badge img { width: 100%; height: 100%; object-fit: contain; }
+        .custom-badge::after { 
+            content: attr(data-tooltip); 
+            position: absolute; 
+            bottom: 100%; 
+            left: 50%; 
+            transform: translateX(-50%) translateY(-4px); 
+            background: var(--panel-strong); 
+            border: 1px solid var(--accent); 
+            color: var(--text); 
+            padding: 6px 12px; 
+            border-radius: 8px; 
+            font-size: 11px; 
+            font-weight: 500; 
+            white-space: nowrap; 
+            opacity: 0; 
+            pointer-events: none; 
+            transition: all 0.2s ease; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5); 
+            z-index: 1000; 
+            font-family: 'Inter', sans-serif; 
+        }
+        .custom-badge:hover::after { 
+            opacity: 1; 
+            transform: translateX(-50%) translateY(-8px); 
+        }
+    `;
+    document.head.appendChild(style);
+})();
+
+const BADGES_CONFIG = {
+    crown: { name: 'Создатель', src: '/badges/crown.svg' },
+    check: { name: 'Официальный', src: '/badges/check.svg' },
+    star: { name: 'Легенда', src: '/badges/star.svg' },
+    fire: { name: 'Тестер', src: '/badges/fire.svg' }
+};
+
+function getBadgeSVG(badgeKey) {
+    if (!badgeKey || badgeKey === 'none' || !BADGES_CONFIG[badgeKey]) return '';
+    const b = BADGES_CONFIG[badgeKey];
+    return `<span class="custom-badge" data-tooltip="Бейдж «${b.name}». Выдан администратором Miksegram."><img src="${b.src}" alt="${b.name}"></span>`;
+}
+
+// ===================================
 
 function applyAvatarTo(el, avatar, displayName, frame = 'none') {
     if (!el) return;

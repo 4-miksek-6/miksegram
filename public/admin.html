@@ -9,6 +9,7 @@
     <title>Админ-панель — Miksegram</title>
     <link rel="icon" type="image/svg+xml" href="/logo.svg">
     <link rel="stylesheet" href="/style.css">
+    <script src="/common.js"></script>
     <style>
         body { overflow: hidden; background: var(--bg-0); }
         .admin-layout { display: grid; grid-template-columns: 280px 1fr; height: 100vh; width: 100vw; }
@@ -490,8 +491,7 @@
             const displayName = u.display_name || u.login;
             const initial = displayName.charAt(0).toUpperCase();
             
-            const badges = { 'crown': '👑', 'check': '✅', 'star': '⭐', 'smile': '😎' };
-            const badgeEmoji = badges[u.badge] || '';
+            const badgeEmoji = getBadgeSVG(u.badge);
             
             return `
             <div class="user-row" style="${isBanned ? 'opacity: 0.6;' : ''}">
@@ -509,10 +509,10 @@
                 <div style="display: flex; gap: 12px; align-items: center;">
                     <select class="badge-select" onchange="setBadge(${u.id}, this.value)">
                         <option value="none" ${u.badge === 'none' ? 'selected' : ''}>Без бейджа</option>
-                        <option value="crown" ${u.badge === 'crown' ? 'selected' : ''}>👑 Корона</option>
-                        <option value="check" ${u.badge === 'check' ? 'selected' : ''}>✅ Галочка</option>
-                        <option value="star" ${u.badge === 'star' ? 'selected' : ''}>⭐ Звезда</option>
-                        <option value="smile" ${u.badge === 'smile' ? 'selected' : ''}>😎 Смайл</option>
+                        <option value="crown" ${u.badge === 'crown' ? 'selected' : ''}>👑 Создатель</option>
+                        <option value="check" ${u.badge === 'check' ? 'selected' : ''}>✅ Официальный</option>
+                        <option value="star" ${u.badge === 'star' ? 'selected' : ''}>⭐ Легенда</option>
+                        <option value="fire" ${u.badge === 'fire' ? 'selected' : ''}>🔥 Тестер</option>
                     </select>
                     ${!isAdmin ? `<button class="action-btn" onclick="resetPassword(${u.id})">Сброс пароля</button>` : ''}
                     ${!isAdmin ? (isBanned 
@@ -632,7 +632,7 @@
                 <div class="group-member-item">
                     <div class="user-avatar" style="width:32px; height:32px; font-size:14px; background:var(--grad-cyan);">${m.display_name.charAt(0).toUpperCase()}</div>
                     <div>
-                        <div style="font-weight:600; font-size:13px;">${m.display_name}</div>
+                        <div style="font-weight:600; font-size:13px; display:flex; align-items:center;">${m.display_name} ${getBadgeSVG(m.badge)}</div>
                         <div style="color:var(--text-dim); font-size:11px;">@${m.login}</div>
                     </div>
                 </div>
