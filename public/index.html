@@ -102,6 +102,31 @@
             font-weight: 500;
         }
 
+        /* ===== ВЕРСИЯ И ОБНОВЛЕНИЕ ===== */
+        .app-version-text {
+            position: absolute; bottom: 16px; left: 20px; font-size: 11px;
+            color: var(--text-mute); opacity: 0.6; font-family: 'Inter', sans-serif;
+            pointer-events: none; user-select: none;
+        }
+
+        .version-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 99999; opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+        }
+        .version-overlay.show { opacity: 1; pointer-events: auto; }
+        
+        .version-modal {
+            background: var(--panel-strong); border: 1px solid var(--accent);
+            border-radius: 24px; padding: 40px; text-align: center; max-width: 400px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.8), 0 0 40px color-mix(in srgb, var(--accent) 40%, transparent);
+            transform: translateY(20px); transition: transform 0.3s ease;
+        }
+        .version-overlay.show .version-modal { transform: translateY(0); }
+        .version-modal h2 { font-family: 'Unbounded'; font-size: 22px; margin-bottom: 12px; color: #fff; }
+        .version-modal p { color: var(--text-dim); font-size: 14px; margin-bottom: 24px; line-height: 1.5; }
+
         @media (max-width: 768px) {
             .scroll-to-bottom { bottom: 80px; right: 16px; width: 40px; height: 40px; }
         }
@@ -113,6 +138,15 @@
 <div class="bg-grid"></div>
 <div class="stars" id="stars"></div>
 <div class="grain"></div>
+
+<!-- Оверлей обновления версии -->
+<div class="version-overlay" id="versionOverlay">
+    <div class="version-modal">
+        <h2>🚀 Доступно обновление</h2>
+        <p>Вышла новая версия Miksegram. Пожалуйста, обновите страницу, чтобы продолжить общение без ошибок.</p>
+        <button class="primary-btn" onclick="window.location.reload(true)" style="width: 100%;">Обновить страницу</button>
+    </div>
+</div>
 
 <div class="app">
     <aside class="sidebar">
@@ -134,6 +168,9 @@
         </div>
         <button class="new-chat-btn" id="newGroupBtn">+ Создать группу</button>
         <div class="chats-list" id="chatsList"></div>
+        
+        <!-- ВЕРСИЯ ПРИЛОЖЕНИЯ -->
+        <div class="app-version-text">v1.1.0</div>
     </aside>
 
     <main class="chat-area">
@@ -358,6 +395,25 @@
 <script src="/common.js"></script>
 <script src="/settings.js"></script>
 <script>
+    // ==================== ПРОВЕРКА ВЕРСИИ ====================
+    const CLIENT_VERSION = '1.1.0';
+    
+    async function checkVersion() {
+        try {
+            const res = await fetch('/api/version');
+            const data = await res.json();
+            if (data.version && data.version !== CLIENT_VERSION) {
+                document.getElementById('versionOverlay').classList.add('show');
+            }
+        } catch (e) { /* Игнорируем ошибки сети */ }
+    }
+    
+    // Проверяем каждые 30 секунд
+    setInterval(checkVersion, 30000);
+    // И при возвращении на вкладку
+    window.addEventListener('focus', checkVersion);
+
+    // ==================== ОСНОВНАЯ ЛОГИКА ====================
     initStars();
     initMagnetics();
     requestNotifications();
@@ -559,7 +615,6 @@
     }
 
     async function startEmptyChat(otherId) {
-        // 1. Если перешли на самого себя — открываем Избранное
         if (otherId === myId) {
             if (!chatsData.length) await loadChats();
             const savedChat = chatsData.find(c => c.type === 'saved');
@@ -571,19 +626,14 @@
             return;
         }
 
-        // 2. Проверяем, есть ли УЖЕ чат с этим человеком
-        if (!chatsData.length) {
-            await loadChats(); // Если список пуст (например, только зашли), ждем загрузки
-        }
+        if (!chatsData.length) await loadChats();
         
         const existingChat = chatsData.find(c => c.type === 'private' && c.other_id === otherId);
         if (existingChat) {
-            // Если чат есть — открываем его с историей!
             openChat(existingChat.id, existingChat.name, existingChat.avatar, 'private', existingChat.other_id, existingChat.login, existingChat.last_seen, existingChat.avatar_frame, existingChat.name_effect, existingChat.other_last_read);
             return;
         }
 
-        // 3. Если чата НЕТ — только тогда создаем пустой экран
         if (activeChatId === null && activeOtherId === otherId) return;
         const searchRes = await fetch('/api/user/' + otherId);
         const searchData = await searchRes.json();
@@ -1085,10 +1135,63 @@
 
     document.getElementById('attachBtn').addEventListener('click', () => fileInput.click());
     
+    // === СЖАТИЕ КАРТИНОК ===
+    async function compressImage(file) {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+                    const maxSize = 1200;
+                    
+                    if (width > maxSize || height > maxSize) {
+                        if (width > height) {
+                            height *= maxSize / width;
+                            width = maxSize;
+                        } else {
+                            width *= maxSize / height;
+                            height = maxSize;
+                        }
+                    }
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    canvas.toBlob((blob) => {
+                        if (blob) {
+                            resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+                        } else {
+                            resolve(file);
+                        }
+                    }, 'image/jpeg', 0.8); // Качество 80%
+                };
+                img.onerror = () => resolve(file);
+            };
+            reader.onerror = () => resolve(file);
+        });
+    }
+
     fileInput.addEventListener('change', async () => {
         if (!fileInput.files[0]) return;
-        const file = fileInput.files[0];
+        let file = fileInput.files[0];
+        
         if (file.size > 5 * 1024 * 1024) { showToast('Файл больше 5 МБ'); fileInput.value = ''; return; }
+
+        // Если это картинка — сжимаем
+        if (file.type.startsWith('image/')) {
+            fileNameEl.textContent = 'Сжатие фото...';
+            uploadProgressWrap.style.display = 'block';
+            uploadProgressBar.style.width = '50%';
+            filePreview.style.display = 'flex';
+            file = await compressImage(file);
+        }
+
         fileNameEl.textContent = file.name;
         uploadProgressWrap.style.display = 'block';
         uploadProgressBar.style.width = '0%';
@@ -1610,6 +1713,7 @@
         applyNameEffect(document.getElementById('myDisplayName'), data.name_effect);
         document.getElementById('myLogin').textContent = '@' + data.login;
         loadChats();
+        checkVersion(); // Проверяем версию при входе
         
         const params = new URLSearchParams(window.location.search);
         const writeTo = params.get('write_to');
