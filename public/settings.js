@@ -114,15 +114,20 @@ function buildSettingsUI() {
         const layout = document.getElementById('settingsLayout');
         content.innerHTML = '';
 
-        // --- Кнопка Назад для мобилок ---
+        // --- Кнопка Назад для мобилок (ИСПРАВЛЕНА ДЛЯ ТАЧА) ---
         const backBtn = document.createElement('button');
         backBtn.className = 'mobile-settings-back';
         backBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> Назад в настройки`;
-        backBtn.onclick = () => {
+        
+        const goBack = (e) => {
+            if (e) e.preventDefault();
             layout.classList.remove('mobile-tab-open');
             document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
             document.querySelector('.settings-tab[data-tab="profile"]').classList.add('active');
         };
+        backBtn.addEventListener('click', goBack);
+        backBtn.addEventListener('touchstart', goBack, { passive: false });
+        
         content.appendChild(backBtn);
 
         if (tabName === 'profile') {

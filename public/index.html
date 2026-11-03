@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Miksegram</title>
     <link rel="icon" type="image/svg+xml" href="/logo.svg">
     <link rel="stylesheet" href="/style.css">
@@ -645,9 +645,8 @@
 
     function closeMobileChat() {
         document.querySelector('.app').classList.remove('mobile-chat-open');
-        // Возвращаем пустой экран, если чат не выбран (чтобы список был актуален)
         if (window.innerWidth <= 768) {
-            loadChats(); // обновляем список чатов при возврате
+            loadChats();
         }
     }
 
@@ -813,6 +812,26 @@
         scrollBottom(true);
     }
 
+    function showMsgContextMenu(x, y, m, isOwn) {
+        selectedMsgId = m.id;
+        selectedMsgText = m.text || '';
+        
+        const ctxDelete = document.getElementById('ctxDelete');
+        if (isOwn) ctxDelete.style.display = 'flex';
+        else ctxDelete.style.display = 'none';
+        
+        const menuX = Math.min(x, window.innerWidth - 220);
+        const menuY = Math.min(y, window.innerHeight - 120);
+        
+        contextMenu.style.left = menuX + 'px';
+        contextMenu.style.top = menuY + 'px';
+        contextMenu.classList.add('open');
+        
+        reactionsBar.style.left = menuX + 'px';
+        reactionsBar.style.top = (menuY - 60) + 'px';
+        reactionsBar.classList.add('open');
+    }
+
     function addMessageToDOM(m, animate = true, shouldScroll = true) {
         const empty = messagesListEl.querySelector('.chat-empty-msg');
         if (empty) empty.remove();
@@ -834,26 +853,47 @@
 
         li.innerHTML = buildMessageHTML(m, isOwn);
         
+        // --- ПКМ на ПК ---
         li.addEventListener('contextmenu', (e) => {
             if (m.is_sending) return;
             e.preventDefault();
-            selectedMsgId = m.id;
-            selectedMsgText = m.text || '';
+            showMsgContextMenu(e.clientX, e.clientY, m, isOwn);
+        });
+
+        // --- Долгое нажатие на мобилках ---
+        let touchTimer;
+        let isLongPress = false;
+        let startX = 0, startY = 0;
+
+        li.addEventListener('touchstart', (e) => {
+            if (e.target.closest('audio') || e.target.closest('.msg-image')) return;
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+            isLongPress = false;
             
-            const ctxDelete = document.getElementById('ctxDelete');
-            if (isOwn) ctxDelete.style.display = 'flex';
-            else ctxDelete.style.display = 'none';
-            
-            const x = Math.min(e.clientX, window.innerWidth - 220);
-            const y = Math.min(e.clientY, window.innerHeight - 120);
-            
-            contextMenu.style.left = x + 'px';
-            contextMenu.style.top = y + 'px';
-            contextMenu.classList.add('open');
-            
-            reactionsBar.style.left = x + 'px';
-            reactionsBar.style.top = (y - 60) + 'px';
-            reactionsBar.classList.add('open');
+            touchTimer = setTimeout(() => {
+                if (m.is_sending) return;
+                isLongPress = true;
+                if (navigator.vibrate) navigator.vibrate(50);
+                showMsgContextMenu(startX, startY, m, isOwn);
+            }, 500); // 500мс
+        }, { passive: true });
+
+        li.addEventListener('touchmove', (e) => {
+            if (Math.abs(e.touches[0].clientX - startX) > 10 || Math.abs(e.touches[0].clientY - startY) > 10) {
+                clearTimeout(touchTimer);
+            }
+        }, { passive: true });
+
+        li.addEventListener('touchend', (e) => {
+            clearTimeout(touchTimer);
+            if (isLongPress) {
+                e.preventDefault();
+            }
+        });
+
+        li.addEventListener('touchcancel', () => {
+            clearTimeout(touchTimer);
         });
 
         messagesListEl.appendChild(li);
@@ -1034,7 +1074,6 @@
         typingTimeout = setTimeout(() => { isTyping = false; socket.emit('typing', { chat_id: activeChatId, is_typing: false }); }, 2500);
     });
 
-    // При фокусе на поле ввода (включая мобильную клавиатуру) скроллим вниз
     composerInput.addEventListener('focus', () => {
         if (window.innerWidth <= 768) {
             setTimeout(() => {
@@ -1042,6 +1081,17 @@
             }, 300);
         }
     });
+
+    // Обработка открытия клавиатуры (Visual Viewport)
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', () => {
+            if (activeChatId && document.activeElement === composerInput) {
+                setTimeout(() => {
+                    chatBodyEl.scrollTo({ top: chatBodyEl.scrollHeight, behavior: 'smooth' });
+                }, 100);
+            }
+        });
+    }
 
     composerInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -1341,7 +1391,6 @@
         const colors = ['#00d4ff', '#a855f7', '#ff4ec7', '#00ffa3', '#ffb347', '#ff512f', '#ffffff'];
         let particles = [];
         
-        // Начальный залп (500 частиц)
         for (let i = 0; i < 500; i++) {
             particles.push({
                 x: Math.random() * canvas.width,
@@ -1357,12 +1406,11 @@
         }
 
         let frame = 0;
-        const maxFrames = 720; // ~12 секунд при 60fps
+        const maxFrames = 720;
         
         function tick() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            // Подсыпаем ещё частиц в течение первых 8 секунд (480 кадров)
             if (frame < 480 && frame % 2 === 0) {
                  for (let i = 0; i < 6; i++) {
                     particles.push({
@@ -1380,8 +1428,8 @@
             }
 
             particles.forEach(p => {
-                p.vy += 0.1; // гравитация
-                p.vx *= 0.99; // сопротивление воздуха
+                p.vy += 0.1;
+                p.vx *= 0.99;
                 p.x += p.vx;
                 p.y += p.vy;
                 p.rot += p.vrot;
@@ -1394,7 +1442,6 @@
                 ctx.restore();
             });
             
-            // Удаляем улетевшие за экран
             particles = particles.filter(p => p.y < canvas.height + 50);
             
             frame++;
@@ -1666,7 +1713,12 @@
     document.getElementById('settingsBtn').addEventListener('click', e => { e.stopPropagation(); openSettings(); });
 
     const settingsModal = document.getElementById('settingsModal');
-    function openSettings() { buildSettingsUI(); settingsModal.classList.add('open'); }
+    function openSettings() { 
+        buildSettingsUI(); 
+        const layout = document.getElementById('settingsLayout');
+        if (layout) layout.classList.remove('mobile-tab-open');
+        settingsModal.classList.add('open'); 
+    }
     function closeSettings() { settingsModal.classList.remove('open'); }
     document.getElementById('closeSettings').addEventListener('click', closeSettings);
     settingsModal.addEventListener('click', e => { if (e.target === settingsModal) closeSettings(); });
@@ -1735,7 +1787,6 @@
         applyNameEffect(document.getElementById('myDisplayName'), data.name_effect);
         document.getElementById('myLogin').textContent = '@' + data.login;
         
-        // Баннер (жёсткая проверка на пустоту)
         const bTxt = (data.global_banner || '').trim();
         const bannerEl = document.getElementById('globalBanner');
         if (bTxt) {
@@ -1745,7 +1796,6 @@
             bannerEl.style.display = 'none';
         }
         
-        // Техработы
         if (data.maintenance === '1' && data.login !== 'admin') {
             document.body.innerHTML = '<div style="display:flex; align-items:center; justify-content:center; height:100vh; color:#fff; font-family:Unbounded; font-size:24px; text-align:center; flex-direction:column; gap:20px;"><div>🛠 Идут технические работы</div><div style="font-size:16px; color:#8a8fa8;">Зайдите позже, мы уже чиним!</div></div>';
             return;
@@ -1856,7 +1906,7 @@
 
     chatAreaEl.addEventListener('touchstart', (e) => {
         if (window.innerWidth > 768) return;
-        if (e.target.closest('audio') || e.target.closest('.msg-image')) return; // не мешаем свайпать фото
+        if (e.target.closest('audio') || e.target.closest('.msg-image')) return;
         touchStartX = e.changedTouches[0].screenX;
         touchStartY = e.changedTouches[0].screenY;
     }, { passive: true });
@@ -1868,7 +1918,6 @@
         const dx = touchEndX - touchStartX;
         const dy = Math.abs(touchEndY - touchStartY);
 
-        // Свайп вправо (минимум 80px) и палец двигался больше по горизонтали, чем по вертикали
         if (dx > 80 && dy < 60) {
             closeMobileChat();
         }
