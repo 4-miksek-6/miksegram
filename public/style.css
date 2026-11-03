@@ -17,24 +17,20 @@
     --chat-opacity: 0.85;
 }
 
-body[data-other-accent] .msg:not(.own) {
-    background: color-mix(in srgb, var(--interlocutor-accent) 20%, transparent) !important;
-    border-color: var(--interlocutor-accent) !important;
-}
-body[data-other-accent] .msg:not(.own) .msg-time {
-    color: var(--interlocutor-accent) !important;
-    text-shadow: 0 0 6px color-mix(in srgb, var(--interlocutor-accent) 70%, transparent) !important;
-}
+/* ========================================= */
+/* ВОССТАНОВЛЕННЫЕ КРИТИЧНЫЕ СТИЛИ           */
+/* ========================================= */
+.avatar-wrap { position: relative; display: inline-flex; flex-shrink: 0; }
+.online-dot { position: absolute; bottom: 1px; right: 1px; width: 12px; height: 12px; background: #00ff88; border-radius: 50%; border: 2px solid var(--bg-0); box-shadow: 0 0 10px #00ff88; z-index: 2; }
+.settings-field textarea { min-height: 70px; }
+.mobile-settings-back { display: none; }
 
-body.dual-accent-bg .blob-1,
-body.dual-accent-bg .blob-3 { background: radial-gradient(circle, var(--accent), transparent 65%); }
-body.dual-accent-bg .blob-2,
-body.dual-accent-bg .blob-4 { background: radial-gradient(circle, var(--interlocutor-accent), transparent 65%); }
-body.dual-accent-bg .bg-layer {
-    background: radial-gradient(ellipse at 20% 10%, color-mix(in srgb, var(--accent) 20%, transparent), transparent 55%), 
-                radial-gradient(ellipse at 80% 90%, color-mix(in srgb, var(--interlocutor-accent) 18%, transparent), transparent 55%), 
-                linear-gradient(180deg, var(--bg-0), #000);
-}
+body[data-other-accent] .msg:not(.own) { background: color-mix(in srgb, var(--interlocutor-accent) 20%, transparent) !important; border-color: var(--interlocutor-accent) !important; }
+body[data-other-accent] .msg:not(.own) .msg-time { color: var(--interlocutor-accent) !important; text-shadow: 0 0 6px color-mix(in srgb, var(--interlocutor-accent) 70%, transparent) !important; }
+
+body.dual-accent-bg .blob-1, body.dual-accent-bg .blob-3 { background: radial-gradient(circle, var(--accent), transparent 65%); }
+body.dual-accent-bg .blob-2, body.dual-accent-bg .blob-4 { background: radial-gradient(circle, var(--interlocutor-accent), transparent 65%); }
+body.dual-accent-bg .bg-layer { background: radial-gradient(ellipse at 20% 10%, color-mix(in srgb, var(--accent) 20%, transparent), transparent 55%), radial-gradient(ellipse at 80% 90%, color-mix(in srgb, var(--interlocutor-accent) 18%, transparent), transparent 55%), linear-gradient(180deg, var(--bg-0), #000); }
 
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; height: 100%; height: 100dvh; overflow: hidden; }
@@ -42,7 +38,6 @@ body { font-family: 'Inter', sans-serif; background: var(--bg-0); color: var(--t
 body.no-anim * { animation: none !important; transition: none !important; }
 ::-webkit-scrollbar { width: 8px; } ::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 10px; }
 
-/* --- ФОНОВЫЕ СЛОИ --- */
 .bg-layer { position: fixed; inset: 0; background: radial-gradient(ellipse at 20% 10%, color-mix(in srgb, var(--accent) 20%, transparent), transparent 55%), radial-gradient(ellipse at 80% 90%, color-mix(in srgb, var(--accent-2) 18%, transparent), transparent 55%), linear-gradient(180deg, var(--bg-0), #000); z-index: -5; transition: background 0.4s; }
 .bg-blobs { position: fixed; inset: 0; overflow: hidden; z-index: -4; filter: blur(60px); opacity: 0.55; transition: opacity 0.4s; }
 .blob { position: absolute; border-radius: 50%; will-change: transform; transition: background 0.8s ease; }
@@ -61,7 +56,6 @@ body.no-anim * { animation: none !important; transition: none !important; }
 @keyframes twinkle { 50% { opacity: 1; transform: scale(1.2); } }
 .grain { position: fixed; inset: 0; z-index: -1; opacity: 0.06; mix-blend-mode: overlay; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); transition: opacity 0.4s; }
 
-/* ПРЕСЕТЫ ФОНА */
 body[data-bg="minimal"] .bg-blobs, body[data-bg="minimal"] .bg-grid, body[data-bg="minimal"] .stars, body[data-bg="minimal"] .grain { opacity: 0; pointer-events: none; }
 body[data-bg="minimal"] .bg-layer { background: #08080c; }
 body[data-bg="cyber"] .bg-blobs { opacity: 0; }
@@ -335,161 +329,89 @@ input[type="color"]::-webkit-color-swatch { border: 2px solid var(--border-hi); 
 .mobile-back-btn { display: none !important; }
 
 /* ========================================= */
+/* МОБИЛЬНАЯ ОПТИМИЗАЦИЯ (ЛЕЧИМ ЛАГИ)        */
+/* ========================================= */
+@media (max-width: 768px) {
+    .bg-blobs, .grain, .stars, .bg-grid { display: none !important; }
+    .bg-layer { background: linear-gradient(180deg, var(--bg-0), #000) !important; }
+    .sidebar, .chat-area, .chat-header, .composer { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; background: #0f1322 !important; }
+    .modal, .auth-card { box-shadow: 0 10px 30px rgba(0,0,0,0.8) !important; }
+    .empty-logo { animation: none !important; filter: drop-shadow(0 0 10px var(--accent)) !important; }
+    .msg { animation: none !important; }
+    .global-banner { top: 8px !important; font-size: 12px !important; padding: 8px 16px !important; max-width: calc(100% - 32px) !important; pointer-events: none !important; box-shadow: 0 4px 15px rgba(0,0,0,0.5) !important; opacity: 0.95; }
+}
+
+/* ========================================= */
 /* МОБИЛЬНАЯ ВЕРСИЯ (АДАПТАЦИЯ)               */
 /* ========================================= */
 @media (max-width: 768px) {
-    /* Главный экран */
     .app { grid-template-columns: 1fr; padding: 0; gap: 0; height: 100dvh; }
-    
     .sidebar, .chat-area { border-radius: 0; border: none; width: 100vw; height: 100dvh; }
-    
     .sidebar { display: flex; }
     .chat-area { display: none; position: absolute; inset: 0; z-index: 50; }
-    
     .app.mobile-chat-open .sidebar { display: none; }
     .app.mobile-chat-open .chat-area { display: flex; }
     .app.mobile-chat-open .mobile-back-btn { display: flex !important; }
 
-    /* Поля ввода (чтобы iOS не зумил) */
     input, textarea, select { font-size: 16px !important; }
 
-    /* Чат */
     .msg { max-width: 85%; }
     .chat-header { padding: 10px 14px; padding-top: calc(10px + env(safe-area-inset-top)); }
     .chat-body { padding: 16px 14px 12px; }
     .composer { padding: 10px 14px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
     .composer-input { font-size: 16px !important; }
     
-    /* Настройки */
-    .settings-layout { grid-template-columns: 1fr; display: flex; flex-direction: column; overflow-y: auto; }
-    .settings-layout.no-preview { grid-template-columns: 1fr; }
-    
-    .settings-sidebar { flex-direction: row; overflow-x: auto; border-right: none; border-bottom: 1px solid var(--border); padding: 10px; gap: 8px; background: rgba(0,0,0,0.4); white-space: nowrap; }
-    .settings-sidebar::-webkit-scrollbar { display: none; }
-    .settings-tab { padding: 8px 16px; margin-bottom: 0; border-radius: 20px; background: rgba(255,255,255,0.05); border: 1px solid transparent; }
-    .settings-tab.active { background: var(--accent); color: #000; }
-    
+    /* Настройки на телефоне: вертикальное меню */
+    .settings-layout { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
     .settings-preview-col { display: none !important; }
-    .settings-controls-col { padding: 16px; padding-bottom: env(safe-area-inset-bottom); }
     
-    /* Модалки */
+    .settings-sidebar { 
+        display: flex; flex-direction: column; overflow-y: auto; border-right: none; 
+        padding: 16px; background: transparent; width: 100%; height: 100%; 
+    }
+    .settings-tab { 
+        padding: 16px; margin-bottom: 10px; border-radius: 14px; 
+        background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+        font-size: 15px; display: flex; justify-content: space-between; align-items: center; margin-right: 0;
+    }
+    .settings-tab::after { content: '›'; font-size: 20px; color: var(--text-mute); margin-left: auto; }
+    .settings-tab.active { background: rgba(255,255,255,0.08); color: var(--accent); border-color: var(--accent); }
+    .settings-tab.active::after { color: var(--accent); }
+
+    .settings-layout:not(.mobile-tab-open) .settings-controls-col { display: none; }
+    .settings-layout.mobile-tab-open .settings-sidebar { display: none; }
+    .settings-layout.mobile-tab-open .settings-controls-col { display: flex; flex: 1; width: 100%; padding: 16px; padding-bottom: env(safe-area-inset-bottom); overflow-y: auto; }
+    
+    .mobile-settings-back {
+        display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.05);
+        border: 1px solid var(--border); color: var(--text); padding: 10px 16px;
+        border-radius: 10px; font-size: 14px; font-weight: 600; margin-bottom: 24px; cursor: pointer; width: fit-content;
+    }
+    
     .modal-overlay { padding: 10px; align-items: flex-end; }
     .modal { max-height: 90dvh; border-radius: 24px 24px 0 0; padding: 20px; padding-bottom: calc(20px + env(safe-area-inset-bottom)); width: 100%; max-width: 100%; margin: 0; animation: slideUp 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.2); }
     @keyframes slideUp { from { opacity: 0; transform: translateY(100px); } to { opacity: 1; transform: translateY(0); } }
     
-    .modal-header { padding-bottom: 10px; }
-    
-    /* Профиль */
     .profile-page { height: auto; min-height: 100dvh; padding-top: env(safe-area-inset-top); }
     .profile-banner { height: 160px; margin: 0 10px; }
     .profile-avatar { width: 70px; height: 70px; font-size: 24px; }
     .profile-name { font-size: 20px; }
     
-    /* QR-код */
     .qr-card { padding: 16px; border-radius: 20px; }
     #qrCodeContainer { width: 200px; height: 200px; }
     .qr-username { font-size: 16px; }
     .qr-action-btn { width: 48px; height: 48px; }
     
-    /* Лайтбокс */
     .lightbox { padding: 10px; }
     .lightbox img { border-radius: 8px; max-width: 100%; max-height: 85dvh; }
     .lightbox-close { top: 10px; right: 10px; width: 40px; height: 40px; }
     
-    /* Авторизация */
     .auth-wrap { padding: 10px; align-items: flex-start; padding-top: 10dvh; }
     .auth-card { padding: 24px 20px; border-radius: 20px; }
     .auth-card h1 { font-size: 22px; margin-bottom: 20px; }
     .auth-card input { font-size: 16px !important; padding: 12px 14px; }
     
-    /* Разное */
     .empty-title { font-size: 26px; }
     .emoji-picker { bottom: 70px; right: 10px; left: 10px; width: auto; }
     .context-menu { min-width: 160px; }
 }
-
-/* ========================================= */
-/* ВОССТАНОВЛЕННЫЕ КРИТИЧНЫЕ СТИЛИ           */
-/* ========================================= */
-
-/* Обёртка аватара (для зелёной точки) */
-.avatar-wrap {
-    position: relative;
-    display: inline-flex;
-    flex-shrink: 0;
-}
-
-/* Зелёная точка «онлайн» */
-.online-dot {
-    position: absolute;
-    bottom: 1px;
-    right: 1px;
-    width: 12px;
-    height: 12px;
-    background: #00ff88;
-    border-radius: 50%;
-    border: 2px solid var(--bg-0);
-    box-shadow: 0 0 10px #00ff88;
-    z-index: 2;
-}
-
-/* Поле «О себе» в настройках */
-.settings-field textarea {
-    min-height: 70px;
-}
-
-/* Мобилка: аватары в списке чатов чуть меньше */
-@media (max-width: 768px) {
-    .chat-item .avatar { width: 42px; height: 42px; font-size: 15px; }
-    .online-dot { width: 11px; height: 11px; }
-}
-
-/* ========================================= */
-/* МОБИЛЬНАЯ ОПТИМИЗАЦИЯ (ЛЕЧИМ ЛАГИ)        */
-/* ========================================= */
-@media (max-width: 768px) {
-    /* 1. Отключаем тяжёлые фоновые эффекты (blobs, grid, grain, stars) */
-    .bg-blobs, .grain, .stars, .bg-grid {
-        display: none !important;
-    }
-    
-    /* 2. Упрощаем фон (оставляем градиент, но убираем свечения) */
-    .bg-layer {
-        background: linear-gradient(180deg, var(--bg-0), #000) !important;
-    }
-
-    /* 3. Убираем "стекло" (backdrop-filter) — это главный убийца FPS на телефонах */
-    .sidebar, .chat-area, .chat-header, .composer {
-        backdrop-filter: none !important;
-        -webkit-backdrop-filter: none !important;
-        background: #0f1322 !important; /* Плотный тёмный фон вместо прозрачного */
-    }
-
-    /* 4. Убираем тяжёлые тени у модалок и кнопок */
-    .modal, .auth-card {
-        box-shadow: 0 10px 30px rgba(0,0,0,0.8) !important;
-    }
-    
-    /* 5. Отключаем анимацию логотипа (чтобы не грузить процессор) */
-    .empty-logo {
-        animation: none !important;
-        filter: drop-shadow(0 0 10px var(--accent)) !important;
-    }
-
-    /* 6. Упрощаем анимации сообщений (делаем быстрее и легче) */
-    .msg {
-        animation: none !important; /* Мгновенное появление без вылетов */
-    }
-
-    /* 7. ФИКС БАННЕРА: он больше не блокирует кнопки и аккуратно висит сверху */
-    .global-banner {
-        top: 8px !important;
-        font-size: 12px !important;
-        padding: 8px 16px !important;
-        max-width: calc(100% - 32px) !important;
-        pointer-events: none !important; /* КЛИКИ ПРОХОДЯТ СКВОЗЬ НЕГО! */
-        box-shadow: 0 4px 15px rgba(0,0,0,0.5) !important;
-        opacity: 0.95;
-    }
-}
-

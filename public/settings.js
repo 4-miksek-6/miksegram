@@ -91,6 +91,10 @@ function buildSettingsUI() {
         tab.addEventListener('click', () => {
             document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
             tab.classList.add('active');
+            
+            // Включаем мобильный режим открытой вкладки
+            document.getElementById('settingsLayout').classList.add('mobile-tab-open');
+            
             renderTab(tab.dataset.tab);
         });
     });
@@ -109,6 +113,17 @@ function buildSettingsUI() {
         const content = document.getElementById('settingsContent');
         const layout = document.getElementById('settingsLayout');
         content.innerHTML = '';
+
+        // --- Кнопка Назад для мобилок ---
+        const backBtn = document.createElement('button');
+        backBtn.className = 'mobile-settings-back';
+        backBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> Назад в настройки`;
+        backBtn.onclick = () => {
+            layout.classList.remove('mobile-tab-open');
+            document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
+            document.querySelector('.settings-tab[data-tab="profile"]').classList.add('active');
+        };
+        content.appendChild(backBtn);
 
         if (tabName === 'profile') {
             layout.classList.remove('no-preview');
@@ -130,7 +145,7 @@ function buildSettingsUI() {
                 nameColor = parts[1] || '#00d4ff';
             }
 
-            content.innerHTML = `
+            content.innerHTML += `
                 <div class="settings-section">
                     <div class="settings-label">Аватарка и Баннер</div>
                     <button class="secondary-btn" id="uploadAvatarBtn" style="width:100%; margin-bottom:8px;">Загрузить свою аватарку</button>
@@ -331,7 +346,7 @@ function buildSettingsUI() {
             const currentOtherAccent = localStorage.getItem('interlocutor-accent') || 'none';
             const isDualBg = localStorage.getItem('dual-bg-accent') === 'on';
 
-            content.innerHTML = `
+            content.innerHTML += `
                 <div class="settings-section">
                     <div class="settings-label" style="margin-bottom: 8px;">Фон приложения</div>
                     <div class="preset-grid" id="presetGrid"></div>
@@ -464,7 +479,7 @@ function buildSettingsUI() {
 
         if (tabName === 'notifications') {
             layout.classList.add('no-preview');
-            content.innerHTML = `
+            content.innerHTML += `
                 <div class="settings-section">
                     <div class="settings-label" style="margin-bottom: 8px;">Основные</div>
                     <div class="toggle-list">
@@ -547,7 +562,7 @@ function buildSettingsUI() {
 
         if (tabName === 'account') {
             layout.classList.add('no-preview');
-            content.innerHTML = `
+            content.innerHTML += `
                 <div class="account-block">
                     <div class="settings-label">Смена пароля</div>
                     <div class="settings-field">
