@@ -643,10 +643,15 @@
         if (window.innerWidth <= 768) document.querySelector('.app').classList.add('mobile-chat-open');
     }
 
-    document.getElementById('mobileBackBtn').addEventListener('click', () => {
+    function closeMobileChat() {
         document.querySelector('.app').classList.remove('mobile-chat-open');
-        document.getElementById('mobileBackBtn').style.display = 'none';
-    });
+        // Возвращаем пустой экран, если чат не выбран (чтобы список был актуален)
+        if (window.innerWidth <= 768) {
+            loadChats(); // обновляем список чатов при возврате
+        }
+    }
+
+    document.getElementById('mobileBackBtn').addEventListener('click', closeMobileChat);
 
     async function loadHistory(chatId, token) {
         try {
@@ -1027,6 +1032,15 @@
         if (!isTyping) { isTyping = true; socket.emit('typing', { chat_id: activeChatId, is_typing: true }); }
         clearTimeout(typingTimeout);
         typingTimeout = setTimeout(() => { isTyping = false; socket.emit('typing', { chat_id: activeChatId, is_typing: false }); }, 2500);
+    });
+
+    // При фокусе на поле ввода (включая мобильную клавиатуру) скроллим вниз
+    composerInput.addEventListener('focus', () => {
+        if (window.innerWidth <= 768) {
+            setTimeout(() => {
+                chatBodyEl.scrollTo({ top: chatBodyEl.scrollHeight, behavior: 'smooth' });
+            }, 300);
+        }
     });
 
     composerInput.addEventListener('keydown', (e) => {
@@ -1834,6 +1848,32 @@
             qrCodeInstance.download({ name: 'miksegram-' + window.currentUser.login, extension: 'png' });
         }
     });
+
+    // --- СВАЙП ВПРАВО ДЛЯ ВОЗВРАТА К СПИСКУ ЧАТОВ ---
+    let touchStartX = 0;
+    let touchStartY = 0;
+    const chatAreaEl = document.querySelector('.chat-area');
+
+    chatAreaEl.addEventListener('touchstart', (e) => {
+        if (window.innerWidth > 768) return;
+        if (e.target.closest('audio') || e.target.closest('.msg-image')) return; // не мешаем свайпать фото
+        touchStartX = e.changedTouches[0].screenX;
+        touchStartY = e.changedTouches[0].screenY;
+    }, { passive: true });
+
+    chatAreaEl.addEventListener('touchend', (e) => {
+        if (window.innerWidth > 768) return;
+        const touchEndX = e.changedTouches[0].screenX;
+        const touchEndY = e.changedTouches[0].screenY;
+        const dx = touchEndX - touchStartX;
+        const dy = Math.abs(touchEndY - touchStartY);
+
+        // Свайп вправо (минимум 80px) и палец двигался больше по горизонтали, чем по вертикали
+        if (dx > 80 && dy < 60) {
+            closeMobileChat();
+        }
+    }, { passive: true });
+
 </script>
 </body>
 </html>
