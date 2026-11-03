@@ -443,3 +443,52 @@ input[type="color"]::-webkit-color-swatch { border: 2px solid var(--border-hi); 
     .chat-item .avatar { width: 42px; height: 42px; font-size: 15px; }
     .online-dot { width: 11px; height: 11px; }
 }
+
+/* ========================================= */
+/* МОБИЛЬНАЯ ОПТИМИЗАЦИЯ (ЛЕЧИМ ЛАГИ)        */
+/* ========================================= */
+@media (max-width: 768px) {
+    /* 1. Отключаем тяжёлые фоновые эффекты (blobs, grid, grain, stars) */
+    .bg-blobs, .grain, .stars, .bg-grid {
+        display: none !important;
+    }
+    
+    /* 2. Упрощаем фон (оставляем градиент, но убираем свечения) */
+    .bg-layer {
+        background: linear-gradient(180deg, var(--bg-0), #000) !important;
+    }
+
+    /* 3. Убираем "стекло" (backdrop-filter) — это главный убийца FPS на телефонах */
+    .sidebar, .chat-area, .chat-header, .composer {
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        background: #0f1322 !important; /* Плотный тёмный фон вместо прозрачного */
+    }
+
+    /* 4. Убираем тяжёлые тени у модалок и кнопок */
+    .modal, .auth-card {
+        box-shadow: 0 10px 30px rgba(0,0,0,0.8) !important;
+    }
+    
+    /* 5. Отключаем анимацию логотипа (чтобы не грузить процессор) */
+    .empty-logo {
+        animation: none !important;
+        filter: drop-shadow(0 0 10px var(--accent)) !important;
+    }
+
+    /* 6. Упрощаем анимации сообщений (делаем быстрее и легче) */
+    .msg {
+        animation: none !important; /* Мгновенное появление без вылетов */
+    }
+
+    /* 7. ФИКС БАННЕРА: он больше не блокирует кнопки и аккуратно висит сверху */
+    .global-banner {
+        top: 8px !important;
+        font-size: 12px !important;
+        padding: 8px 16px !important;
+        max-width: calc(100% - 32px) !important;
+        pointer-events: none !important; /* КЛИКИ ПРОХОДЯТ СКВОЗЬ НЕГО! */
+        box-shadow: 0 4px 15px rgba(0,0,0,0.5) !important;
+        opacity: 0.95;
+    }
+}
